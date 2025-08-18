@@ -39,11 +39,11 @@ This is a modernized fork of `tcomb-form-native` with the following improvements
 # Setup
 
 ```bash
-# Using npm
-npm install tcomb-form-native
+# Using npm (scoped)
+npm install @riebel/tcomb-form-native-ts
 
-# Using yarn
-yarn add tcomb-form-native
+# Using yarn (scoped)
+yarn add @riebel/tcomb-form-native-ts
 ```
 
 ## Migration and scoped package
@@ -71,7 +71,7 @@ You can use this package under the personal npm scope `@riebel` or keep the orig
   ```
   Import remains:
   ```ts
-  import t from 'tcomb-form-nativ-ts';
+  import t from 'tcomb-form-native';
   ```
 
 Legacy API shape is preserved: default import exposes `t.form.Form` and field factories; named exports like `Form`, `templates`, `stylesheet`, and `i18n` are also available.
@@ -121,7 +121,7 @@ http://react.rocks/example/tcomb-form-native
 'use strict';
 
 var React = require('react-native');
-var t = require('tcomb-form-native-ts');
+var t = require('@riebel/tcomb-form-native-ts');
 var { AppRegistry, StyleSheet, Text, View, TouchableHighlight } = React;
 
 var Form = t.form.Form;
@@ -248,7 +248,7 @@ The main form component that handles form rendering and state management.
 You can create custom field types by extending the base types:
 
 ```typescript
-import { t } from 'tcomb-form-nativ-ts';
+var t = require('@riebel/tcomb-form-native-ts');
 
 // Create a custom email type
 const Email = t.refinement(t.String, (str) => {
@@ -437,11 +437,11 @@ where
 - `raw` contains the current raw value of the form (can be an invalid value for your model)
 - `path` is the path to the field triggering the change
 
-> **Warning**. tcomb-form-native uses `shouldComponentUpdate` aggressively. In order to ensure that tcomb-form-native detect any change to `type`, `options` or `value` props you have to change references:
+> **Warning**. tcomb-form-native-ts uses `shouldComponentUpdate` aggressively. In order to ensure that tcomb-form-native-ts detects any change to `type`, `options` or `value` props you have to change references:
 
 ## Disable a field based on another field's value
 
-```js
+```typescript
 var Type = t.struct({
   disable: t.Boolean, // if true, name field will be disabled
   name: t.String
@@ -507,7 +507,7 @@ var AwesomeProject = React.createClass({
 
 You can get access to a field with the `getComponent(path)` API:
 
-```js
+```typescript
 var Person = t.struct({
   name: t.String,
   surname: t.maybe(t.String),
@@ -547,7 +547,7 @@ var AwesomeProject = React.createClass({
 
 ## How to clear form after submit
 
-```js
+```typescript
 var Person = t.struct({
   name: t.String,
   surname: t.maybe(t.String),
@@ -601,7 +601,7 @@ var AwesomeProject = React.createClass({
 
 Say I have an iOS Picker, depending on which option is selected in this picker I want the next component to either be a checkbox or a textbox:
 
-```js
+```typescript
 const Country = t.enums({
   'IT': 'Italy',
   'US': 'United States'
@@ -673,7 +673,7 @@ var AwesomeProject = React.createClass({
 
 By default fields are required:
 
-```js
+```typescript
 var Person = t.struct({
   name: t.String,    // a required string
   surname: t.String  // a required string
@@ -684,7 +684,7 @@ var Person = t.struct({
 
 In order to create an optional field, wrap the field type with the `t.maybe` combinator:
 
-```js
+```typescript
 var Person = t.struct({
   name: t.String,
   surname: t.String,
@@ -696,7 +696,7 @@ The postfix `" (optional)"` is automatically added to optional fields.
 
 You can customise the postfix value or setting a postfix for required fields:
 
-```js
+```typescript
 t.form.Form.i18n = {
   optional: '',
   required: ' (required)' // inverting the behaviour: adding a postfix to the required fields
@@ -707,7 +707,7 @@ t.form.Form.i18n = {
 
 In order to create a numeric field, use the `t.Number` type:
 
-```js
+```typescript
 var Person = t.struct({
   name: t.String,
   surname: t.String,
@@ -716,7 +716,7 @@ var Person = t.struct({
 });
 ```
 
-tcomb-form-native will convert automatically numbers to / from strings.
+tcomb-form-native-ts will convert automatically numbers to / from strings.
 
 ### Booleans
 
@@ -1473,18 +1473,17 @@ Account.dispatch = value => value && value.type === 'other' ? UnknownAccount : K
 
 See also [Stylesheet guide](docs/STYLESHEETS.md).
 
-tcomb-form-native comes with a default style. You can customize the look and feel by setting another stylesheet:
+tcomb-form-native-ts comes with a default style. You can customize the look and feel by setting another stylesheet:
 
 ```js
-var t = require('tcomb-form-native/lib');
-var i18n = require('tcomb-form-native/lib/i18n/en');
-var templates = require('tcomb-form-native/lib/templates/bootstrap');
+var t = require('@riebel/tcomb-form-native-ts');
+var { i18n, templates, stylesheet } = require('@riebel/tcomb-form-native-ts');
 
-// define a stylesheet (see lib/stylesheets/bootstrap for an example)
-var stylesheet = {...};
+// define a stylesheet (see src/stylesheets/bootstrap.ts for an example)
+var myStylesheet = { /* ... */ };
 
 // override globally the default stylesheet
-t.form.Form.stylesheet = stylesheet;
+t.form.Form.stylesheet = myStylesheet;
 // set defaults
 t.form.Form.templates = templates;
 t.form.Form.i18n = i18n;
@@ -1522,14 +1521,14 @@ For a complete example see this package's default stylesheet at `src/stylesheets
 
 ## Templates
 
-tcomb-form-native comes with a default layout, i.e. a bunch of templates, one for each component.
+tcomb-form-native-ts comes with a default layout, i.e. a bunch of templates, one for each component.
 When changing the stylesheet is not enough, you can customize the layout by setting custom templates:
 
 ```js
 // Legacy-compatible default import (CommonJS)
-var t = require('tcomb-form-nativ-ts');
+var t = require('@riebel/tcomb-form-native-ts');
 // Named exports are also available if preferred
-var { i18n, stylesheet, templates } = require('tcomb-form-nativ-ts');
+var { i18n, stylesheet, templates } = require('@riebel/tcomb-form-native-ts');
 
 // define your own templates (see src/templates/bootstrap.ts for an example)
 var customTemplates = { /* ... */ };
@@ -1577,7 +1576,7 @@ A template is a function with the following signature:
 (locals: Object) => ReactElement
 ```
 
-where `locals` is an object contaning the "recipe" for rendering the input and it's built for you by tcomb-form-native.
+where `locals` is an object contaning the "recipe" for rendering the input and it's built for you by tcomb-form-native-ts.
 Let's see an example: the `locals` object passed in the `checkbox` template:
 
 ```js
@@ -1602,11 +1601,11 @@ For a complete example see the default templates in this package at `src/templat
 
 ## i18n
 
-tcomb-form-native comes with a default internationalization (English). You can change it by setting another i18n object:
+tcomb-form-native-ts comes with a default internationalization (English). You can change it by setting another i18n object:
 
 ```js
-var t = require('tcomb-form-nativ-ts');
-var { templates, stylesheet } = require('tcomb-form-nativ-ts');
+var t = require('@riebel/tcomb-form-native-ts');
+var { templates, stylesheet } = require('@riebel/tcomb-form-native-ts');
 
 // define an object containing your translations (see src/i18n/en.ts for an example)
 var customI18n = { /* ... */ };
