@@ -20,13 +20,13 @@ type FormStatics = {
   templates: Record<string, unknown>;
 };
 
-type FormWithStatics = React.ForwardRefExoticComponent<
-  CoreFormProps<unknown> & React.RefAttributes<MinimalFormRef<unknown>>
-> &
-  FormStatics;
+// Public, generic component type for Form preserving T in props and ref
+type FormComponent = {
+  <T>(props: CoreFormProps<T> & React.RefAttributes<MinimalFormRef<T>>): React.ReactElement | null;
+} & FormStatics;
 
 // Create a wrapper that injects default i18n/stylesheet/templates when not provided
-export const Form = React.forwardRef<MinimalFormRef<unknown>, CoreFormProps<unknown>>(
+const ForwardedForm = React.forwardRef<MinimalFormRef<unknown>, CoreFormProps<unknown>>(
   function FormForwarded(props, ref) {
     const withDefaults = {
       i18n: i18n as unknown as Record<string, unknown>,
@@ -39,10 +39,13 @@ export const Form = React.forwardRef<MinimalFormRef<unknown>, CoreFormProps<unkn
       ...withDefaults,
     });
   },
-) as unknown as FormWithStatics;
+);
+
+// Cast to the public generic callable component type
+export const Form = ForwardedForm as unknown as FormComponent;
 
 // Satisfy eslint react/display-name
-Form.displayName = 'Form';
+ForwardedForm.displayName = 'Form';
 
 // Attach statics for legacy mutation patterns
 Form.i18n = i18n as unknown as Record<string, unknown>;
@@ -68,7 +71,7 @@ import type Struct from './components/Struct';
 
 type LegacyFormNamespace = {
   // Expose the enhanced Form with statics for legacy namespace, without using 'any'
-  Form: FormWithStatics;
+  Form: FormComponent;
   Textbox: typeof Textbox;
   Checkbox: typeof Checkbox;
   Select: typeof Select;

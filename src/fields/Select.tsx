@@ -15,6 +15,12 @@ type EnumLike = {
   };
 };
 
+// Public generic component type to preserve TValue for consumers
+type SelectComponent = {
+  <T>(props: SelectTemplateProps<T>): React.ReactElement | null;
+  displayName?: string;
+};
+
 type SelectProps<T> = {
   type?: EnumLike;
   options?: {
@@ -185,14 +191,14 @@ export class Select<T = unknown> {
     return options.template || ctx?.templates?.select;
   }
 
-  // Platform React component for rendering
+  // Platform React component for rendering (cast to a generic callable component type)
   static ReactComponent = class extends React.Component<SelectTemplateProps<unknown>> {
     static displayName = 'Select';
     render() {
       const Comp = Platform.OS === 'ios' ? SelectIOS : SelectAndroid;
       return <Comp {...(this.props as SelectTemplateProps<unknown>)} />;
     }
-  };
+  } as unknown as SelectComponent;
 }
 
 export default Select;

@@ -65,11 +65,15 @@ export class List<T = unknown> {
     return ctx?.templates?.list;
   }
 
+  // Public generic component type to preserve TValue for consumers
   static ReactComponent = class extends React.Component<ListTemplateProps<unknown>> {
     static displayName = 'List';
     render() {
       return <ListNative {...this.props} />;
     }
+  } as unknown as {
+    <U>(props: ListTemplateProps<U>): React.ReactElement | null;
+    displayName?: string;
   };
 }
 
