@@ -40,7 +40,8 @@ type FieldComponentType<T> = React.ComponentType<
 >;
 
 export interface FormProps<T> {
-  type: TypeWithMeta;
+  // Accept unknown for legacy callers; we guard at runtime
+  type?: unknown;
   value?: T;
   options?: {
     getComponent?: (
@@ -65,6 +66,14 @@ interface FormInputComponent<T> {
   getValue(): T;
   getComponent?(path: string[]): React.Component | null;
   setState(state: { hasError: boolean }): void;
+}
+
+// Narrow unknown to TypeWithMeta when possible
+function isTypeWithMeta(x: unknown): x is TypeWithMeta {
+  return (
+    typeof x === 'function' ||
+    (typeof x === 'object' && x !== null && 'meta' in (x as Record<string, unknown>))
+  );
 }
 
 // Default Component Factory
@@ -123,6 +132,10 @@ export class Form<T> extends Component<FormProps<T>, FormState> {
   pureValidate() {
     const { type } = this.props;
     const value = this.getValue();
+    if (!isTypeWithMeta(type)) {
+      // When an invalid type is provided, skip schema validation
+      return validate(value, null as unknown as TypeWithMeta, this.getValidationOptions());
+    }
     return validate(value, type, this.getValidationOptions());
   }
 
@@ -167,7 +180,8 @@ export class Form<T> extends Component<FormProps<T>, FormState> {
     } = this.props;
 
     const getComponent = options.getComponent || defaultGetComponent;
-    const Component = getComponent(type, options);
+    const tType = isTypeWithMeta(type) ? type : null;
+    const Component = getComponent(tType, options);
 
     if (!Component) {
       console.error(`No component found for type: ${type}`);
@@ -206,19 +220,20 @@ export class Form<T> extends Component<FormProps<T>, FormState> {
     }
     if (Component === Select.ReactComponent) {
       // Get options from enum type if it's an enum
-      const typeInfo = type ? getTypeInfo(type) : null;
-      const options =
-        typeInfo?.isEnum && type?.meta?.map
-          ? Object.entries(type.meta.map).map(([value, text]) => ({
-              value,
-              text: String(text),
-            }))
-          : [];
+      const typeInfo = tType ? getTypeInfo(tType) : null;
+      let enumOptions: { value: string; text: string }[] = [];
+      if (typeInfo?.isEnum && tType) {
+        const meta = (tType as TypeWithMeta).meta as { map?: Record<string, unknown> } | undefined;
+        const map = meta?.map;
+        if (map) {
+          enumOptions = Object.keys(map).map(value => ({ value, text: String(map[value]) }));
+        }
+      }
 
       return (
         <Select.ReactComponent
           {...(baseProps as unknown as SelectTemplateProps<unknown>)}
-          options={options}
+          options={enumOptions}
           value={(value !== undefined ? String(value as unknown) : null) as unknown}
           onChange={onChange as unknown as (value: unknown) => void}
         />

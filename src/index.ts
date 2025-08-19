@@ -5,7 +5,7 @@ export * from './components';
 export * from './fields';
 
 // Export the main form component with convenience defaults
-import Form from './Form';
+import BaseForm from './Form';
 import i18n from './i18n/en';
 import stylesheet from './stylesheets/bootstrap';
 import templates from './templates/bootstrap';
@@ -17,21 +17,22 @@ type FormStatics = {
   stylesheet: Record<string, unknown>;
   templates: Record<string, unknown>;
 };
-type FormWithStatics = typeof Form & FormStatics;
+type FormWithStatics = typeof BaseForm & FormStatics;
 
-const FormEx = Form as unknown as FormWithStatics;
-FormEx.i18n = i18n as unknown as Record<string, unknown>;
-FormEx.stylesheet = stylesheet as unknown as Record<string, unknown>;
-FormEx.templates = templates as unknown as Record<string, unknown>;
+// Create a value with attached statics for named export consumers
+export const Form = BaseForm as unknown as FormWithStatics;
+Form.i18n = i18n as unknown as Record<string, unknown>;
+Form.stylesheet = stylesheet as unknown as Record<string, unknown>;
+Form.templates = templates as unknown as Record<string, unknown>;
 
-Form.defaultProps = {
-  ...Form.defaultProps,
-  i18n: FormEx.i18n,
-  stylesheet: FormEx.stylesheet,
-  templates: FormEx.templates,
+BaseForm.defaultProps = {
+  ...BaseForm.defaultProps,
+  i18n: Form.i18n,
+  stylesheet: Form.stylesheet,
+  templates: Form.templates,
 };
 
-export { Form, templates };
+export { templates };
 
 // Explicit exports for convenience
 export { default as stylesheet } from './stylesheets/bootstrap';
@@ -49,7 +50,8 @@ import type List from './components/List';
 import type Struct from './components/Struct';
 
 type LegacyFormNamespace = {
-  Form: typeof Form;
+  // Expose the enhanced Form with statics for legacy namespace, without using 'any'
+  Form: FormWithStatics;
   Textbox: typeof Textbox;
   Checkbox: typeof Checkbox;
   Select: typeof Select;

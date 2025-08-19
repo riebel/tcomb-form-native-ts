@@ -7,8 +7,10 @@ import type { TextboxTemplateProps } from '../types/template.types';
 // Provide a typed way to access the static numberTransformer without using 'any'
 type LegacyNumberTransformer =
   | {
-      format: (value: unknown) => string | null;
-      parse: (value: string) => unknown;
+      // Match classic signature to allow user code like (value: string | number) => string | null
+      format: (value: string | number | null | undefined) => string | null;
+      // Classic parse returns number|null; we also allow undefined for symmetry
+      parse: (value: string) => number | null | undefined;
     }
   | undefined;
 
@@ -74,8 +76,8 @@ export class Textbox {
 
   // Legacy-compatible static transformer holder (e.g., t.form.Textbox.numberTransformer)
   static numberTransformer?: {
-    format: (value: unknown) => string | null;
-    parse: (value: string) => unknown;
+    format: (value: string | number | null | undefined) => string | null;
+    parse: (value: string) => number | null | undefined;
   };
 
   constructor(props: TextboxTemplateProps) {
