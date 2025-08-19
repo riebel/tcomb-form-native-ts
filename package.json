@@ -1,6 +1,6 @@
 {
   "name": "@riebel/tcomb-form-native-ts",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "React Native forms powered by tcomb-validation. Modern TypeScript build with legacy-compatible API (drop-in replacement).",
   "main": "index.js",
   "types": "dist/index.d.ts",

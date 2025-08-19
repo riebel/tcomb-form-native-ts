@@ -5,7 +5,9 @@ export * from './components';
 export * from './fields';
 
 // Export the main form component with convenience defaults
-import BaseForm from './Form';
+import React from 'react';
+import BaseForm, { MinimalFormRef } from './Form';
+import type { FormProps as CoreFormProps } from './Form';
 import i18n from './i18n/en';
 import stylesheet from './stylesheets/bootstrap';
 import templates from './templates/bootstrap';
@@ -17,20 +19,35 @@ type FormStatics = {
   stylesheet: Record<string, unknown>;
   templates: Record<string, unknown>;
 };
-type FormWithStatics = typeof BaseForm & FormStatics;
 
-// Create a value with attached statics for named export consumers
-export const Form = BaseForm as unknown as FormWithStatics;
+type FormWithStatics = React.ForwardRefExoticComponent<
+  CoreFormProps<unknown> & React.RefAttributes<MinimalFormRef<unknown>>
+> &
+  FormStatics;
+
+// Create a wrapper that injects default i18n/stylesheet/templates when not provided
+export const Form = React.forwardRef<MinimalFormRef<unknown>, CoreFormProps<unknown>>(
+  function FormForwarded(props, ref) {
+    const withDefaults = {
+      i18n: i18n as unknown as Record<string, unknown>,
+      stylesheet: stylesheet as unknown as Record<string, unknown>,
+      templates: templates as unknown as Record<string, unknown>,
+      ...props,
+    };
+    return React.createElement(BaseForm, {
+      ref: ref as React.Ref<MinimalFormRef<unknown>>,
+      ...withDefaults,
+    });
+  },
+) as unknown as FormWithStatics;
+
+// Satisfy eslint react/display-name
+Form.displayName = 'Form';
+
+// Attach statics for legacy mutation patterns
 Form.i18n = i18n as unknown as Record<string, unknown>;
 Form.stylesheet = stylesheet as unknown as Record<string, unknown>;
 Form.templates = templates as unknown as Record<string, unknown>;
-
-BaseForm.defaultProps = {
-  ...BaseForm.defaultProps,
-  i18n: Form.i18n,
-  stylesheet: Form.stylesheet,
-  templates: Form.templates,
-};
 
 export { templates };
 
