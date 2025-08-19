@@ -1,6 +1,6 @@
 # Stylesheets
 
-There are several levels of customization in `tcomb-form-native`:
+There are several levels of customization in `@riebel/tcomb-form-native-ts`:
 
 - stylesheets
 - templates
@@ -12,13 +12,13 @@ Let's focus on the first one: stylesheets.
 
 Let's define a simple type useful in the following examples:
 
-```js
-const Type = t.struct({
-  name: t.String
-});
+```typescript
+import t from '@riebel/tcomb-form-native-ts';
+
+const Type = t.struct({ name: t.String });
 ```
 
-By default `tcomb-form-native` will display a textbox styled with a bootstrap-like look and feel. The default stylesheet in this package is at `src/stylesheets/bootstrap.ts`.
+By default this library displays a textbox styled with a bootstrap-like look and feel. The default stylesheet in this package is at `src/stylesheets/bootstrap.ts`.
 
 This is the normal look and feel of a textbox (border: gray)
 
@@ -30,7 +30,7 @@ and this is the look and feel when an error occurs (border: red)
 
 The style management is defined in `src/stylesheets/bootstrap.ts`, specifically by the following lines:
 
-```js
+```typescript
 textbox: {
 
   // the style applied without errors
@@ -60,36 +60,30 @@ textbox: {
 }
 ```
 
-Depending on the state of the textbox, `tcomb-form-native` passes the proper style to the `<TextInput />` RN component (see `src/fields/Textbox.native.tsx`).
+Depending on the state of the textbox, the form passes the proper style to the `<TextInput />` RN component (see `src/fields/Textbox.native.tsx`).
 
 You can override the default stylesheet both locally and globally.
 
 ## Overriding the style locally
 
-Say you want the text entered in a texbox being green:
+Say you want the text entered in a textbox to be green:
 
-```js
-var t = require('tcomb-form-native');
-var _ = require('lodash');
+```tsx
+import React from 'react';
+import t, { Form } from '@riebel/tcomb-form-native-ts';
 
-// clone the default stylesheet
-const stylesheet = _.cloneDeep(t.form.Form.stylesheet);
+// deep clone the default stylesheet (use any deep clone you prefer)
+const stylesheet = JSON.parse(JSON.stringify(Form.stylesheet));
 
-// overriding the text color
+// override the text color
+// @ts-expect-error partial structure for brevity
 stylesheet.textbox.normal.color = '#00FF00';
 
-const options = {
-  fields: {
-    name: {
-      stylesheet: stylesheet // overriding the style of the textbox
-    }
-  }
-};
+const options = { fields: { name: { stylesheet } } };
 
-...
-
-// other forms in you app won't be affected
-<t.form.Form type={Type} options={options} />
+export function Example() {
+  return <Form type={Type} options={options} />;
+}
 ```
 
 **Output**
@@ -119,13 +113,14 @@ const options = {
 
 ## Overriding the style globally
 
-Just omit the `deepclone` call, the style will be applied to all textboxes
+Just omit the deep clone, the style will be applied globally.
 
-```js
-var t = require('tcomb-form-native');
+```typescript
+import { Form } from '@riebel/tcomb-form-native-ts';
 
-// overriding the text color for every textbox in every form of your app
-t.form.Form.stylesheet.textbox.normal.color = '#00FF00';
+// override the text color for every textbox in every form of your app
+// @ts-expect-error partial structure for brevity
+Form.stylesheet.textbox.normal.color = '#00FF00';
 ```
 
 ## Examples
@@ -147,10 +142,8 @@ The default layout is vertical:
 
 I'll use flexbox in order to display the textboxes horizontally:
 
-```js
-var _ = require('lodash');
-
-const stylesheet = _.cloneDeep(t.form.Form.stylesheet);
+```typescript
+const stylesheet = JSON.parse(JSON.stringify(Form.stylesheet));
 
 stylesheet.fieldset = {
   flexDirection: 'row'
@@ -158,9 +151,7 @@ stylesheet.fieldset = {
 stylesheet.formGroup.normal.flex = 1;
 stylesheet.formGroup.error.flex = 1;
 
-const options = {
-  stylesheet: stylesheet
-};
+const options = { stylesheet };
 ```
 
 **Output**
@@ -169,19 +160,17 @@ const options = {
 
 ### Label on the left side
 
-```js
-var _ = require('lodash');
+```typescript
+import { Form } from '@riebel/tcomb-form-native-ts';
 
-const stylesheet = _.cloneDeep(t.form.Form.stylesheet);
+const stylesheet = JSON.parse(JSON.stringify(Form.stylesheet));
 
 stylesheet.formGroup.normal.flexDirection = 'row';
 stylesheet.formGroup.error.flexDirection = 'row';
 stylesheet.textboxView.normal.flex = 1;
 stylesheet.textboxView.error.flex = 1;
 
-const options = {
-  stylesheet: stylesheet
-};
+const options = { stylesheet };
 ```
 
 **Output**
@@ -191,10 +180,10 @@ const options = {
 
 ### Material Design Style Underlines
 
-```js
-var _ = require('lodash');
+```typescript
+import { Form } from '@riebel/tcomb-form-native-ts';
 
-const stylesheet = _.cloneDeep(t.form.Form.stylesheet);
+const stylesheet = JSON.parse(JSON.stringify(Form.stylesheet));
 
 stylesheet.textbox.normal.borderWidth = 0;
 stylesheet.textbox.error.borderWidth = 0;
@@ -210,9 +199,7 @@ stylesheet.textboxView.error.borderBottomWidth = 1;
 stylesheet.textboxView.normal.marginBottom = 5;
 stylesheet.textboxView.error.marginBottom = 5;
 
-const options = {
-  stylesheet: stylesheet
-};
+const options = { stylesheet };
 ```
 
 **Output**

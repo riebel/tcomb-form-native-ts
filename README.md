@@ -1,10 +1,15 @@
-# tcomb-form-native
+# @riebel/tcomb-form-native-ts
 
-> A React Native library for building forms with React 19+ and TypeScript
+[![npm version](https://img.shields.io/npm/v/%40riebel%2Ftcomb-form-native-ts.svg)](https://www.npmjs.com/package/@riebel/tcomb-form-native-ts)
+[![license](https://img.shields.io/npm/l/%40riebel%2Ftcomb-form-native-ts.svg)](LICENSE)
+[![TypeScript](https://img.shields.io/badge/TypeScript-Ready-3178C6?logo=typescript&logoColor=white)](tsconfig.json)
+[![React Native](https://img.shields.io/badge/React%20Native-0.74%2B-61DAFB?logo=react)](https://reactnative.dev/)
+
+> Modern TypeScript rewrite of tcomb-form-native. React 19+ compatible. Drop-in API.
 
 ## Notice
 
-This is a modernized fork of `tcomb-form-native` with the following improvements:
+This is a modernized rewrite of `tcomb-form-native` with the following improvements while preserving the original API shape:
 
 - **React 19+ Support**: Updated to work with the latest React version
 - **TypeScript**: Full TypeScript support with type definitions
@@ -15,6 +20,7 @@ This is a modernized fork of `tcomb-form-native` with the following improvements
 ## Features
 
 - 🚀 Built for React 19 and React Native 0.74+
+
 - 🏗️ TypeScript-first development
 - 🧩 Modular component architecture
 - 🎨 Customizable theming and styling
@@ -25,7 +31,9 @@ This is a modernized fork of `tcomb-form-native` with the following improvements
 # Contents
 
 - [Setup](#setup)
-- [Supported react-native versions](#supported-react-native-versions)
+- [Supported versions](#supported-versions)
+- [Migration from tcomb-form-native](#migration-from-tcomb-form-native)
+
 - [Example](#example)
 - [API](#api)
 - [Types](#types)
@@ -34,6 +42,7 @@ This is a modernized fork of `tcomb-form-native` with the following improvements
 - [Lists](#lists)
 - [Customizations](#customizations)
 - [Tests](#tests)
+- [Acknowledgements](#acknowledgements)
 - [License](#license)
 
 # Setup
@@ -55,11 +64,14 @@ You can use this package under the personal npm scope `@riebel` or keep the orig
   npm i @riebel/tcomb-form-native-ts
   # or
   yarn add @riebel/tcomb-form-native-ts
-  ```
-  Import:
-  ```ts
-  import t from '@riebel/tcomb-form-native-ts';
-  ```
+  Recommended imports:
+```ts
+// Drop-in default (includes tcomb-validation + legacy t.form namespace)
+import t from '@riebel/tcomb-form-native-ts';
+
+// Modern named exports (tree-shakeable)
+import { Form, templates, stylesheet, i18n } from '@riebel/tcomb-form-native-ts';
+```
 
 - Keep imports unchanged with npm alias (consumer app `package.json`):
   ```json
@@ -69,25 +81,74 @@ You can use this package under the personal npm scope `@riebel` or keep the orig
     }
   }
   ```
-  Import remains:
-  ```ts
-  import t from 'tcomb-form-native';
-  ```
+  Keep imports unchanged:
+```ts
+import t from 'tcomb-form-native';
+```
 
 Legacy API shape is preserved: default import exposes `t.form.Form` and field factories; named exports like `Form`, `templates`, `stylesheet`, and `i18n` are also available.
 
+## Supported versions
+
+- React: 19.x
+- React Native: 0.74+ (tested with 0.79)
+- TypeScript: 4.9+
+
+## Migration from tcomb-form-native
+
+This package is designed as a drop-in replacement. Most apps can switch imports and work unchanged. Below are mappings and pitfalls to check.
+
+### 1:1 mappings
+
+- __Default import__: `import t from '@riebel/tcomb-form-native-ts'` exposes `tcomb-validation` primitives plus `t.form` namespace.
+- __Form component__:
+  - Legacy: `t.form.Form`
+  - Modern: `import { Form } from '@riebel/tcomb-form-native-ts'`
+- __Components available on legacy namespace__: `t.form.{Textbox, Checkbox, Select, DatePicker, List, Struct}`
+- __Named exports__: `Form`, `templates`, `stylesheet`, `i18n` from the package root.
+
+### Prop and option names
+
+- __Stylesheet__: prop is `stylesheet` (singular). If you used `stylesheets`, rename to `stylesheet`.
+- __Options shape__: still supports `options.fields.<name>` overrides for labels/placeholders/etc.
+- __i18n__: can be mutated via `t.form.Form.i18n = { ... }` or modern `Form.i18n = { ... }`.
+
+### Platform differences
+
+- __Booleans__: rendered with React Native `Switch`.
+- __Dates__: use `@react-native-community/datetimepicker` on both iOS and Android.
+  - Android `config`: supports `format`, `dialogMode`, `defaultValueText`.
+
+### Common pitfalls
+
+- __Import path__: update to `@riebel/tcomb-form-native-ts`, or alias in your app's `package.json`:
+  ```json
+  {
+    "dependencies": {
+      "tcomb-form-native": "npm:@riebel/tcomb-form-native-ts@^1.0.0"
+    }
+  }
+  ```
+- __Stylesheet prop name__: use `stylesheet`, not `stylesheets`.
+- __String refs__: replace `ref="form"` with `useRef` and `ref={formRef}`.
+- __React.createClass__: migrate to function components or ES6 classes.
+- __onChange signature__: treat as `(value) => void`. Validate with `getValue()` when needed.
+- __Focus APIs__: `getComponent(['name'])` may not expose imperative methods in custom templates; prefer options (`autoFocus`) when possible.
+
 ## Peer Dependencies
 
-This library requires the following peer dependencies:
+This library declares the following peer dependency:
 
 ```json
 {
-  "@react-native-picker/picker": "^2.11.1",
-  "react": "^19.1.1",
-  "react-native": "^0.79.4",
-  "@react-native-community/datetimepicker": "^8.0.0"
+  "@react-native-community/datetimepicker": ">=8.0.0"
 }
 ```
+
+Notes:
+
+- Your app already provides React and React Native.
+- `@react-native-picker/picker` is bundled as a dependency of this package.
 
 ### Benefits
 
@@ -97,97 +158,65 @@ With **tcomb-form-native-ts** you simply call `<Form type={Model} />` to generat
 2. Usability and accessibility for free (automatic labels, inline validation, etc)
 3. No need to update forms when domain model changes
 
-### JSON Schema support
-
-JSON Schemas are also supported via the (tiny) [tcomb-json-schema library](https://github.com/gcanti/tcomb-json-schema).
-
-### Pluggable look and feel
-
-The look and feel is customizable via react-native stylesheets and *templates* (see documentation).
-
-### Screencast
-
-http://react.rocks/example/tcomb-form-native
-
 ### Example App
 
 [https://github.com/bartonhammond/snowflake](https://github.com/bartonhammond/snowflake) React-Native, Tcomb, Redux, Parse.com, Jest - 88% coverage
 
-# Example
+# Example (TypeScript)
 
-```js
-// index.ios.js
+```tsx
+import React, { useRef } from 'react';
+import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
+import t, { Form } from '@riebel/tcomb-form-native-ts';
 
-'use strict';
-
-var React = require('react-native');
-var t = require('@riebel/tcomb-form-native-ts');
-var { AppRegistry, StyleSheet, Text, View, TouchableHighlight } = React;
-
-var Form = t.form.Form;
-
-// here we are: define your domain model
-var Person = t.struct({
-  name: t.String,              // a required string
-  surname: t.maybe(t.String),  // an optional string
-  age: t.Number,               // a required number
-  rememberMe: t.Boolean        // a boolean
+// 1) Define the runtime model (required by tcomb)
+const Person = t.struct({
+  name: t.String,
+  surname: t.maybe(t.String),
+  age: t.Number,
+  rememberMe: t.Boolean,
 });
 
-var options = {}; // optional rendering options (see documentation)
+// 2) Optionally define a TS type for compile-time help
+type PersonValue = {
+  name: string;
+  surname?: string | null;
+  age: number;
+  rememberMe: boolean;
+};
 
-var AwesomeProject = React.createClass({
+export default function Example() {
+  const formRef = useRef<Form<PersonValue> | null>(null);
 
-  onPress: function () {
-    // call getValue() to get the values of the form
-    var value = this.refs.form.getValue();
-    if (value) { // if validation fails, value will be null
-      console.log(value); // value here is an instance of Person
+  const onSave = () => {
+    const value = formRef.current?.getValue();
+    if (value) {
+      console.log('valid value', value);
     }
-  },
+  };
 
-  render: function() {
-    return (
-      <View style={styles.container}>
-        {/* display */}
-        <Form
-          ref="form"
-          type={Person}
-          options={options}
-        />
-        <TouchableHighlight style={styles.button} onPress={this.onPress} underlayColor='#99d9f4'>
-          <Text style={styles.buttonText}>Save</Text>
-        </TouchableHighlight>
-      </View>
-    );
-  }
-});
+  return (
+    <View style={styles.container}>
+      <Form ref={formRef} type={Person} />
+      <TouchableOpacity style={styles.button} onPress={onSave}>
+        <Text style={styles.buttonText}>Save</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
 
-var styles = StyleSheet.create({
-  container: {
-    justifyContent: 'center',
-    marginTop: 50,
-    padding: 20,
-    backgroundColor: '#ffffff',
-  },
-  buttonText: {
-    fontSize: 18,
-    color: 'white',
-    alignSelf: 'center'
-  },
+const styles = StyleSheet.create({
+  container: { flex: 1, justifyContent: 'center', padding: 20 },
   button: {
-    height: 36,
+    height: 44,
     backgroundColor: '#48BBEC',
-    borderColor: '#48BBEC',
-    borderWidth: 1,
     borderRadius: 8,
-    marginBottom: 10,
-    alignSelf: 'stretch',
-    justifyContent: 'center'
-  }
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 12,
+  },
+  buttonText: { color: 'white', fontSize: 16, fontWeight: '600' },
 });
-
-AppRegistry.registerComponent('AwesomeProject', () => AwesomeProject);
 ```
 
 **Output:**
@@ -217,10 +246,9 @@ The main form component that handles form rendering and state management.
 | `onChange` | `(value: any) => void` | Callback when form values change |
 | `options` | `object` | Form rendering options |
 | `templates` | `object` | Custom templates for form fields |
-| `stylesheets` | `object` | Custom styles for form elements |
+| `stylesheet` | `object` | Custom styles for form elements |
 | `context` | `any` | Context to pass to validators |
-| `auto` | `string` | Auto configuration for form fields |
-| `hasDefaultValue` | `boolean` | Whether to use default values from the type |
+| `i18n` | `object` | Strings used by built-in templates |
 
 ### Field Components
 
@@ -248,7 +276,7 @@ The main form component that handles form rendering and state management.
 You can create custom field types by extending the base types:
 
 ```typescript
-var t = require('@riebel/tcomb-form-native-ts');
+import t from '@riebel/tcomb-form-native-ts';
 
 // Create a custom email type
 const Email = t.refinement(t.String, (str) => {
@@ -293,7 +321,7 @@ const styles = {
 
 <Form
   type={MyForm}
-  stylesheets={styles}
+  stylesheet={styles}
 />
 ```
 
@@ -362,7 +390,12 @@ This library supports platform-specific implementations. The following files are
 
 We welcome contributions! Please read our [Contributing Guide](CONTRIBUTING.md) to get started.
 
-## License
+## Acknowledgements
+
+This project builds upon the original work by Giulio Canti in `tcomb-form-native`.
+Original repository: https://github.com/gcanti/tcomb-form-native
+
+# License
 
 MIT
 
@@ -374,297 +407,132 @@ Returns `null` if the validation failed, an instance of your model otherwise.
 
 ## `validate()`
 
-Returns a `ValidationResult` (see [tcomb-validation](https://github.com/gcanti/tcomb-validation) for a reference documentation).
+Returns a `ValidationResult` (see [tcomb-validation](https://github.com/gcanti/tcomb-validation)).
 
-## Adding a default value and listen to changes
+## Adding a default value and listening to changes
 
-The `Form` component behaves like a [controlled component](https://facebook.github.io/react/docs/forms.html):
+`Form` works great as a controlled component.
 
-```js
-var Person = t.struct({
-  name: t.String,
-  surname: t.maybe(t.String)
-});
+```tsx
+import React, { useRef, useState } from 'react';
+import { View, TouchableOpacity, Text } from 'react-native';
+import t, { Form } from '@riebel/tcomb-form-native-ts';
 
-var AwesomeProject = React.createClass({
+const Person = t.struct({ name: t.String, surname: t.maybe(t.String) });
+type PersonValue = { name: string; surname?: string | null };
 
-  getInitialState() {
-    return {
-      value: {
-        name: 'Giulio',
-        surname: 'Canti'
-      }
-    };
-  },
+export function ControlledExample() {
+  const formRef = useRef<Form<PersonValue> | null>(null);
+  const [value, setValue] = useState<PersonValue>({ name: 'Giulio', surname: 'Canti' });
 
-  onChange(value) {
-    this.setState({value});
-  },
+  const onSave = () => {
+    const v = formRef.current?.getValue();
+    if (v) console.log(v);
+  };
 
-  onPress: function () {
-    var value = this.refs.form.getValue();
-    if (value) {
-      console.log(value);
-    }
-  },
-
-  render: function() {
-    return (
-      <View style={styles.container}>
-        <Form
-          ref="form"
-          type={Person}
-          value={this.state.value}
-          onChange={this.onChange}
-        />
-        <TouchableHighlight style={styles.button} onPress={this.onPress} underlayColor='#99d9f4'>
-          <Text style={styles.buttonText}>Save</Text>
-        </TouchableHighlight>
-      </View>
-    );
-  }
-});
+  return (
+    <View>
+      <Form ref={formRef} type={Person} value={value} onChange={setValue} />
+      <TouchableOpacity onPress={onSave}>
+        <Text>Save</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
 ```
 
-The `onChange` handler has the following signature:
+The `onChange` handler signature:
 
 ```
-(raw: any, path: Array<string | number>) => void
+(value: any) => void
 ```
 
-where
-
-- `raw` contains the current raw value of the form (can be an invalid value for your model)
-- `path` is the path to the field triggering the change
-
-> **Warning**. tcomb-form-native-ts uses `shouldComponentUpdate` aggressively. In order to ensure that tcomb-form-native-ts detects any change to `type`, `options` or `value` props you have to change references:
+It receives the current form value (may be invalid until you call `getValue()` to validate).
 
 ## Disable a field based on another field's value
 
-```typescript
-var Type = t.struct({
+```tsx
+import React, { useMemo, useRef, useState } from 'react';
+import { View } from 'react-native';
+import t, { Form } from '@riebel/tcomb-form-native-ts';
+
+const Type = t.struct({
   disable: t.Boolean, // if true, name field will be disabled
-  name: t.String
+  name: t.String,
 });
 
-// see the "Rendering options" section in this guide
-var options = {
-  fields: {
-    name: {}
-  }
-};
+export function DisableExample() {
+  const formRef = useRef<Form<{ disable: boolean; name: string }> | null>(null);
+  const [value, setValue] = useState<{ disable: boolean; name: string }>({ disable: false, name: '' });
 
-var AwesomeProject = React.createClass({
+  const options = useMemo(
+    () => ({ fields: { name: { editable: !value.disable } } }),
+    [value.disable],
+  );
 
-  getInitialState() {
-    return {
-      options: options,
-      value: null
-    };
-  },
-
-  onChange(value) {
-    // tcomb immutability helpers
-    // https://github.com/gcanti/tcomb/blob/master/docs/API.md#updating-immutable-instances
-    var options = t.update(this.state.options, {
-      fields: {
-        name: {
-          editable: {'$set': !value.disable}
-        }
-      }
-    });
-    this.setState({options: options, value: value});
-  },
-
-  onPress: function () {
-    var value = this.refs.form.getValue();
-    if (value) {
-      console.log(value);
-    }
-  },
-
-  render: function() {
-    return (
-      <View style={styles.container}>
-        <Form
-          ref="form"
-          type={Type}
-          options={this.state.options}
-          value={this.state.value}
-          onChange={this.onChange}
-        />
-        <TouchableHighlight style={styles.button} onPress={this.onPress} underlayColor='#99d9f4'>
-          <Text style={styles.buttonText}>Save</Text>
-        </TouchableHighlight>
-      </View>
-    );
-  }
-
-});
+  return <Form ref={formRef} type={Type} value={value} onChange={setValue} options={options} />;
+}
 ```
 
 ## How to get access to a field
 
-You can get access to a field with the `getComponent(path)` API:
+Use `getComponent(path)` to access a field component when needed (e.g., to scroll to or focus). Availability of imperative methods depends on the template.
 
-```typescript
-var Person = t.struct({
-  name: t.String,
-  surname: t.maybe(t.String),
-  age: t.Number,
-  rememberMe: t.Boolean
-});
+```tsx
+const Person = t.struct({ name: t.String, surname: t.maybe(t.String) });
 
-var AwesomeProject = React.createClass({
-
-  componentDidMount() {
-    // give focus to the name textbox
-    this.refs.form.getComponent('name').refs.input.focus();
-  },
-
-  onPress: function () {
-    var value = this.refs.form.getValue();
-    if (value) {
-      console.log(value);
-    }
-  },
-
-  render: function() {
-    return (
-      <View style={styles.container}>
-        <Form
-          ref="form"
-          type={Person}
-        />
-        <TouchableHighlight style={styles.button} onPress={this.onPress} underlayColor='#99d9f4'>
-          <Text style={styles.buttonText}>Save</Text>
-        </TouchableHighlight>
-      </View>
-    );
-  }
-});
+function FocusExample() {
+  const formRef = React.useRef<Form<any> | null>(null);
+  React.useEffect(() => {
+    const nameField = formRef.current?.getComponent(['name']);
+    // nameField may expose focus(); check before calling
+    // (Prefer using placeholders/autoFocus via options when possible)
+    // @ts-expect-error optional imperative API
+    nameField?.focus?.();
+  }, []);
+  return <Form ref={formRef} type={Person} />;
+}
 ```
 
 ## How to clear form after submit
 
-```typescript
-var Person = t.struct({
-  name: t.String,
-  surname: t.maybe(t.String),
-  age: t.Number,
-  rememberMe: t.Boolean
-});
+```tsx
+const Person = t.struct({ name: t.String, surname: t.maybe(t.String), age: t.Number, rememberMe: t.Boolean });
 
-var AwesomeProject = React.createClass({
-
-  getInitialState() {
-    return { value: null };
-  },
-
-  onChange(value) {
-    this.setState({ value });
-  },
-
-  clearForm() {
-    // clear content from all textbox
-    this.setState({ value: null });
-  },
-
-  onPress: function () {
-    var value = this.refs.form.getValue();
-    if (value) {
-      console.log(value);
-      // clear all fields after submit
-      this.clearForm();
+function ClearOnSubmit() {
+  const [value, setValue] = React.useState<any>(null);
+  const formRef = React.useRef<Form<any> | null>(null);
+  const onSubmit = () => {
+    const v = formRef.current?.getValue();
+    if (v) {
+      console.log(v);
+      setValue(null); // clear
     }
-  },
-
-  render: function() {
-    return (
-      <View style={styles.container}>
-        <Form
-          ref="form"
-          type={Person}
-          value={this.state.value}
-          onChange={this.onChange.bind(this)}
-        />
-        <TouchableHighlight style={styles.button} onPress={this.onPress} underlayColor='#99d9f4'>
-          <Text style={styles.buttonText}>Save</Text>
-        </TouchableHighlight>
-      </View>
-    );
-  }
-});
+  };
+  return <Form ref={formRef} type={Person} value={value} onChange={setValue} />;
+}
 ```
 
-## Dynamic forms example: how to change a form based on selection
+## Dynamic forms example: change the form based on selection
 
 Say I have an iOS Picker, depending on which option is selected in this picker I want the next component to either be a checkbox or a textbox:
 
-```typescript
+```tsx
 const Country = t.enums({
   'IT': 'Italy',
   'US': 'United States'
 }, 'Country');
 
-var AwesomeProject = React.createClass({
+function DynamicForm() {
+  const [value, setValue] = React.useState<any>({ country: 'IT' });
+  const type = React.useMemo(() => {
+    if (value.country === 'IT') return t.struct({ country: Country, rememberMe: t.Boolean });
+    if (value.country === 'US') return t.struct({ country: Country, name: t.String });
+    return t.struct({ country: Country });
+  }, [value.country]);
 
-  // returns the suitable type based on the form value
-  getType(value) {
-    if (value.country === 'IT') {
-      return t.struct({
-        country: Country,
-        rememberMe: t.Boolean
-      });
-    } else if (value.country === 'US') {
-      return t.struct({
-        country: Country,
-        name: t.String
-      });
-    } else {
-      return t.struct({
-        country: Country
-      });
-    }
-  },
-
-  getInitialState() {
-    const value = {};
-    return { value, type: this.getType(value) };
-  },
-
-  onChange(value) {
-    // recalculate the type only if strictly necessary
-    const type = value.country !== this.state.value.country ?
-      this.getType(value) :
-      this.state.type;
-    this.setState({ value, type });
-  },
-
-  onPress() {
-    var value = this.refs.form.getValue();
-    if (value) {
-      console.log(value);
-    }
-  },
-
-  render() {
-
-    return (
-      <View style={styles.container}>
-        <t.form.Form
-          ref="form"
-          type={this.state.type}
-          value={this.state.value}
-          onChange={this.onChange}
-        />
-        <TouchableHighlight style={styles.button} onPress={this.onPress} underlayColor='#99d9f4'>
-          <Text style={styles.buttonText}>Save</Text>
-        </TouchableHighlight>
-      </View>
-    );
-  }
-});
+  return <Form type={type} value={value} onChange={setValue} />;
+}
 ```
 
 # Types
@@ -694,12 +562,20 @@ var Person = t.struct({
 
 The postfix `" (optional)"` is automatically added to optional fields.
 
-You can customise the postfix value or setting a postfix for required fields:
+You can customise the postfix value or set a postfix for required fields. Both legacy and modern APIs are supported:
 
 ```typescript
+// Legacy-compatible (CommonJS default)
 t.form.Form.i18n = {
   optional: '',
   required: ' (required)' // inverting the behaviour: adding a postfix to the required fields
+};
+
+// Modern (ESM / named import)
+import { Form } from '@riebel/tcomb-form-native-ts';
+Form.i18n = {
+  optional: '',
+  required: ' (required)'
 };
 ```
 
@@ -722,7 +598,7 @@ tcomb-form-native-ts will convert automatically numbers to / from strings.
 
 In order to create a boolean field, use the `t.Boolean` type:
 
-```js
+```typescript
 var Person = t.struct({
   name: t.String,
   surname: t.String,
@@ -732,13 +608,13 @@ var Person = t.struct({
 });
 ```
 
-Booleans are displayed as `SwitchIOS`s.
+Booleans are displayed using React Native `Switch`.
 
 ### Dates
 
 In order to create a date field, use the `t.Date` type:
 
-```js
+```typescript
 var Person = t.struct({
   name: t.String,
   surname: t.String,
@@ -748,11 +624,11 @@ var Person = t.struct({
 });
 ```
 
-Dates are displayed as `DatePickerIOS`s under iOS and `DatePickerAndroid` or `TimePickerAndroid` under Android, depending on the `mode` selected (`date` or `time`).
+Dates use `@react-native-community/datetimepicker` under both iOS and Android.
 
 Under Android, use the `fields` option to configure which `mode` to display the Picker:
 
-```js
+```typescript
 // see the "Rendering options" section in this guide
 var options = {
   fields: {
@@ -778,20 +654,19 @@ For the collapsible customization, look at the `dateTouchable` and `dateValue` k
 
 #### Android date `config` option
 
-When using a `t.Date` type in Android, it can be configured through a `config` option that take the following parameters:
+When using a `t.Date` type in Android, it can be configured through a `config` option that takes the following parameters:
 
 | Key | Value |
 |-----|-------|
-| ``background`` | Determines the type of background drawable that's going to be used to display feedback. Optional, defaults to ``TouchableNativeFeedback.SelectableBackground``. |
-| ``format`` | A ``(date) => String(date)`` kind of function to provide a custom date format parsing to display the value. Optional, defaults to ``(date) => String(date)``.
-| ``dialogMode`` | Determines the type of datepicker mode for Android (`default`, `spinner` or `calendar`). |
-| `defaultValueText` | An `string` to customize the default value of the `null` date value text. |
+| `format` | A `(date) => string` function to provide a custom display value. Optional, defaults to `(date) => String(date)`.
+| `dialogMode` | Determines the type of datepicker mode for Android (`default`, `spinner` or `calendar`). |
+| `defaultValueText` | A string to customize the default text for `null` date values. |
 
 ### Enums
 
 In order to create an enum field, use the `t.enums` combinator:
 
-```js
+```typescript
 var Gender = t.enums({
   M: 'Male',
   F: 'Female'
