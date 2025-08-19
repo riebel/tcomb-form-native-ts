@@ -65,7 +65,7 @@ export class List<T = unknown> {
     return ctx?.templates?.list;
   }
 
-  static ReactComponent = class extends React.Component<ListTemplateProps> {
+  static ReactComponent = class extends React.Component<ListTemplateProps<unknown>> {
     static displayName = 'List';
     render() {
       return <ListNative {...this.props} />;

@@ -21,7 +21,7 @@ const templates: FormTemplates = {
   checkbox: Checkbox.ReactComponent as ComponentType<CheckboxTemplateProps>,
   select: Select.ReactComponent as ComponentType<SelectTemplateProps<unknown>>,
   datePicker: DatePicker.ReactComponent as ComponentType<DatePickerTemplateProps>,
-  list: List.ReactComponent as ComponentType<ListTemplateProps>,
+  list: List.ReactComponent as ComponentType<ListTemplateProps<unknown>>,
   struct: Struct as ComponentType<StructTemplateProps>,
 };
 

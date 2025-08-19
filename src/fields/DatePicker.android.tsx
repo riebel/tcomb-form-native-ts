@@ -1,6 +1,8 @@
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useState, useCallback } from 'react';
-import { View, StyleSheet, TouchableOpacity, Platform, Text } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Text } from 'react-native';
+import HelpBlock from '../templates/shared/HelpBlock';
+import ErrorBlock from '../templates/shared/ErrorBlock';
 
 import type { DatePickerTemplateProps } from '../types/template.types';
 
@@ -17,6 +19,8 @@ const DatePickerAndroid = ({
   label,
   help,
   error,
+  onOpen,
+  onClose,
   ...rest
 }: DatePickerTemplateProps) => {
   const [show, setShow] = useState(false);
@@ -24,22 +28,26 @@ const DatePickerAndroid = ({
 
   const handleDateChange = useCallback(
     (_event: unknown, selectedDate?: Date) => {
-      setShow(Platform.OS === 'android');
+      // Always close after handling change
+      setShow(false);
       if (selectedDate) {
         setDate(selectedDate);
         if (onChange) {
           onChange(selectedDate);
         }
       }
+      // Closing callback
+      onClose?.();
     },
-    [onChange],
+    [onChange, onClose],
   );
 
   const showDatepicker = useCallback(() => {
     if (!disabled) {
       setShow(true);
+      onOpen?.();
     }
-  }, [disabled]);
+  }, [disabled, onOpen]);
 
   // Resolve styles based on component state
   const formGroupStyle = StyleSheet.flatten([
@@ -106,12 +114,8 @@ const DatePickerAndroid = ({
         )}
       </View>
 
-      {help && !hasError && <Text style={helpBlockStyle}>{help}</Text>}
-      {hasError && error && (
-        <Text style={errorBlockStyle} accessibilityLiveRegion="polite">
-          {error}
-        </Text>
-      )}
+      <HelpBlock help={help} hasError={hasError} style={helpBlockStyle} />
+      <ErrorBlock hasError={hasError} error={error} style={errorBlockStyle} />
     </View>
   );
 };

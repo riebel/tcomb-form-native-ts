@@ -1,6 +1,8 @@
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useState, useCallback } from 'react';
-import { View, StyleSheet, TouchableOpacity, Text, Platform } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Text } from 'react-native';
+import HelpBlock from '../templates/shared/HelpBlock';
+import ErrorBlock from '../templates/shared/ErrorBlock';
 
 import type { DatePickerTemplateProps } from '../types/template.types';
 
@@ -17,6 +19,8 @@ const DatePickerIOS = ({
   label,
   help,
   error,
+  onOpen,
+  onClose,
   ...rest
 }: DatePickerTemplateProps) => {
   const [isCollapsed, setIsCollapsed] = useState(true);
@@ -24,9 +28,17 @@ const DatePickerIOS = ({
 
   const togglePicker = useCallback(() => {
     if (!disabled) {
-      setIsCollapsed(!isCollapsed);
+      const next = !isCollapsed;
+      if (next) {
+        // collapsing
+        onClose?.();
+      } else {
+        // opening
+        onOpen?.();
+      }
+      setIsCollapsed(next);
     }
-  }, [disabled, isCollapsed]);
+  }, [disabled, isCollapsed, onOpen, onClose]);
 
   const handleDateChange = useCallback(
     (_event: unknown, selectedDate?: Date) => {
@@ -37,8 +49,9 @@ const DatePickerIOS = ({
         }
       }
       setIsCollapsed(true);
+      onClose?.();
     },
-    [onChange],
+    [onChange, onClose],
   );
 
   // Resolve styles based on component state
@@ -96,7 +109,7 @@ const DatePickerIOS = ({
         <DateTimePicker
           value={date}
           mode={mode}
-          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+          display={'spinner'}
           onChange={handleDateChange}
           minimumDate={minimumDate}
           maximumDate={maximumDate}
@@ -104,12 +117,8 @@ const DatePickerIOS = ({
         />
       )}
 
-      {help && !hasError && <Text style={helpBlockStyle}>{help}</Text>}
-      {hasError && error && (
-        <Text style={errorBlockStyle} accessibilityLiveRegion="polite">
-          {error}
-        </Text>
-      )}
+      <HelpBlock help={help} hasError={hasError} style={helpBlockStyle} />
+      <ErrorBlock hasError={hasError} error={error} style={errorBlockStyle} />
     </View>
   );
 };

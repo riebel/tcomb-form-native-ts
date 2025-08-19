@@ -1,6 +1,8 @@
 import { Picker } from '@react-native-picker/picker';
 import { useState, useCallback, useEffect } from 'react';
 import { View, StyleSheet, TouchableOpacity, Text } from 'react-native';
+import HelpBlock from '../templates/shared/HelpBlock';
+import ErrorBlock from '../templates/shared/ErrorBlock';
 
 import type { SelectTemplateProps, SelectOption } from '../types/template.types';
 
@@ -9,6 +11,10 @@ const SelectAndroid = <T,>({
   value,
   onChange,
   nullOption,
+  isCollapsed: isCollapsedProp,
+  onCollapseChange,
+  onOpen,
+  onClose,
   disabled = false,
   hidden,
   stylesheet = {
@@ -25,11 +31,12 @@ const SelectAndroid = <T,>({
   error,
   ...rest
 }: SelectTemplateProps<T>) => {
-  const [selectedValue, setSelectedValue] = useState<T | null>(value as T | null);
-  const [showPicker, setShowPicker] = useState(false);
+  const [selectedValue, setSelectedValue] = useState<T | null>((value ?? null) as T | null);
+  const [showPickerState, setShowPickerState] = useState(false);
+  const showPicker = isCollapsedProp !== undefined ? !isCollapsedProp : showPickerState;
 
   useEffect(() => {
-    setSelectedValue(value);
+    setSelectedValue((value ?? null) as T | null);
   }, [value]);
 
   const handleValueChange = useCallback(
@@ -38,16 +45,27 @@ const SelectAndroid = <T,>({
       if (onChange) {
         onChange(itemValue);
       }
-      setShowPicker(false);
+      // Collapse after selection
+      onCollapseChange?.(true);
+      onClose?.();
+      if (isCollapsedProp === undefined) {
+        setShowPickerState(false);
+      }
     },
-    [onChange],
+    [onChange, isCollapsedProp, onCollapseChange, onClose],
   );
 
   const togglePicker = useCallback(() => {
-    if (!disabled) {
-      setShowPicker(!showPicker);
+    if (disabled) return;
+    const nextShow = !showPicker;
+    const nextCollapsed = !nextShow; // collapsed is inverse of show
+    onCollapseChange?.(nextCollapsed);
+    if (nextShow) onOpen?.();
+    else onClose?.();
+    if (isCollapsedProp === undefined) {
+      setShowPickerState(nextShow);
     }
-  }, [disabled, showPicker]);
+  }, [disabled, showPicker, isCollapsedProp, onCollapseChange, onOpen, onClose]);
 
   // Resolve styles based on component state
   const formGroupStyle = StyleSheet.flatten([
@@ -132,12 +150,8 @@ const SelectAndroid = <T,>({
         </View>
       )}
 
-      {help && !hasError && <Text style={helpBlockStyle}>{help}</Text>}
-      {hasError && error && (
-        <Text style={errorBlockStyle} accessibilityLiveRegion="polite">
-          {error}
-        </Text>
-      )}
+      <HelpBlock help={help} hasError={hasError} style={helpBlockStyle} />
+      <ErrorBlock hasError={hasError} error={error} style={errorBlockStyle} />
     </View>
   );
 };

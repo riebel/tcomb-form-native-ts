@@ -4,12 +4,15 @@ import { View, StyleSheet, Text, TouchableOpacity } from 'react-native';
 import type { ListTemplateProps } from '../types/template.types';
 
 const List = <T,>({
-  items = [] as T[],
+  items: itemsProp = [] as T[],
+  value,
   onAdd,
   onRemove,
   renderItem: renderItemProp,
   addLabel = 'Add',
   removeLabel = 'Remove',
+  disableAdd,
+  disableRemove,
   disabled = false,
   hidden,
   stylesheet,
@@ -19,6 +22,7 @@ const List = <T,>({
   error,
   ...rest
 }: ListTemplateProps<T>) => {
+  const items = (itemsProp ?? (value as T[] | undefined) ?? []) as T[];
   // Resolve styles based on component state
   const formGroupStyle = StyleSheet.flatten([
     styles.formGroup,
@@ -59,20 +63,23 @@ const List = <T,>({
 
   const renderItemWithButtons = useCallback(
     (item: T, index: number) => {
-      const buttons = [
-        {
-          type: 'remove',
-          label: removeLabel,
-          click: () => onRemove && onRemove(index),
-          disabled: disabled || items.length <= 1, // Prevent removing the last item
-        },
-      ];
+      const canRemove = !disabled && !disableRemove && items.length > 1;
+      const buttons = disableRemove
+        ? []
+        : [
+            {
+              type: 'remove',
+              label: removeLabel,
+              click: () => onRemove && onRemove(index),
+              disabled: !canRemove,
+            },
+          ];
 
       const itemKey = (item as unknown as { key?: string })?.key ?? `item-${index}`;
       return (
         <View key={itemKey} style={itemContainerStyle}>
           <View style={styles.itemContent}>{renderItemProp(item, index)}</View>
-          {!disabled && (
+          {!disabled && !disableRemove && (
             <View style={styles.buttonGroup}>
               {buttons.map(button => (
                 <TouchableOpacity
@@ -92,6 +99,7 @@ const List = <T,>({
     [
       onRemove,
       removeLabel,
+      disableRemove,
       disabled,
       items.length,
       itemContainerStyle,
@@ -111,7 +119,7 @@ const List = <T,>({
 
       {items.map((item: T, index: number) => renderItemWithButtons(item, index))}
 
-      {!disabled && onAdd && (
+      {!disabled && !disableAdd && onAdd && (
         <TouchableOpacity
           style={[buttonStyle, styles.addButton]}
           onPress={onAdd}

@@ -36,3 +36,30 @@ export { Form, templates };
 // Explicit exports for convenience
 export { default as stylesheet } from './stylesheets/bootstrap';
 export { default as i18n } from './i18n/en';
+
+// Legacy default export typing for TS consumers using `import t from 'tcomb-form-native'`.
+// Mirrors the runtime shape provided by the CommonJS shim `index.js`.
+
+// Importing type of tcomb-validation via typeof import for compatibility
+import type Checkbox from './fields/Checkbox';
+import type DatePicker from './fields/DatePicker';
+import type Select from './fields/Select';
+import type Textbox from './fields/Textbox';
+import type List from './components/List';
+import type Struct from './components/Struct';
+
+type LegacyFormNamespace = {
+  Form: typeof Form;
+  Textbox: typeof Textbox;
+  Checkbox: typeof Checkbox;
+  Select: typeof Select;
+  DatePicker: typeof DatePicker;
+  List: typeof List;
+  Struct: typeof Struct;
+};
+
+export type LegacyT = typeof import('tcomb-validation') & { form: LegacyFormNamespace };
+
+// Runtime-safe placeholder to prevent ReferenceError when importing this TS entry in tests;
+// real default export is provided by the CommonJS root shim `index.js`.
+export default {} as unknown as LegacyT;

@@ -1,6 +1,8 @@
 import { Picker } from '@react-native-picker/picker';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { View, StyleSheet, Animated, TouchableOpacity, Text } from 'react-native';
+import HelpBlock from '../templates/shared/HelpBlock';
+import ErrorBlock from '../templates/shared/ErrorBlock';
 
 import type { SelectTemplateProps, SelectOption } from '../types/template.types';
 
@@ -11,6 +13,10 @@ const SelectIOS = <T,>({
   value,
   onChange,
   nullOption,
+  isCollapsed: isCollapsedProp,
+  onCollapseChange,
+  onOpen,
+  onClose,
   disabled = false,
   hidden,
   stylesheet = {
@@ -27,12 +33,13 @@ const SelectIOS = <T,>({
   error,
   ...rest
 }: SelectTemplateProps<T>) => {
-  const [isCollapsed, setIsCollapsed] = useState(true);
-  const [selectedValue, setSelectedValue] = useState<T | null>(value as T | null);
+  const [isCollapsedState, setIsCollapsedState] = useState(true);
+  const [selectedValue, setSelectedValue] = useState<T | null>((value ?? null) as T | null);
   const slideAnim = useRef(new Animated.Value(0)).current;
+  const isCollapsed = isCollapsedProp ?? isCollapsedState;
 
   useEffect(() => {
-    setSelectedValue(value);
+    setSelectedValue((value ?? null) as T | null);
   }, [value]);
 
   useEffect(() => {
@@ -44,10 +51,15 @@ const SelectIOS = <T,>({
   }, [isCollapsed, slideAnim]);
 
   const togglePicker = useCallback(() => {
-    if (!disabled) {
-      setIsCollapsed(!isCollapsed);
+    if (disabled) return;
+    const next = !isCollapsed;
+    onCollapseChange?.(next);
+    if (next) onClose?.();
+    else onOpen?.();
+    if (isCollapsedProp === undefined) {
+      setIsCollapsedState(next);
     }
-  }, [disabled, isCollapsed]);
+  }, [disabled, isCollapsed, isCollapsedProp, onCollapseChange, onOpen, onClose]);
 
   const handleValueChange = useCallback(
     (itemValue: T | null) => {
@@ -145,12 +157,8 @@ const SelectIOS = <T,>({
         </Picker>
       </Animated.View>
 
-      {help && !hasError && <Text style={helpBlockStyle}>{help}</Text>}
-      {hasError && error && (
-        <Text style={errorBlockStyle} accessibilityLiveRegion="polite">
-          {error}
-        </Text>
-      )}
+      <HelpBlock help={help} hasError={hasError} style={helpBlockStyle} />
+      <ErrorBlock hasError={hasError} error={error} style={errorBlockStyle} />
     </View>
   );
 };

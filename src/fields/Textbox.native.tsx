@@ -192,10 +192,11 @@ class TextboxTemplate extends React.Component<TextboxTemplateProps> {
       stylesheet,
       hasError,
       editable = true,
+      disabled = false,
       label,
       help,
       error,
-      onChange,
+      onChange: _omitOnChange,
       onChangeText,
       placeholder,
       value,
@@ -211,6 +212,8 @@ class TextboxTemplate extends React.Component<TextboxTemplateProps> {
       selectTextOnFocus,
       ...rest
     } = this.props;
+
+    void _omitOnChange;
 
     if (hidden) {
       return null;
@@ -229,18 +232,20 @@ class TextboxTemplate extends React.Component<TextboxTemplateProps> {
       hasError && stylesheet.controlLabel?.error,
     ]);
 
+    const isEditable = editable && !disabled;
+
     const textboxStyle = StyleSheet.flatten([
       styles.textbox,
       stylesheet.textbox?.normal,
       hasError && stylesheet.textbox?.error,
-      !editable && stylesheet.textbox?.notEditable,
+      !isEditable && stylesheet.textbox?.notEditable,
     ]);
 
     const textboxViewStyle = StyleSheet.flatten([
       styles.textboxView,
       stylesheet.textboxView?.normal,
       hasError && stylesheet.textboxView?.error,
-      !editable && stylesheet.textboxView?.notEditable,
+      !isEditable && stylesheet.textboxView?.notEditable,
     ]);
 
     const helpBlockStyle = StyleSheet.flatten([
@@ -262,11 +267,10 @@ class TextboxTemplate extends React.Component<TextboxTemplateProps> {
           <TextInput
             testID="text-input"
             style={textboxStyle}
-            onChange={onChange}
             onChangeText={onChangeText}
             placeholder={placeholder}
             value={value != null ? String(value) : undefined}
-            editable={editable}
+            editable={isEditable}
             secureTextEntry={secureTextEntry}
             keyboardType={keyboardType}
             autoCapitalize={autoCapitalize}

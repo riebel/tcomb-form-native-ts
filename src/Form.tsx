@@ -16,9 +16,9 @@ import {
   ListTemplateProps,
   StructTemplateProps,
   TypeWithMeta,
-  UIDGenerator,
   FormTemplates,
 } from './types/template.types';
+import { UIDGenerator } from './util';
 import { getTypeInfo } from './util';
 
 // Union type for all possible template props
@@ -117,9 +117,7 @@ export class Form<T> extends Component<FormProps<T>, FormState> {
 
   constructor(props: FormProps<T>) {
     super(props);
-    this.uidGenerator = props.options?.uidGenerator || {
-      next: (prefix?: string) => `${prefix ?? 'uid'}-${Date.now()}`,
-    };
+    this.uidGenerator = props.options?.uidGenerator || new UIDGenerator();
   }
 
   pureValidate() {
@@ -236,10 +234,14 @@ export class Form<T> extends Component<FormProps<T>, FormState> {
       );
     }
     if (Component === List.ReactComponent) {
+      const { onChange: _omitOnChange, ...restBase } = baseProps as Record<string, unknown> & {
+        onChange?: unknown;
+      };
+      void _omitOnChange;
       return (
         <List.ReactComponent
-          {...(baseProps as unknown as ListTemplateProps<T>)}
-          items={Array.isArray(value) ? (value as T[]) : []}
+          {...(restBase as unknown as ListTemplateProps<unknown>)}
+          items={Array.isArray(value) ? (value as unknown[]) : []}
           onAdd={() => {}}
           onRemove={() => {}}
           renderItem={() => null}
