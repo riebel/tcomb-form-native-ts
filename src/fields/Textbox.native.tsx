@@ -8,7 +8,7 @@ import type { TextboxTemplateProps } from '../types/template.types';
 type LegacyNumberTransformer =
   | {
       // Match classic signature to allow user code like (value: string | number) => string | null
-      format: (value: string | number | null | undefined) => string | null;
+      format: (value: string | number) => string | null;
       // Classic parse returns number|null; we also allow undefined for symmetry
       parse: (value: string) => number | null | undefined;
     }
@@ -44,8 +44,9 @@ const getLocals = (props: TextboxTemplateProps) => {
   let displayValue = value;
   const legacyTransformer = getStaticNumberTransformer();
   const transformer = options?.transformer || legacyTransformer;
-  if (transformer?.format && value !== undefined) {
-    displayValue = transformer.format(value);
+  if (transformer?.format && value !== null && value !== undefined) {
+    // Call format for any provided value (including arrays), matching legacy behavior
+    displayValue = transformer.format(value as unknown as string | number);
   } else if (value === null || value === undefined) {
     displayValue = '';
   } else if (typeof value === 'number') {
@@ -76,7 +77,7 @@ export class Textbox {
 
   // Legacy-compatible static transformer holder (e.g., t.form.Textbox.numberTransformer)
   static numberTransformer?: {
-    format: (value: string | number | null | undefined) => string | null;
+    format: (value: string | number) => string | null;
     parse: (value: string) => number | null | undefined;
   };
 

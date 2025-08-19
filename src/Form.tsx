@@ -1,4 +1,4 @@
-import React, { Component } from 'react';
+import React, { Component, forwardRef, useImperativeHandle, useRef } from 'react';
 import { validate } from 'tcomb-validation';
 
 import List from './components/List';
@@ -111,7 +111,7 @@ const defaultGetComponent = <T,>(
   }
 };
 
-export class Form<T> extends Component<FormProps<T>, FormState> {
+class FormImpl<T> extends Component<FormProps<T>, FormState> {
   static defaultProps: Partial<FormProps<unknown>> = {
     value: undefined,
     options: {},
@@ -270,5 +270,25 @@ export class Form<T> extends Component<FormProps<T>, FormState> {
     return <Component {...(baseProps as unknown as AnyTemplateProps<T>)} />;
   }
 }
+
+// Minimal legacy-compatible ref interface
+export interface MinimalFormRef<T> {
+  getValue(): T | undefined;
+}
+
+// ForwardRef wrapper to expose a relaxed ref shape `{ getValue(): T }`
+const Form = forwardRef(<T,>(props: FormProps<T>, ref: React.Ref<MinimalFormRef<T>>) => {
+  const innerRef = useRef<FormImpl<T>>(null);
+  useImperativeHandle(
+    ref,
+    () => ({
+      getValue: () => innerRef.current?.getValue(),
+    }),
+    [innerRef],
+  );
+  return <FormImpl ref={innerRef} {...props} />;
+});
+
+Form.displayName = 'Form';
 
 export default Form;
