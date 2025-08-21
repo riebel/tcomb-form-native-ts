@@ -3,36 +3,8 @@ import { Platform } from 'react-native';
 
 import DatePickerAndroid from './DatePicker.android';
 import DatePickerIOS from './DatePicker.ios';
-import type { DatePickerTemplateProps } from '../types/template.types';
+import type { DatePickerTemplateProps, DatePickerProps } from '../types/field.types';
 import { applyAutoLabel, appendOptionalSuffix, resolveError } from '../utils/field';
-
-type TypeLike = {
-  meta?: { kind?: string; optional?: boolean };
-};
-
-type DatePickerProps = {
-  type?: TypeLike;
-  value?: Date | unknown;
-  options?: {
-    label?: string;
-    help?: string;
-    template?: unknown;
-    hasError?: boolean;
-    error?: string | ((value: unknown) => string);
-    transformer?: {
-      format: (value: unknown) => unknown;
-      parse: (value: unknown) => unknown;
-    };
-  };
-  ctx?: {
-    auto: string;
-    label?: string;
-    i18n?: { optional?: string };
-    templates?: { datepicker?: unknown };
-  };
-};
-
-// optional logic provided via utils helpers
 
 export class DatePicker {
   props: DatePickerProps;
@@ -72,15 +44,21 @@ export class DatePicker {
       help: options.help,
       error,
       hasError: Boolean(hasError),
+      required: Boolean((this.props as { required?: boolean }).required),
       ctx,
     } as const;
   }
 
   pureValidate() {
-    const { value, options = {} } = this.props;
+    const {
+      value,
+      options = {},
+      required,
+    } = this.props as DatePickerProps & { required?: boolean };
     let validatedValue: unknown = value;
     let isValid = true;
 
+    // Parse step: isolate parser exceptions only
     try {
       if (options.transformer?.parse && value !== undefined && value !== null) {
         const formatted = options.transformer.format
@@ -91,6 +69,13 @@ export class DatePicker {
     } catch (e) {
       this._hasError = true;
       this._error = e instanceof Error ? e.message : 'An unknown error occurred';
+      isValid = false;
+    }
+
+    // Required check without throwing
+    if (isValid && required && (validatedValue === null || validatedValue === undefined)) {
+      this._hasError = true;
+      this._error = 'This field is required';
       isValid = false;
     }
 

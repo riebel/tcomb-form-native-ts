@@ -4,7 +4,7 @@ import { View, StyleSheet, TouchableOpacity, Text } from 'react-native';
 import HelpBlock from '../templates/shared/HelpBlock';
 import ErrorBlock from '../templates/shared/ErrorBlock';
 
-import type { DatePickerTemplateProps } from '../types/template.types';
+import type { DatePickerTemplateProps } from '../types/field.types';
 
 const DatePickerIOS = ({
   value,
@@ -21,6 +21,8 @@ const DatePickerIOS = ({
   error,
   onOpen,
   onClose,
+  showRequiredIndicator,
+  required,
   ...rest
 }: DatePickerTemplateProps) => {
   const [isCollapsed, setIsCollapsed] = useState(true);
@@ -98,6 +100,7 @@ const DatePickerIOS = ({
   return (
     <View style={formGroupStyle}>
       {label && <Text style={controlLabelStyle}>{label}</Text>}
+      {label && showRequiredIndicator && required && <Text style={controlLabelStyle}> *</Text>}
 
       <TouchableOpacity onPress={togglePicker} disabled={disabled}>
         <View style={valueContainerStyle}>

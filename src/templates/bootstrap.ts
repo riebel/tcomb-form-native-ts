@@ -6,7 +6,7 @@ import type {
   DatePickerTemplateProps,
   ListTemplateProps,
   StructTemplateProps,
-} from '../types/template.types';
+} from '../types/field.types';
 import type { ComponentType } from 'react';
 import Textbox from '../fields/Textbox';
 import Checkbox from '../fields/Checkbox';

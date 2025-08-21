@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { View, Text, Switch, StyleSheet } from 'react-native';
 
-import type { CheckboxTemplateProps } from '../types/template.types';
+import type { CheckboxTemplateProps } from '../types/field.types';
 
 const Checkbox = ({
   value = false,
@@ -13,6 +13,8 @@ const Checkbox = ({
   label,
   help,
   error,
+  showRequiredIndicator,
+  required,
   ...rest
 }: CheckboxTemplateProps) => {
   const handleValueChange = useCallback(
@@ -63,6 +65,17 @@ const Checkbox = ({
     return null;
   }
 
+  // Derive Switch colors from legacy props if provided
+  const trackColor = {
+    false: (rest as { tintColor?: string }).tintColor || '#767577',
+    true: (rest as { onTintColor?: string }).onTintColor || '#81b0ff',
+  } as const;
+  const thumbColor = (
+    value
+      ? (rest as { thumbTintColor?: string }).thumbTintColor || '#f5dd4b'
+      : (rest as { thumbTintColor?: string }).thumbTintColor || '#f4f3f4'
+  ) as string;
+
   return (
     <View testID="checkbox-container" style={formGroupStyle}>
       <View style={containerStyle}>
@@ -71,17 +84,15 @@ const Checkbox = ({
             {label}
           </Text>
         )}
+        {label && showRequiredIndicator && required && <Text style={controlLabelStyle}> *</Text>}
         <Switch
           testID="checkbox-switch"
           value={value}
           onValueChange={handleValueChange}
           disabled={disabled}
           style={checkboxStyle}
-          trackColor={{
-            false: '#767577',
-            true: '#81b0ff',
-          }}
-          thumbColor={value ? '#f5dd4b' : '#f4f3f4'}
+          trackColor={trackColor}
+          thumbColor={thumbColor}
           ios_backgroundColor="#3e3e3e"
           {...rest}
         />

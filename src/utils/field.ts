@@ -1,11 +1,5 @@
 // Shared field utilities to reduce duplication across field classes
-
-export type TypeLikeMeta = {
-  meta?: { kind?: string; optional?: boolean };
-};
-
-export type AutoLabelCtx = { auto: string; label?: string } | undefined;
-export type I18nCtx = { i18n?: { optional?: string } } | undefined;
+import type { TypeLikeMeta, AutoLabelCtx, I18nCtx } from '../types/field.types';
 
 export function isOptionalType(type?: TypeLikeMeta): boolean {
   return Boolean(type?.meta?.optional || type?.meta?.kind === 'maybe');
@@ -24,7 +18,7 @@ export function applyAutoLabel(
 export function appendOptionalSuffix<T extends string | undefined | null>(
   label: T,
   type?: TypeLikeMeta,
-  ctx?: { i18n?: { optional?: string } },
+  ctx?: I18nCtx,
 ): T {
   if (label && isOptionalType(type) && ctx?.i18n?.optional) {
     return `${label}${ctx.i18n.optional}` as unknown as T;

@@ -38,6 +38,7 @@ This is a modernized rewrite of `tcomb-form-native` with the following improveme
 - [API](#api)
 - [Types](#types)
 - [Rendering options](#rendering-options)
+ - [Required fields](#required-fields)
 - [Unions](#unions)
 - [Lists](#lists)
 - [Customizations](#customizations)
@@ -54,6 +55,45 @@ npm install @riebel/tcomb-form-native-ts
 # Using yarn (scoped)
 yarn add @riebel/tcomb-form-native-ts
 ```
+
+## Required fields
+
+All field templates receive a `required?: boolean` flag derived from the form schema and/or component props. Validation has been aligned to respect `required` consistently across fields:
+
+- Textbox: fails when required and value is empty after transformation (null/undefined/empty string).
+- Select: fails when required and the effective value is empty (null/empty string/empty array). If `nullOption` is provided, choosing it counts as empty.
+- DatePicker: fails when required and value is null/undefined.
+- Checkbox: fails when required and value is false.
+- List: fails when required and the items array is empty.
+
+### UI indicators (opt-in)
+
+Built-in templates support an optional asterisk indicator next to the label. To enable, pass `showRequiredIndicator`:
+
+```tsx
+<Form
+  type={YourType}
+  options={{
+    fields: {
+      name: { required: true, showRequiredIndicator: true },
+      status: { required: true, showRequiredIndicator: true },
+    },
+  }}
+/>
+```
+
+Notes:
+
+- The asterisk only renders when both `required` and `showRequiredIndicator` are true.
+- This is purely visual; validation still executes regardless of the indicator.
+
+### Select and nullOption
+
+`Select` supports an optional `nullOption` to allow an empty selection. When `required` is true:
+
+- Choosing `nullOption` is considered empty and will fail validation.
+- Omitting `nullOption` prevents selecting an empty value through the UI.
+
 
 ## Migration and scoped package
 
@@ -149,6 +189,71 @@ Notes:
 
 - Your app already provides React and React Native.
 - `@react-native-picker/picker` is bundled as a dependency of this package.
+
+## TypeScript typings and helpers
+
+- __Centralized types__: All field/component template props and public prop types are exported from `src/types/template.types.ts` and re-exported at the package root for convenience.
+- __Shared Transformer__: A reusable `Transformer<I, O>` type is used by fields like Textbox, Select, and DatePicker for consistent formatting/parsing.
+- __Context-typed FormProps__: `FormProps<T, TContext = unknown>` lets you optionally type the `context` passed through to templates/validators.
+
+### Importing types
+
+```ts
+import type {
+  // Core helpers
+  Transformer,
+  FormTemplates,
+  I18n,
+  // Field component prop types (non-template)
+  TextboxProps,
+  SelectProps,
+  DatePickerProps,
+  CheckboxInternalProps,
+  StructProps,
+  ListProps,
+  // Template props & helpers
+  TextboxTemplateProps,
+  SelectTemplateProps,
+  DatePickerTemplateProps,
+  CheckboxTemplateProps,
+  StructTemplateProps,
+  ListTemplateProps,
+  SelectOption,
+} from '@riebel/tcomb-form-native-ts';
+```
+
+### Using Transformer with Textbox
+
+```ts
+const numberTransformer: Transformer<number | null, string> = {
+  format: v => (v == null ? '' : String(v)),
+  parse: s => (s.trim() === '' ? null : Number(s)),
+};
+
+const options = {
+  fields: {
+    age: {
+      transformer: numberTransformer,
+    },
+  },
+};
+```
+
+### Typed context with FormProps
+
+```ts
+import { Form, type FormProps } from '@riebel/tcomb-form-native-ts';
+
+type Person = { name: string };
+type MyContext = { userId: string };
+
+const props: FormProps<Person, MyContext> = {
+  type: t.struct({ name: t.String }),
+  context: { userId: 'u1' },
+};
+
+// <Form {...props} />
+```
 
 ### Benefits
 
@@ -247,7 +352,7 @@ The main form component that handles form rendering and state management.
 | `options` | `object` | Form rendering options |
 | `templates` | `object` | Custom templates for form fields |
 | `stylesheet` | `object` | Custom styles for form elements |
-| `context` | `any` | Context to pass to validators |
+| `context` | `unknown` by default; use `FormProps<T, TContext>` to type | Context passed through to templates/validators |
 | `i18n` | `object` | Strings used by built-in templates |
 
 ### Field Components

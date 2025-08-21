@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { View, StyleSheet, Text, TouchableOpacity } from 'react-native';
 
-import type { ListTemplateProps } from '../types/template.types';
+import type { ListTemplateProps } from '../types/field.types';
 
 const List = <T,>({
   items: itemsProp = [] as T[],
@@ -20,6 +20,8 @@ const List = <T,>({
   label,
   help,
   error,
+  showRequiredIndicator,
+  required,
   ...rest
 }: ListTemplateProps<T>) => {
   const items = (itemsProp ?? (value as T[] | undefined) ?? []) as T[];
@@ -116,6 +118,7 @@ const List = <T,>({
   return (
     <View style={formGroupStyle} {...rest}>
       {label && <Text style={controlLabelStyle}>{label}</Text>}
+      {label && showRequiredIndicator && required && <Text style={controlLabelStyle}> *</Text>}
 
       {items.map((item: T, index: number) => renderItemWithButtons(item, index))}
 

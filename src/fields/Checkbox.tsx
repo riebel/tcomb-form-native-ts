@@ -1,33 +1,7 @@
 import React from 'react';
 import CheckboxNative from './Checkbox.native';
 import { applyAutoLabel, appendOptionalSuffix, resolveError } from '../utils/field';
-import { CheckboxTemplateProps } from '../types/template.types';
-
-// Interne Typen für alte API
-type TypeLike = { meta?: { kind?: string; optional?: boolean } };
-type CtxLike = {
-  auto: string;
-  label?: string;
-  i18n?: { optional?: string };
-  templates?: { checkbox?: unknown };
-};
-type TransformerLike = { format: (value: unknown) => string; parse: (value: string) => unknown };
-
-type OptionsLike = {
-  label?: string;
-  help?: string;
-  error?: string | ((value: unknown) => string);
-  hasError?: boolean;
-  transformer?: TransformerLike;
-  template?: unknown;
-};
-
-type CheckboxInternalProps = CheckboxTemplateProps & {
-  type?: TypeLike;
-  ctx?: CtxLike;
-  transformer?: TransformerLike;
-  options?: OptionsLike;
-};
+import type { CheckboxTemplateProps, CheckboxInternalProps } from '../types/field.types';
 
 export class Checkbox {
   props: CheckboxInternalProps;
@@ -82,19 +56,23 @@ export class Checkbox {
     let validatedValue: boolean = Boolean(value);
     let isValid = true;
 
+    // Parse/transform the value, catching only real parse errors
     try {
       if (transformer?.parse && value !== undefined && value !== null) {
         const formatted = transformer.format ? transformer.format(value) : value;
         const parsed = transformer.parse(String(formatted));
-        validatedValue = Boolean(parsed); // <-- explicit conversion to boolean
-      }
-
-      if (required && !validatedValue) {
-        throw new Error('This field is required');
+        validatedValue = Boolean(parsed); // explicit conversion to boolean
       }
     } catch (e) {
       this._hasError = true;
       this._error = e instanceof Error ? e.message : 'An unknown error occurred';
+      isValid = false;
+    }
+
+    // Required validation without using exceptions for control flow
+    if (isValid && required && !validatedValue) {
+      this._hasError = true;
+      this._error = 'This field is required';
       isValid = false;
     }
 

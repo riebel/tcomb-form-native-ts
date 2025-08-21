@@ -17,4 +17,4 @@ export type {
   CheckboxTemplateProps,
   SelectTemplateProps,
   DatePickerTemplateProps,
-} from '../types/template.types';
+} from '../types/field.types';

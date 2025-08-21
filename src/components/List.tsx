@@ -1,30 +1,7 @@
 import React from 'react';
 import ListNative from './List.native';
 
-import type { ListTemplateProps, ListItem } from '../types/template.types';
-
-// Minimal runtime type shape declarations to avoid any
-type Dispatchable = {
-  dispatch?: (value: unknown) => unknown;
-  meta?: { kind?: string };
-};
-
-type ListTypeLike = {
-  meta?: {
-    kind?: string; // 'list'
-    type?: Dispatchable; // inner type for list
-    of?: Dispatchable; // compatibility
-  };
-};
-
-type ListProps<T = unknown> = {
-  type?: ListTypeLike & Dispatchable;
-  value?: T[];
-  options?: Record<string, unknown>;
-  ctx?: {
-    templates?: { list?: unknown };
-  };
-};
+import type { ListTemplateProps, ListItem, Dispatchable, ListProps } from '../types/field.types';
 
 export class List<T = unknown> {
   props: ListProps<T>;
@@ -66,10 +43,22 @@ export class List<T = unknown> {
   }
 
   // Public generic component type to preserve TValue for consumers
-  static ReactComponent = class extends React.Component<ListTemplateProps<unknown>> {
+  static ReactComponent = class extends React.Component<
+    ListTemplateProps<unknown> & {
+      // Allow custom template injection similar to other fields
+      ctx?: { templates?: { list?: React.ComponentType<ListTemplateProps<unknown>> } };
+      templates?: { list?: React.ComponentType<ListTemplateProps<unknown>> };
+    }
+  > {
     static displayName = 'List';
     render() {
-      return <ListNative {...this.props} />;
+      // Prefer ctx template via instance API for parity with other fields
+      const helper = new List<unknown>({
+        // Only ctx is needed for template resolution here
+        ctx: this.props.ctx as ListProps['ctx'],
+      } as ListProps);
+      const Comp = helper.getTemplate() || this.props.templates?.list || ListNative;
+      return <Comp {...(this.props as unknown as ListTemplateProps<unknown>)} />;
     }
   } as unknown as {
     <U>(props: ListTemplateProps<U>): React.ReactElement | null;

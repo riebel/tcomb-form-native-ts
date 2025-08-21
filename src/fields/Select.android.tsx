@@ -3,8 +3,9 @@ import { useState, useCallback, useEffect } from 'react';
 import { View, StyleSheet, TouchableOpacity, Text } from 'react-native';
 import HelpBlock from '../templates/shared/HelpBlock';
 import ErrorBlock from '../templates/shared/ErrorBlock';
+import { useSelectCommon } from './hooks/useSelectCommon';
 
-import type { SelectTemplateProps, SelectOption } from '../types/template.types';
+import type { SelectTemplateProps } from '../types/field.types';
 
 const SelectAndroid = <T,>({
   options = [],
@@ -29,6 +30,8 @@ const SelectAndroid = <T,>({
   label,
   help,
   error,
+  showRequiredIndicator,
+  required,
   ...rest
 }: SelectTemplateProps<T>) => {
   const [selectedValue, setSelectedValue] = useState<T | null>((value ?? null) as T | null);
@@ -67,56 +70,43 @@ const SelectAndroid = <T,>({
     }
   }, [disabled, showPicker, isCollapsedProp, onCollapseChange, onOpen, onClose]);
 
-  // Resolve styles based on component state
-  const formGroupStyle = StyleSheet.flatten([
-    styles.formGroup,
-    stylesheet.formGroup?.normal,
-    hasError && stylesheet.formGroup?.error,
-  ]);
+  // Resolve common select logic and stylesheet-driven styles
+  const {
+    selectOptions,
+    displayValue,
+    formGroupStyle: sgFormGroup,
+    controlLabelStyle: sgControlLabel,
+    helpBlockStyle: sgHelpBlock,
+    errorBlockStyle: sgErrorBlock,
+    valueContainerStyle: sgValueContainer,
+    valueTextStyle: sgValueText,
+  } = useSelectCommon<T>({
+    options,
+    nullOption: nullOption || undefined,
+    selectedValue,
+    stylesheet,
+    hasError,
+    disabled,
+  });
 
-  const controlLabelStyle = StyleSheet.flatten([
-    styles.controlLabel,
-    stylesheet.controlLabel?.normal,
-    hasError && stylesheet.controlLabel?.error,
-  ]);
-
-  const helpBlockStyle = StyleSheet.flatten([
-    styles.helpBlock,
-    stylesheet.helpBlock?.normal,
-    hasError && stylesheet.helpBlock?.error,
-  ]);
-
-  const errorBlockStyle = StyleSheet.flatten([styles.errorBlock, stylesheet.errorBlock]);
-
-  const valueContainerStyle = StyleSheet.flatten([
-    styles.valueContainer,
-    stylesheet.valueContainer?.normal,
-    hasError && stylesheet.valueContainer?.error,
-    disabled && stylesheet.valueContainer?.disabled,
-  ]);
-
-  const valueTextStyle = StyleSheet.flatten([
-    styles.valueText,
-    stylesheet.valueText?.normal,
-    hasError && stylesheet.valueText?.error,
-    disabled && stylesheet.valueText?.disabled,
-  ]);
+  // Merge local base styles with stylesheet-driven styles from hook
+  const formGroupStyle = StyleSheet.flatten([styles.formGroup, sgFormGroup]);
+  const controlLabelStyle = StyleSheet.flatten([styles.controlLabel, sgControlLabel]);
+  const helpBlockStyle = StyleSheet.flatten([styles.helpBlock, sgHelpBlock]);
+  const errorBlockStyle = StyleSheet.flatten([styles.errorBlock, sgErrorBlock]);
+  const valueContainerStyle = StyleSheet.flatten([styles.valueContainer, sgValueContainer]);
+  const valueTextStyle = StyleSheet.flatten([styles.valueText, sgValueText]);
 
   if (hidden) {
     return null;
   }
 
-  // Prepare options including null option if provided
-  const selectOptions: Array<SelectOption<T> | SelectOption<null>> = [
-    ...(nullOption ? [nullOption] : []),
-    ...options,
-  ];
-  const selectedOption = selectOptions.find(opt => opt?.value === selectedValue) || null;
-  const displayValue = selectedOption?.text || '';
+  // selectOptions and displayValue provided by hook
 
   return (
     <View style={formGroupStyle}>
       {label && <Text style={controlLabelStyle}>{label}</Text>}
+      {label && showRequiredIndicator && required && <Text style={controlLabelStyle}> *</Text>}
 
       <TouchableOpacity onPress={togglePicker} disabled={disabled}>
         <View style={valueContainerStyle}>

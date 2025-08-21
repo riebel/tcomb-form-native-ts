@@ -1,6 +1,6 @@
 import { View, Text, StyleSheet } from 'react-native';
 
-import type { StructTemplateProps } from '../types/template.types';
+import type { StructTemplateProps } from '../types/field.types';
 
 const Struct = ({
   children,

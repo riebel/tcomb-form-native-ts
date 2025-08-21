@@ -4,49 +4,14 @@ import { Platform } from 'react-native';
 import SelectAndroid from './Select.android';
 import SelectIOS from './Select.ios';
 
-import type { SelectTemplateProps, SelectOption } from '../types/template.types';
+import type {
+  SelectTemplateProps,
+  SelectOption,
+  SelectProps,
+  EnumLike,
+  SelectComponent,
+} from '../types/field.types';
 import { applyAutoLabel, appendOptionalSuffix, resolveError } from '../utils/field';
-
-type EnumLike = {
-  meta?: {
-    kind?: string;
-    map?: Record<string, string>;
-    optional?: boolean;
-  };
-};
-
-// Public generic component type to preserve TValue for consumers
-type SelectComponent = {
-  <T>(props: SelectTemplateProps<T>): React.ReactElement | null;
-  displayName?: string;
-};
-
-type SelectProps<T> = {
-  type?: EnumLike;
-  options?: {
-    label?: string;
-    help?: string;
-    template?: unknown;
-    hasError?: boolean;
-    error?: string | ((value: unknown) => string);
-    transformer?: {
-      format: (value: unknown) => string;
-      parse: (value: string) => unknown;
-    };
-    options?: Array<SelectOption<T>>;
-    nullOption?: SelectOption<null> | false;
-    order?: 'asc' | 'desc';
-    isCollapsed?: boolean;
-    onCollapseChange?: (collapsed: boolean) => void;
-  };
-  ctx?: {
-    auto: string;
-    label?: string;
-    i18n?: { optional?: string; required?: string };
-    templates?: { select?: unknown };
-  };
-  value?: T | null | string;
-};
 
 const buildOptions = <T,>(
   type: EnumLike | undefined,
@@ -139,15 +104,24 @@ export class Select<T = unknown> {
       onCollapseChange: options.onCollapseChange,
       error,
       hasError: Boolean(hasError),
+      required: Boolean((this.props as { required?: boolean }).required),
       ctx,
     } as const;
   }
 
   pureValidate() {
-    const { type, value, options = {} } = this.props;
+    const {
+      type,
+      value,
+      options = {},
+      required,
+    } = this.props as SelectProps<unknown> & {
+      required?: boolean;
+    };
     let validatedValue: unknown = value;
     let isValid = true;
 
+    // Parse step: isolate potential parser exceptions
     try {
       if (options.transformer?.parse && value !== undefined && value !== null) {
         const formatted = options.transformer.format
@@ -155,23 +129,40 @@ export class Select<T = unknown> {
           : (value as unknown);
         validatedValue = options.transformer.parse(String(formatted as unknown));
       }
-
-      // Basic enum validation: if enum provided and non-empty value, ensure it's one of the allowed values
-      if (
-        type?.meta?.map &&
-        validatedValue !== undefined &&
-        validatedValue !== null &&
-        String(validatedValue) !== ''
-      ) {
-        const allowed = new Set(Object.keys(type.meta.map));
-        if (!allowed.has(String(validatedValue))) {
-          throw new Error('Invalid enum value');
-        }
-      }
     } catch (e) {
       this._hasError = true;
       this._error = e instanceof Error ? e.message : 'An unknown error occurred';
       isValid = false;
+    }
+
+    // Required check without exceptions for control flow
+    if (isValid && required && options.nullOption !== false) {
+      const isEmpty =
+        validatedValue === undefined ||
+        validatedValue === null ||
+        (typeof validatedValue === 'string' && validatedValue === '') ||
+        (Array.isArray(validatedValue) && validatedValue.length === 0);
+      if (isEmpty) {
+        this._hasError = true;
+        this._error = 'This field is required';
+        isValid = false;
+      }
+    }
+
+    // Enum validation without throwing
+    if (
+      isValid &&
+      type?.meta?.map &&
+      validatedValue !== undefined &&
+      validatedValue !== null &&
+      String(validatedValue) !== ''
+    ) {
+      const allowed = new Set(Object.keys(type.meta.map));
+      if (!allowed.has(String(validatedValue))) {
+        this._hasError = true;
+        this._error = 'Invalid enum value';
+        isValid = false;
+      }
     }
 
     if (isValid) {

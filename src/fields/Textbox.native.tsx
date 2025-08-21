@@ -1,18 +1,10 @@
-import React from 'react';
+import React, { ComponentType } from 'react';
 import { View, Text, TextInput, StyleSheet } from 'react-native';
 import bootstrapStyles from '../stylesheets/bootstrap';
 
-import type { TextboxTemplateProps } from '../types/template.types';
+import type { TextboxTemplateProps, LegacyNumberTransformer } from '../types/field.types';
 
 // Provide a typed way to access the static numberTransformer without using 'any'
-type LegacyNumberTransformer =
-  | {
-      // Match classic signature to allow user code like (value: string | number) => string | null
-      format: (value: string | number) => string | null;
-      // Classic parse returns number|null; we also allow undefined for symmetry
-      parse: (value: string) => number | null | undefined;
-    }
-  | undefined;
 
 let getStaticNumberTransformer: () => LegacyNumberTransformer = () => undefined;
 
@@ -64,6 +56,7 @@ const getLocals = (props: TextboxTemplateProps) => {
     placeholder,
     editable: options.editable,
     stylesheet,
+    required: Boolean((props as { required?: boolean }).required),
     ctx,
     ...rest,
   };
@@ -71,7 +64,9 @@ const getLocals = (props: TextboxTemplateProps) => {
 
 // Create a plain class that can be instantiated with new
 export class Textbox {
-  props: TextboxTemplateProps;
+  props: TextboxTemplateProps & {
+    ctx?: { templates?: { textbox?: ComponentType<TextboxTemplateProps> } };
+  };
   private _hasError: boolean = false;
   private _error: string | undefined;
 
@@ -114,22 +109,20 @@ export class Textbox {
     let validatedValue = value;
     let isValid = true;
 
+    // Parse step: isolate transformer exceptions only
     try {
-      // Apply transformer if available (fallback to static numberTransformer)
       const legacyTransformer = (this.constructor as typeof Textbox).numberTransformer;
       const transformer = options.transformer || legacyTransformer;
       if (transformer?.parse) {
         if (value === undefined || value === null) {
           validatedValue = value;
         } else if (Array.isArray(value)) {
-          // Pass array values directly to parse
           validatedValue = transformer.parse(value.join(' ')) as unknown as
             | string
             | number
             | null
             | undefined;
         } else {
-          // Convert non-array values to string before parsing
           validatedValue = transformer.parse(String(value)) as unknown as
             | string
             | number
@@ -137,23 +130,43 @@ export class Textbox {
             | undefined;
         }
       }
-
-      // Basic type validation
-      if (
-        type &&
-        validatedValue !== undefined &&
-        validatedValue !== null &&
-        validatedValue !== ''
-      ) {
-        const stringValue = validatedValue !== undefined ? String(validatedValue) : '';
-        if (stringValue) {
-          type(stringValue);
-        }
-      }
     } catch (e) {
       this._hasError = true;
       this._error = e instanceof Error ? e.message : 'An unknown error occurred';
       isValid = false;
+    }
+
+    // Required check without throwing
+    if (isValid && this.props.required) {
+      const isEmpty =
+        validatedValue === undefined ||
+        validatedValue === null ||
+        (typeof validatedValue === 'string' && validatedValue === '');
+      if (isEmpty) {
+        this._hasError = true;
+        this._error = 'This field is required';
+        isValid = false;
+      }
+    }
+
+    // Type validation may throw; keep in try/catch
+    if (
+      isValid &&
+      type &&
+      validatedValue !== undefined &&
+      validatedValue !== null &&
+      validatedValue !== ''
+    ) {
+      try {
+        const stringValue = String(validatedValue);
+        if (stringValue) {
+          type(stringValue);
+        }
+      } catch (e) {
+        this._hasError = true;
+        this._error = e instanceof Error ? e.message : 'An unknown error occurred';
+        isValid = false;
+      }
     }
 
     if (isValid) {
@@ -213,6 +226,8 @@ class TextboxTemplate extends React.Component<TextboxTemplateProps> {
       onSubmitEditing,
       returnKeyType,
       selectTextOnFocus,
+      showRequiredIndicator,
+      required,
       ...rest
     } = this.props;
 
@@ -266,6 +281,9 @@ class TextboxTemplate extends React.Component<TextboxTemplateProps> {
             {label}
           </Text>
         )}
+        {/* Asterisk indicator when opted-in */}
+        {/* Note: keep label rendering logic intact and only append when requested */}
+        {label && showRequiredIndicator && required && <Text style={controlLabelStyle}> *</Text>}
         <View style={textboxViewStyle} testID="textbox-input-container">
           <TextInput
             testID="text-input"

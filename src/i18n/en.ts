@@ -1,12 +1,5 @@
 // English translations for tcomb-form-native
-export interface I18nTranslations {
-  optional: string;
-  required: string;
-  add: string;
-  remove: string;
-  up: string;
-  down: string;
-}
+import type { I18nTranslations } from '../types/field.types';
 
 const en: I18nTranslations = {
   optional: ' (optional)',

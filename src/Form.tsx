@@ -16,59 +16,15 @@ import {
   ListTemplateProps,
   StructTemplateProps,
   TypeWithMeta,
-  FormTemplates,
-} from './types/template.types';
-import { UIDGenerator } from './util';
+  AnyTemplateProps,
+  FieldComponentType,
+  FormProps,
+  MinimalFormRef,
+  FormState,
+  FormInputComponent,
+} from './types/field.types';
 import { getTypeInfo } from './util';
 
-// Union type for all possible template props
-export type AnyTemplateProps<T> =
-  | TextboxTemplateProps
-  | CheckboxTemplateProps
-  | SelectTemplateProps<T>
-  | DatePickerTemplateProps
-  | ListTemplateProps<T>
-  | StructTemplateProps;
-
-type FieldComponentType<T> = React.ComponentType<
-  | TextboxTemplateProps
-  | CheckboxTemplateProps
-  | SelectTemplateProps<T>
-  | DatePickerTemplateProps
-  | ListTemplateProps<T>
-  | StructTemplateProps
->;
-
-export interface FormProps<T> {
-  // Accept unknown for legacy callers; we guard at runtime
-  type?: unknown;
-  value?: T;
-  options?: {
-    getComponent?: (
-      type: TypeWithMeta | null,
-      options: Record<string, unknown>,
-    ) => FieldComponentType<T>;
-    uidGenerator?: UIDGenerator;
-    [key: string]: unknown;
-  };
-  onChange?: (value: T) => void;
-  context?: unknown;
-  stylesheet?: Record<string, unknown>;
-  templates?: FormTemplates;
-  i18n?: Record<string, unknown>;
-}
-
-interface FormState {
-  hasError: boolean;
-}
-
-interface FormInputComponent<T> {
-  getValue(): T;
-  getComponent?(path: string[]): React.Component | null;
-  setState(state: { hasError: boolean }): void;
-}
-
-// Narrow unknown to TypeWithMeta when possible
 function isTypeWithMeta(x: unknown): x is TypeWithMeta {
   return (
     typeof x === 'function' ||
@@ -76,7 +32,6 @@ function isTypeWithMeta(x: unknown): x is TypeWithMeta {
   );
 }
 
-// Default Component Factory
 const defaultGetComponent = <T,>(
   type: TypeWithMeta | null,
   options: Record<string, unknown> = {},
@@ -121,25 +76,22 @@ class FormImpl<T> extends Component<FormProps<T>, FormState> {
     i18n: {},
   };
 
-  private uidGenerator: UIDGenerator;
   private input = React.createRef<FormInputComponent<T>>();
 
   constructor(props: FormProps<T>) {
     super(props);
-    this.uidGenerator = props.options?.uidGenerator || new UIDGenerator();
   }
 
   pureValidate() {
     const { type } = this.props;
     const value = this.getValue();
     if (!isTypeWithMeta(type)) {
-      // When an invalid type is provided, skip schema validation
       return validate(value, null as unknown as TypeWithMeta, this.getValidationOptions());
     }
     return validate(value, type, this.getValidationOptions());
   }
 
-  validate() {
+  validate(): ReturnType<typeof validate> {
     const result = this.pureValidate();
     this.input.current?.setState({ hasError: !result.isValid() });
     return result;
@@ -147,19 +99,6 @@ class FormImpl<T> extends Component<FormProps<T>, FormState> {
 
   getValue(): T | undefined {
     return this.input.current?.getValue() ?? this.props.value;
-  }
-
-  getComponent(path: string[] = []) {
-    if (!this.input.current) return null;
-    return path.length ? this.input.current.getComponent?.(path) : this.input.current;
-  }
-
-  getSeed() {
-    return this.uidGenerator.next();
-  }
-
-  getUIDGenerator() {
-    return this.uidGenerator;
   }
 
   private getValidationOptions() {
@@ -271,10 +210,8 @@ class FormImpl<T> extends Component<FormProps<T>, FormState> {
   }
 }
 
-// Minimal legacy-compatible ref interface
-export interface MinimalFormRef<T> {
-  getValue(): T | undefined;
-}
+// Re-export MinimalFormRef type from central types for external consumers
+export type { MinimalFormRef };
 
 // ForwardRef wrapper to expose a relaxed ref shape `{ getValue(): T }`
 const Form = forwardRef(<T,>(props: FormProps<T>, ref: React.Ref<MinimalFormRef<T>>) => {
@@ -283,6 +220,8 @@ const Form = forwardRef(<T,>(props: FormProps<T>, ref: React.Ref<MinimalFormRef<
     ref,
     () => ({
       getValue: () => innerRef.current?.getValue(),
+      validate: () => (innerRef.current?.validate() as ReturnType<typeof validate>)!,
+      pureValidate: () => (innerRef.current?.pureValidate() as ReturnType<typeof validate>)!,
     }),
     [innerRef],
   );
