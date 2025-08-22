@@ -426,7 +426,7 @@ export interface LegacyActionButton {
 
 export type ListTemplateProps<T> = Omit<
   BaseTemplateProps<T[], ListStylesheet>,
-  'error' | 'label' | 'hasError' | 'hidden'
+  'error' | 'label' | 'hasError' | 'hidden' | 'stylesheet'
 > & {
   // Force legacy-compatible error to be a required string
   error: string;
@@ -438,6 +438,9 @@ export type ListTemplateProps<T> = Omit<
   label: string;
   // UI hint: when true and `required`, templates may render an asterisk next to the label
   showRequiredIndicator?: boolean;
+  // Provide a very generic stylesheet shape to match legacy templates using index access
+  // Values typed as {} so they're structurally assignable to React Native TextStyle (all optional)
+  stylesheet: { [section: string]: { [variant: string]: {} } };
   // Legacy templates expect framework-provided items array with key/input/buttons
   items: LegacyListItem[];
   // Legacy list locals included a className string on locals
