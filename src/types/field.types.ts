@@ -422,47 +422,48 @@ export interface LegacyActionButton {
   testID?: string;
 }
 
-export type ListTemplateProps<T> = BaseTemplateProps<
-  T[],
-  ListStylesheet,
-  {
-    // UI hint: when true and `required`, templates may render an asterisk next to the label
-    showRequiredIndicator?: boolean;
-    // Old API often passes an explicit items array separate from value
-    // Accept both modern item arrays and legacy item objects ({ key, input, buttons })
-    items?: T[] | LegacyListItem[];
-    // Some legacy templates expect error to be a string, not a ReactNode
-    error?: string;
-    // Legacy list locals included a className string on locals
-    className?: string;
-    // New API callbacks
-    onAdd: () => void;
-    onRemove: (index: number) => void;
-    onMoveUp?: (index: number) => void;
-    onMoveDown?: (index: number) => void;
-    // Legacy aliases (kept for backward compatibility)
-    // NOTE: Some apps declare these as required in their component types. We include them here
-    // so user components remain assignable to our template slot without code changes.
-    /** @deprecated Use onAdd */
-    add: LegacyActionButton;
-    /** @deprecated Use onRemove */
-    remove?: LegacyActionButton;
-    /** @deprecated Use onMoveUp */
-    moveUp?: LegacyActionButton;
-    /** @deprecated Use onMoveDown */
-    moveDown?: LegacyActionButton;
-    renderItem: (item: T, index: number) => ReactNode;
-    addLabel?: string;
-    removeLabel?: string;
-    upLabel?: string;
-    downLabel?: string;
-    disableAdd?: boolean;
-    disableRemove?: boolean;
-    disableOrder?: boolean;
-    // Legacy-like context for templates that need UID keys and path
-    ctx?: { uidGenerator?: { next: () => string }; path?: Array<string | number> };
-  }
->;
+export type ListTemplateProps<T> = Omit<
+  BaseTemplateProps<T[], ListStylesheet>,
+  'error' | 'label'
+> & {
+  // Force legacy-compatible error to be a required string
+  error: string;
+  // Legacy templates generally used string label
+  label?: string | null;
+  // UI hint: when true and `required`, templates may render an asterisk next to the label
+  showRequiredIndicator?: boolean;
+  // Old API often passes an explicit items array separate from value
+  // Accept both modern item arrays and legacy item objects ({ key, input, buttons })
+  items?: T[] | LegacyListItem[];
+  // Legacy list locals included a className string on locals
+  className?: string;
+  // New API callbacks
+  onAdd: () => void;
+  onRemove: (index: number) => void;
+  onMoveUp?: (index: number) => void;
+  onMoveDown?: (index: number) => void;
+  // Legacy aliases (kept for backward compatibility)
+  // NOTE: Some apps declare these as required in their component types. We include them here
+  // so user components remain assignable to our template slot without code changes.
+  /** @deprecated Use onAdd */
+  add: LegacyActionButton;
+  /** @deprecated Use onRemove */
+  remove?: LegacyActionButton;
+  /** @deprecated Use onMoveUp */
+  moveUp?: LegacyActionButton;
+  /** @deprecated Use onMoveDown */
+  moveDown?: LegacyActionButton;
+  renderItem: (item: T, index: number) => ReactNode;
+  addLabel?: string;
+  removeLabel?: string;
+  upLabel?: string;
+  downLabel?: string;
+  disableAdd?: boolean;
+  disableRemove?: boolean;
+  disableOrder?: boolean;
+  // Legacy-like context for templates that need UID keys and path
+  ctx?: { uidGenerator?: { next: () => string }; path?: Array<string | number> };
+};
 
 export type StructTemplateProps = BaseTemplateProps<
   never,
