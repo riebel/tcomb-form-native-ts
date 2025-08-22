@@ -1,6 +1,6 @@
-import { Platform, StyleSheet, TextStyle } from 'react-native';
+import { Platform } from 'react-native';
 
-// Color constants
+// Colors
 const COLORS = {
   label: '#000000',
   input: '#000000',
@@ -11,20 +11,20 @@ const COLORS = {
   disabledBackground: '#eeeeee',
 } as const;
 
-// Font constants
+// Font
 const FONT = {
   size: 17,
   weight: '500' as const,
 } as const;
 
-// Common styles
-const baseTextStyle: TextStyle = {
+// Base values
+const baseText = {
   fontSize: FONT.size,
   marginBottom: 5,
-};
+} as const;
 
-const baseInputStyle: TextStyle = {
-  ...baseTextStyle,
+const baseInput = {
+  ...baseText,
   borderColor: COLORS.border,
   borderRadius: 4,
   borderWidth: 1,
@@ -32,163 +32,142 @@ const baseInputStyle: TextStyle = {
   height: 36,
   paddingHorizontal: 7,
   paddingVertical: Platform.OS === 'ios' ? 7 : 0,
-};
+} as const;
 
-// Main stylesheet
-export const bootstrapStyles = StyleSheet.create({
-  button: {
-    alignItems: 'center',
-    backgroundColor: '#5cb85c',
-    borderRadius: 4,
-    marginTop: 10,
-    padding: 10,
+// Bootstrap-like stylesheet
+export const bootstrapStyles = {
+  // Shared
+  formGroup: {
+    normal: { marginBottom: 10 },
+    error: { marginBottom: 10 },
   },
-  buttonDisabled: {
-    alignItems: 'center',
-    backgroundColor: '#d3d3d3',
-    borderRadius: 4,
-    marginTop: 10,
-    padding: 10,
+  controlLabel: {
+    normal: { color: COLORS.label, fontSize: FONT.size, fontWeight: FONT.weight, marginBottom: 7 },
+    error: { color: COLORS.error, fontSize: FONT.size, fontWeight: FONT.weight, marginBottom: 7 },
+    disabled: {
+      color: COLORS.disabled,
+      fontSize: FONT.size,
+      fontWeight: FONT.weight,
+      marginBottom: 7,
+    },
   },
-  buttonText: {
-    color: 'white',
-    fontSize: FONT.size,
-    fontWeight: FONT.weight as '500',
+  helpBlock: {
+    normal: { color: COLORS.help, fontSize: FONT.size, marginBottom: 2 },
+    error: { color: COLORS.error, fontSize: FONT.size, marginBottom: 2 },
   },
-  buttonTextDisabled: {
-    color: COLORS.disabled,
-    fontSize: FONT.size,
-    fontWeight: FONT.weight as '500',
+  errorBlock: { color: COLORS.error, fontSize: FONT.size, marginBottom: 2 },
+  fieldset: { borderWidth: 0, marginBottom: 16, padding: 0 },
+
+  // Textbox
+  textbox: {
+    normal: { ...baseInput },
+    error: { ...baseInput, borderColor: COLORS.error },
+    notEditable: {
+      ...baseInput,
+      backgroundColor: COLORS.disabledBackground,
+      color: COLORS.disabled,
+    },
+  },
+  textboxView: {
+    normal: {},
+    error: {},
+    notEditable: {},
+  },
+
+  // Checkbox
+  container: {
+    normal: {
+      alignItems: 'center',
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      paddingVertical: 8,
+    },
+    error: {
+      alignItems: 'center',
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      paddingVertical: 8,
+    },
+    disabled: { opacity: 0.6 },
   },
   checkbox: {
-    alignItems: 'center',
-    borderColor: COLORS.border,
-    borderRadius: 2,
-    borderWidth: 1,
-    height: 20,
-    justifyContent: 'center',
-    marginRight: 10,
-    position: 'relative',
-    width: 20,
+    normal: { marginLeft: 8 },
+    error: { marginLeft: 8 },
+    disabled: { marginLeft: 8, opacity: 0.6 },
   },
-  checkboxError: {
-    marginBottom: 10,
+
+  // Select/DatePicker
+  valueContainer: {
+    normal: {
+      backgroundColor: 'white',
+      borderColor: '#ccc',
+      borderRadius: 4,
+      borderWidth: 1,
+      height: 40,
+      justifyContent: 'center',
+      padding: 10,
+    },
+    error: {
+      backgroundColor: 'white',
+      borderColor: COLORS.error,
+      borderRadius: 4,
+      borderWidth: 1,
+      height: 40,
+      justifyContent: 'center',
+      padding: 10,
+    },
+    disabled: { backgroundColor: COLORS.disabledBackground },
   },
-  checkboxNormal: {
-    marginBottom: 10,
+  valueText: {
+    normal: { color: '#333', fontSize: 16 },
+    error: { color: COLORS.error, fontSize: 16 },
+    disabled: { color: COLORS.disabled, fontSize: 16 },
   },
-  checkboxText: {
-    color: COLORS.input,
-    fontSize: 16,
+
+  // List
+  itemContainer: {
+    normal: {
+      alignItems: 'center',
+      backgroundColor: '#fff',
+      borderColor: '#ddd',
+      borderRadius: 4,
+      borderWidth: 1,
+      flexDirection: 'row',
+      marginBottom: 8,
+      padding: 8,
+    },
+    error: {
+      alignItems: 'center',
+      backgroundColor: '#fff',
+      borderColor: COLORS.error,
+      borderRadius: 4,
+      borderWidth: 1,
+      flexDirection: 'row',
+      marginBottom: 8,
+      padding: 8,
+    },
+    disabled: { opacity: 0.6 },
   },
-  checkboxTextbox: {
-    ...baseTextStyle,
+  button: {
+    normal: {
+      alignItems: 'center',
+      backgroundColor: '#5cb85c',
+      borderRadius: 4,
+      marginTop: 10,
+      padding: 10,
+    },
+    disabled: {
+      alignItems: 'center',
+      backgroundColor: '#d3d3d3',
+      borderRadius: 4,
+      marginTop: 10,
+      padding: 10,
+    },
   },
-  checkboxView: {
-    alignItems: 'center',
-    flexDirection: 'row',
+  buttonText: {
+    normal: { color: 'white', fontSize: FONT.size, fontWeight: FONT.weight as '500' },
+    disabled: { color: COLORS.disabled, fontSize: FONT.size, fontWeight: FONT.weight as '500' },
   },
-  controlLabelError: {
-    color: COLORS.error,
-    fontSize: FONT.size,
-    fontWeight: FONT.weight,
-    marginBottom: 7,
-  },
-  controlLabelNormal: {
-    color: COLORS.label,
-    fontSize: FONT.size,
-    fontWeight: FONT.weight,
-    marginBottom: 7,
-  },
-  datePicker: {
-    flex: 1,
-  },
-  datePickerError: {
-    marginBottom: 10,
-  },
-  datePickerNormal: {
-    marginBottom: 10,
-  },
-  datePickerNotEditable: {
-    opacity: 0.7,
-  },
-  datePickerText: {
-    color: COLORS.input,
-    fontSize: FONT.size,
-  },
-  datePickerTextbox: {
-    ...baseInputStyle,
-  },
-  datePickerTextboxView: {
-    alignItems: 'center',
-    flexDirection: 'row',
-  },
-  errorBlock: {
-    color: COLORS.error,
-    fontSize: FONT.size,
-    marginBottom: 2,
-  },
-  fieldset: {},
-  formGroupError: {
-    marginBottom: 10,
-  },
-  formGroupNormal: {
-    marginBottom: 10,
-  },
-  helpBlockError: {
-    color: COLORS.error,
-    fontSize: FONT.size,
-    marginBottom: 2,
-  },
-  helpBlockNormal: {
-    color: COLORS.help,
-    fontSize: FONT.size,
-    marginBottom: 2,
-  },
-  selectError: {
-    marginBottom: 10,
-  },
-  selectNormal: {
-    marginBottom: 10,
-  },
-  selectNotEditable: {
-    opacity: 0.7,
-  },
-  selectPicker: {
-    flex: 1,
-  },
-  selectPickerContainer: {
-    flex: 1,
-  },
-  selectPickerItem: {
-    color: COLORS.input,
-    fontSize: FONT.size,
-  },
-  selectPickerItemSelected: {
-    fontWeight: 'bold',
-  },
-  selectTextbox: {
-    ...baseInputStyle,
-  },
-  selectTextboxView: {
-    alignItems: 'center',
-    flexDirection: 'row',
-  },
-  textboxError: {
-    ...baseInputStyle,
-    borderColor: COLORS.error,
-  },
-  textboxNormal: {
-    ...baseInputStyle,
-  },
-  textboxNotEditable: {
-    ...baseInputStyle,
-    backgroundColor: COLORS.disabledBackground,
-    color: COLORS.disabled,
-  },
-  textboxViewError: {},
-  textboxViewNormal: {},
-  textboxViewNotEditable: {},
-});
+} as const;
 
 export default bootstrapStyles;

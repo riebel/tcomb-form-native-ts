@@ -17,7 +17,7 @@ const buildOptions = <T,>(
   type: EnumLike | undefined,
   opts: SelectProps<T>['options'],
 ): Array<SelectOption<T> | SelectOption<null>> => {
-  // Use provided options first
+  // Use provided options
   const provided = opts?.options as Array<SelectOption<T>> | undefined;
   let built: Array<SelectOption<T>>;
   if (provided && provided.length) {
@@ -26,7 +26,7 @@ const buildOptions = <T,>(
     const kind = type?.meta?.kind;
     const map: Record<string, string> | undefined = type?.meta?.map;
     if (map && (kind === 'enums' || kind === 'enum')) {
-      // Build from tcomb enums in declaration order
+      // Build from enums
       built = Object.keys(map).map(key => ({
         value: key as unknown as T,
         text: map[key],
@@ -36,7 +36,7 @@ const buildOptions = <T,>(
     }
   }
 
-  // Apply ordering if requested
+  // Apply ordering
   const order = opts?.order;
   if (order === 'asc' || order === 'desc') {
     built = [...built].sort((a, b) => {
@@ -48,7 +48,7 @@ const buildOptions = <T,>(
     });
   }
 
-  // Prepend nullOption unless explicitly false
+  // Prepend nullOption unless false
   const nullOpt = opts?.nullOption;
   const includeNull = nullOpt !== false;
   const nullOption: SelectOption<null> =
@@ -60,8 +60,6 @@ const buildOptions = <T,>(
     ? ([nullOption, ...built] as Array<SelectOption<T> | SelectOption<null>>)
     : built;
 };
-
-// optional logic provided via utils helpers
 
 export class Select<T = unknown> {
   props: SelectProps<T>;
@@ -75,7 +73,7 @@ export class Select<T = unknown> {
   getLocals() {
     const { type, options = {}, value, ctx } = this.props;
 
-    // Label handling
+    // Label
     let label: string | null | undefined = options.label ?? undefined;
     label = applyAutoLabel(label, ctx);
     label = appendOptionalSuffix(label, type, ctx);
@@ -88,11 +86,17 @@ export class Select<T = unknown> {
       displayValue = '';
     }
 
-    // Build options list
+    // Build options
     const builtOptions = buildOptions<T>(type, options);
 
-    // Error handling
-    const { error, hasError } = resolveError(this._hasError, this._error, options, value);
+    // Error handling (pass type for legacy getValidationErrorMessage)
+    const { error, hasError } = resolveError(
+      this._hasError,
+      this._error,
+      options,
+      value,
+      type as unknown as { getValidationErrorMessage?: (v: unknown) => string },
+    );
 
     return {
       type,
@@ -121,7 +125,7 @@ export class Select<T = unknown> {
     let validatedValue: unknown = value;
     let isValid = true;
 
-    // Parse step: isolate potential parser exceptions
+    // Parse (catch errors)
     try {
       if (options.transformer?.parse && value !== undefined && value !== null) {
         const formatted = options.transformer.format
@@ -135,7 +139,7 @@ export class Select<T = unknown> {
       isValid = false;
     }
 
-    // Required check without exceptions for control flow
+    // Required check
     if (isValid && required && options.nullOption !== false) {
       const isEmpty =
         validatedValue === undefined ||
@@ -144,12 +148,18 @@ export class Select<T = unknown> {
         (Array.isArray(validatedValue) && validatedValue.length === 0);
       if (isEmpty) {
         this._hasError = true;
-        this._error = 'This field is required';
+        // Prefer i18n.required if available in context
+        const i18n = (
+          this.props as { ctx?: { i18n?: { required?: string } | Record<string, string> } }
+        ).ctx?.i18n;
+        this._error =
+          (i18n && typeof i18n === 'object' && (i18n as { required?: string }).required) ||
+          'This field is required';
         isValid = false;
       }
     }
 
-    // Enum validation without throwing
+    // Enum validation
     if (
       isValid &&
       type?.meta?.map &&
@@ -182,12 +192,18 @@ export class Select<T = unknown> {
     return options.template || ctx?.templates?.select;
   }
 
-  // Platform React component for rendering (cast to a generic callable component type)
-  static ReactComponent = class extends React.Component<SelectTemplateProps<unknown>> {
+  // Platform component
+  static ReactComponent = class extends React.Component<
+    SelectTemplateProps<unknown> & {
+      ctx?: { templates?: { select?: React.ComponentType<SelectTemplateProps<unknown>> } };
+      options?: { template?: React.ComponentType<SelectTemplateProps<unknown>> };
+    }
+  > {
     static displayName = 'Select';
     render() {
-      const Comp = Platform.OS === 'ios' ? SelectIOS : SelectAndroid;
-      return <Comp {...(this.props as SelectTemplateProps<unknown>)} />;
+      const override = this.props.options?.template || this.props.ctx?.templates?.select;
+      const Comp = override ? override : Platform.OS === 'ios' ? SelectIOS : SelectAndroid;
+      return <Comp {...this.props} />;
     }
   } as unknown as SelectComponent;
 }

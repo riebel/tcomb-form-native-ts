@@ -1,6 +1,15 @@
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useState, useCallback } from 'react';
-import { View, StyleSheet, TouchableOpacity, Text } from 'react-native';
+import {
+  View,
+  StyleSheet,
+  TouchableOpacity,
+  Text,
+  type StyleProp,
+  type ViewStyle,
+  type TextStyle,
+} from 'react-native';
+import { handleDateChangeCore } from './utils/dateChangeCore';
 import HelpBlock from '../templates/shared/HelpBlock';
 import ErrorBlock from '../templates/shared/ErrorBlock';
 
@@ -24,34 +33,43 @@ const DatePickerAndroid = ({
   showRequiredIndicator,
   required,
   ...rest
-}: DatePickerTemplateProps) => {
+}: DatePickerTemplateProps & { ctx?: { config?: Record<string, unknown> } }) => {
   const [show, setShow] = useState(false);
+  const [stage, setStage] = useState<'date' | 'time' | null>(null);
   const [date, setDate] = useState<Date>(value || new Date());
 
   const handleDateChange = useCallback(
     (_event: unknown, selectedDate?: Date) => {
-      // Always close after handling change
-      setShow(false);
-      if (selectedDate) {
-        setDate(selectedDate);
-        if (onChange) {
-          onChange(selectedDate);
-        }
-      }
-      // Closing callback
-      onClose?.();
+      if (!show) return;
+      handleDateChangeCore({
+        mode,
+        stage,
+        date,
+        selectedDate,
+        onMerged: d => onChange?.(d),
+        setDate,
+        setStage,
+        close: () => {
+          setShow(false);
+          setStage(null);
+          onClose?.();
+        },
+      });
     },
-    [onChange, onClose],
+    [show, mode, stage, date, onChange, onClose],
   );
 
   const showDatepicker = useCallback(() => {
     if (!disabled) {
+      // Call onPress before opening
+      (rest as { onPress?: () => void } | undefined)?.onPress?.();
       setShow(true);
+      setStage(mode === 'datetime' ? 'date' : (mode as 'date' | 'time'));
       onOpen?.();
     }
-  }, [disabled, onOpen]);
+  }, [disabled, mode, onOpen, rest]);
 
-  // Resolve styles based on component state
+  // Resolve styles
   const formGroupStyle = StyleSheet.flatten([
     styles.formGroup,
     stylesheet.formGroup?.normal,
@@ -72,25 +90,59 @@ const DatePickerAndroid = ({
 
   const errorBlockStyle = StyleSheet.flatten([styles.errorBlock, stylesheet.errorBlock]);
 
+  // Legacy style keys: datepicker/dateValue
+  type LegacyStyles = {
+    datepicker?: { normal?: StyleProp<ViewStyle>; error?: StyleProp<ViewStyle> };
+    dateValue?: {
+      normal?: StyleProp<TextStyle>;
+      error?: StyleProp<TextStyle>;
+      disabled?: StyleProp<TextStyle>;
+    };
+  };
+  const legacy = stylesheet as unknown as LegacyStyles;
+  const valueContainerNormal = stylesheet.valueContainer?.normal || legacy?.datepicker?.normal;
+  const valueContainerError = stylesheet.valueContainer?.error || legacy?.datepicker?.error;
+  const valueContainerDisabled = stylesheet.valueContainer?.disabled;
+
   const valueContainerStyle = StyleSheet.flatten([
     styles.valueContainer,
-    stylesheet.valueContainer?.normal,
-    hasError && stylesheet.valueContainer?.error,
-    disabled && stylesheet.valueContainer?.disabled,
+    valueContainerNormal,
+    hasError && valueContainerError,
+    disabled && valueContainerDisabled,
   ]);
+
+  const valueTextNormal = stylesheet.valueText?.normal || legacy?.dateValue?.normal;
+  const valueTextError = stylesheet.valueText?.error || legacy?.dateValue?.error;
+  const valueTextDisabled = stylesheet.valueText?.disabled;
 
   const valueTextStyle = StyleSheet.flatten([
     styles.valueText,
-    stylesheet.valueText?.normal,
-    hasError && stylesheet.valueText?.error,
-    disabled && stylesheet.valueText?.disabled,
+    valueTextNormal,
+    hasError && valueTextError,
+    disabled && valueTextDisabled,
   ]);
 
   if (hidden) {
     return null;
   }
 
-  const formattedValue = value ? value.toLocaleDateString() : '';
+  // Prefer format from options/ctx config
+  const cfg = (rest?.config ||
+    (rest as { ctx?: { config?: Record<string, unknown> } })?.ctx?.config ||
+    {}) as {
+    format?: (d: Date) => string;
+    defaultValueText?: string;
+    dialogMode?: 'default' | 'spinner' | 'calendar';
+  };
+  const formattedValue = value
+    ? (cfg?.format?.(value as Date) ??
+      (mode === 'time'
+        ? (value as Date).toLocaleTimeString()
+        : mode === 'datetime'
+          ? (value as Date).toLocaleString()
+          : (value as Date).toLocaleDateString()))
+    : (cfg?.defaultValueText ?? '');
+  const displayMode = cfg?.dialogMode ?? 'default';
 
   return (
     <View style={formGroupStyle}>
@@ -107,8 +159,8 @@ const DatePickerAndroid = ({
         {show && (
           <DateTimePicker
             value={date}
-            mode={mode}
-            display="default"
+            mode={mode === 'datetime' ? (stage ?? 'date') : mode}
+            display={displayMode}
             onChange={handleDateChange}
             minimumDate={minimumDate}
             maximumDate={maximumDate}

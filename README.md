@@ -28,25 +28,23 @@ This is a modernized rewrite of `tcomb-form-native` with the following improveme
 - 🔄 Form state management
 - ✅ Built-in validation
 
-# Contents
+# Table of Contents
 
-- [Setup](#setup)
-- [Supported versions](#supported-versions)
-- [Migration from tcomb-form-native](#migration-from-tcomb-form-native)
-
-- [Example](#example)
+- [Install](#install)
+- [Supported Versions](#supported-versions)
+- [Quick Start (TypeScript)](#quick-start-typescript)
+- [Validation and Required Fields](#validation-and-required-fields)
 - [API](#api)
-- [Types](#types)
-- [Rendering options](#rendering-options)
- - [Required fields](#required-fields)
-- [Unions](#unions)
-- [Lists](#lists)
-- [Customizations](#customizations)
+  - [Form props](#form-props)
+  - [Nested refs](#nested-refs)
+  - [Struct per-field options](#struct-per-field-options)
+- [TypeScript typings and helpers](#typescript-typings-and-helpers)
+- [Migration from tcomb-form-native](#migration-from-tcomb-form-native)
+- [Peer Dependencies](#peer-dependencies)
 - [Tests](#tests)
-- [Acknowledgements](#acknowledgements)
 - [License](#license)
 
-# Setup
+## Install
 
 ```bash
 # Using npm (scoped)
@@ -56,83 +54,22 @@ npm install @riebel/tcomb-form-native-ts
 yarn add @riebel/tcomb-form-native-ts
 ```
 
-## Required fields
-
-All field templates receive a `required?: boolean` flag derived from the form schema and/or component props. Validation has been aligned to respect `required` consistently across fields:
-
-- Textbox: fails when required and value is empty after transformation (null/undefined/empty string).
-- Select: fails when required and the effective value is empty (null/empty string/empty array). If `nullOption` is provided, choosing it counts as empty.
-- DatePicker: fails when required and value is null/undefined.
-- Checkbox: fails when required and value is false.
-- List: fails when required and the items array is empty.
-
-### UI indicators (opt-in)
-
-Built-in templates support an optional asterisk indicator next to the label. To enable, pass `showRequiredIndicator`:
-
-```tsx
-<Form
-  type={YourType}
-  options={{
-    fields: {
-      name: { required: true, showRequiredIndicator: true },
-      status: { required: true, showRequiredIndicator: true },
-    },
-  }}
-/>
-```
-
-Notes:
-
-- The asterisk only renders when both `required` and `showRequiredIndicator` are true.
-- This is purely visual; validation still executes regardless of the indicator.
-
-### Select and nullOption
-
-`Select` supports an optional `nullOption` to allow an empty selection. When `required` is true:
-
-- Choosing `nullOption` is considered empty and will fail validation.
-- Omitting `nullOption` prevents selecting an empty value through the UI.
-
-
-## Migration and scoped package
-
-You can use this package under the personal npm scope `@riebel` or keep the original import name via an npm alias.
-
-- Direct scoped install:
-  ```bash
-  npm i @riebel/tcomb-form-native-ts
-  # or
-  yarn add @riebel/tcomb-form-native-ts
-  Recommended imports:
-```ts
-// Drop-in default (includes tcomb-validation + legacy t.form namespace)
-import t from '@riebel/tcomb-form-native-ts';
-
-// Modern named exports (tree-shakeable)
-import { Form, templates, stylesheet, i18n } from '@riebel/tcomb-form-native-ts';
-```
-
-- Keep imports unchanged with npm alias (consumer app `package.json`):
-  ```json
-  {
-    "dependencies": {
-      "tcomb-form-native": "npm:@riebel/tcomb-form-native-ts@^1.0.0"
-    }
-  }
-  ```
-  Keep imports unchanged:
-```ts
-import t from 'tcomb-form-native';
-```
-
-Legacy API shape is preserved: default import exposes `t.form.Form` and field factories; named exports like `Form`, `templates`, `stylesheet`, and `i18n` are also available.
-
+ 
 ## Supported versions
 
 - React: 19.x
 - React Native: 0.74+ (tested with 0.79)
 - TypeScript: 4.9+
+
+## Legacy compatibility and behavior parity
+
+This refactor preserves legacy `tcomb-form-native` behaviors while modernizing the internals:
+
+- **Validation propagation**: `Form.validate()` delegates to the root input component when available, cascading validation and `hasError` state to nested fields (Struct/List) as in the legacy package.
+- **Path lookups**: `getComponent(path)` and `getComponentAtPath(path)` accept both arrays (e.g., `['address', 'street']`) and legacy string paths (e.g., `'address.street'`, `'phones.0'`). Numeric segments in strings are coerced to numbers.
+- **Stable UID generation**: Each `Form` instance seeds its `UIDGenerator` for deterministic, stable keys (used by lists). For full control across remounts, supply your own generator via `options.uidGenerator`.
+- **Template keys**: Both `templates.datepicker` and `templates.datePicker` are supported for compatibility.
+- **Defaults on Form**: `Form.i18n`, `Form.stylesheet`, and `Form.templates` are exposed and can be reassigned just like the legacy API.
 
 ## Migration from tcomb-form-native
 
@@ -174,6 +111,7 @@ This package is designed as a drop-in replacement. Most apps can switch imports 
 - __React.createClass__: migrate to function components or ES6 classes.
 - __onChange signature__: treat as `(value) => void`. Validate with `getValue()` when needed.
 - __Focus APIs__: `getComponent(['name'])` may not expose imperative methods in custom templates; prefer options (`autoFocus`) when possible.
+ - __Nested refs__: Use `formRef.current?.getComponent(path)` or `getComponentAtPath(path)` with array paths, e.g. `['address', 'street']` or `['items', 0, 'title']`.
 
 ## Peer Dependencies
 
@@ -267,7 +205,7 @@ With **tcomb-form-native-ts** you simply call `<Form type={Model} />` to generat
 
 [https://github.com/bartonhammond/snowflake](https://github.com/bartonhammond/snowflake) React-Native, Tcomb, Redux, Parse.com, Jest - 88% coverage
 
-# Example (TypeScript)
+## Quick Start (TypeScript)
 
 ```tsx
 import React, { useRef } from 'react';
@@ -324,15 +262,46 @@ const styles = StyleSheet.create({
 });
 ```
 
-**Output:**
+<!-- Output screenshots intentionally omitted to keep README lean. Labels are generated automatically. -->
 
-(Labels are automatically generated)
+## Validation and required fields
 
-![Result](docs/images/result.png)
+All field templates receive a `required?: boolean` flag derived from the form schema and/or component props. Validation has been aligned to respect `required` consistently across fields:
 
-**Ouput after a validation error:**
+- Textbox: fails when required and value is empty after transformation (null/undefined/empty string).
+- Select: fails when required and the effective value is empty (null/empty string/empty array). If `nullOption` is provided, choosing it counts as empty.
+- DatePicker: fails when required and value is null/undefined.
+- Checkbox: fails when required and value is false.
+- List: fails when required and the items array is empty.
 
-![Result after a validation error](docs/images/validation.png)
+### UI indicators (opt-in)
+
+Built-in templates support an optional asterisk indicator next to the label. To enable, pass `showRequiredIndicator`:
+
+```tsx
+<Form
+  type={t.struct({ name: t.String, status: t.String })}
+  options={{
+    fields: {
+      name: { required: true, showRequiredIndicator: true },
+      status: { required: true, showRequiredIndicator: true },
+    },
+  }}
+/> 
+```
+
+Notes:
+
+- The asterisk only renders when both `required` and `showRequiredIndicator` are true.
+- This is purely visual; validation still executes regardless of the indicator.
+
+### Select and `nullOption`
+
+`Select` supports an optional `nullOption` to allow an empty selection. When `required` is true:
+
+- Choosing `nullOption` is considered empty and will fail validation.
+- Omitting `nullOption` prevents selecting an empty value through the UI.
+
 
 # Documentation
 
@@ -348,7 +317,7 @@ The main form component that handles form rendering and state management.
 |------|------|-------------|
 | `type` | `Type` | The tcomb type definition for the form |
 | `value` | `object` | The current form values |
-| `onChange` | `(value: any) => void` | Callback when form values change |
+| `onChange` | `<T>(value: T, path?: Array<string | number>) => void` | Callback when form values change (second arg is the changed path) |
 | `options` | `object` | Form rendering options |
 | `templates` | `object` | Custom templates for form fields |
 | `stylesheet` | `object` | Custom styles for form elements |
@@ -364,17 +333,73 @@ The main form component that handles form rendering and state management.
 - `List` - List/array field
 - `Struct` - Group of form fields
 
+## Nested refs
+
+Access child components (for focusing, etc.) using array paths. Prefer `getComponent(path)`:
+
+```ts
+// Path segments can be field names (strings) or list indices (numbers)
+formRef.current?.getComponent(['name']);
+formRef.current?.getComponent(['address', 'street']);
+formRef.current?.getComponent(['todos', 0, 'title']);
+```
+
+Notes:
+
+- Paths work across nested `Struct` and `List` fields.
+- Returned component shape depends on the template; prefer passing props like `autoFocus` when possible.
+- A legacy alias `getComponentAtPath(path)` exists on the underlying implementation for parity, but it's not part of the public ref type. Stick to `getComponent(path)` for typed usage.
+
+## Struct per-field options
+
+Override options for individual struct fields via `options.fields.<name>`:
+
+```tsx
+<Form
+  type={t.struct({ name: t.String, age: t.Number })}
+  options={{
+    fields: {
+      name: { label: 'Full name', placeholder: 'John Doe' },
+      age: { label: 'Age', help: 'Years' },
+    },
+  }}
+/>
+```
+
+Additionally, you can override per-field `template`, `stylesheet`, `hasError`, `error`, etc. These are resolved first from `options.fields[name]`, then fall back to form-level options.
+
+## Lists
+
+Enhancements and parity details:
+
+- i18n labels: List templates use `addLabel` and `removeLabel` from `Form.i18n` when not provided in options.
+- Per-item options: Configure child items via `options.item`. For lists inside a struct field, `options.fields.<name>.item` is also supported.
+- Removing to empty: Removing the last item is allowed. Use `required: true` to enforce at least one item at validation time.
+
+Example:
+
+```tsx
+<Form
+  type={t.struct({ tags: t.list(t.String) })}
+  options={{
+    fields: {
+      tags: {
+        addLabel: 'Add tag',
+        removeLabel: 'Remove',
+        item: { placeholder: 'Tag' },
+        required: true,
+        showRequiredIndicator: true,
+      },
+    },
+  }}
+/>
+```
+
 ## Types
 
 ### Built-in Types
 
 - `t.String` - Text input
-- `t.Number` - Number input
-- `t.Boolean` - Checkbox input
-- `t.Date` - Date picker
-- `t.enums` - Dropdown select
-- `t.list` - List/array
-- `t.struct` - Group of fields
 
 ### Custom Types
 
@@ -548,11 +573,12 @@ export function ControlledExample() {
 
 The `onChange` handler signature:
 
-```
-(value: any) => void
+```ts
+<T>(value: T, path?: Array<string | number>) => void
 ```
 
-It receives the current form value (may be invalid until you call `getValue()` to validate).
+- First argument is the next full form value of type `T`.
+- Second argument is the changed path (array). Useful to optimize updates.
 
 ## Disable a field based on another field's value
 
@@ -585,9 +611,10 @@ Use `getComponent(path)` to access a field component when needed (e.g., to scrol
 
 ```tsx
 const Person = t.struct({ name: t.String, surname: t.maybe(t.String) });
+type PersonValue = { name: string; surname?: string | null };
 
 function FocusExample() {
-  const formRef = React.useRef<Form<any> | null>(null);
+  const formRef = React.useRef<Form<PersonValue> | null>(null);
   React.useEffect(() => {
     const nameField = formRef.current?.getComponent(['name']);
     // nameField may expose focus(); check before calling
@@ -603,10 +630,11 @@ function FocusExample() {
 
 ```tsx
 const Person = t.struct({ name: t.String, surname: t.maybe(t.String), age: t.Number, rememberMe: t.Boolean });
+type PersonValue = { name: string; surname?: string | null; age: number; rememberMe: boolean };
 
 function ClearOnSubmit() {
-  const [value, setValue] = React.useState<any>(null);
-  const formRef = React.useRef<Form<any> | null>(null);
+  const [value, setValue] = React.useState<PersonValue | null>(null);
+  const formRef = React.useRef<Form<PersonValue> | null>(null);
   const onSubmit = () => {
     const v = formRef.current?.getValue();
     if (v) {
@@ -629,7 +657,7 @@ const Country = t.enums({
 }, 'Country');
 
 function DynamicForm() {
-  const [value, setValue] = React.useState<any>({ country: 'IT' });
+  const [value, setValue] = React.useState<{ country: 'IT' | 'US'; name?: string; rememberMe?: boolean }>({ country: 'IT' });
   const type = React.useMemo(() => {
     if (value.country === 'IT') return t.struct({ country: Country, rememberMe: t.Boolean });
     if (value.country === 'US') return t.struct({ country: Country, name: t.String });
@@ -805,7 +833,7 @@ For the collapsible customization, look at the `pickerContainer`, `pickerTouchab
 A *predicate* is a function with the following signature:
 
 ```
-(x: any) => boolean
+(x: unknown) => boolean
 ```
 
 You can refine a type with the `t.refinement(type, predicate)` combinator:
@@ -1720,68 +1748,14 @@ var options = {
 };
 ```
 
-# Tests
+## Tests
 
-```
+```bash
 npm test
 ```
-**Note:** If you are using Jest, you will encounter an error which can
-be fixed w/ a small change to the ```package.json```.
 
-The error will look similiar to the following:
-```
-Error: Cannot find module './datepicker' from 'index.js' at
-Resolver.resolveModule
-```
+This repo uses TypeScript and runs tests via `tsx` + `tape` (see `package.json`).
 
-A completely working example ```jest``` setup is shown below w/ the
-[http://facebook.github.io/jest/docs/api.html#modulefileextensions-array-string](http://facebook.github.io/jest/docs/api.html#modulefileextensions-array-string)
-fix added:
-
-```
-  "jest": {
-    "setupEnvScriptFile": "./node_modules/react-native/jestSupport/env.js",
-    "haste": {
-      "defaultPlatform": "ios",
-      "platforms": [
-        "ios",
-        "android"
-      ],
-      "providesModuleNodeModules": [
-        "react-native"
-      ]
-    },
-    "testPathIgnorePatterns": [
-      "/node_modules/"
-    ],
-    "testFileExtensions": [
-      "es6",
-      "js"
-    ],
-    "moduleFileExtensions": [
-      "js",
-      "json",
-      "es6",
-      "ios.js"    <<<<<<<<<<<< this needs to be defined!
-    ],
-    "unmockedModulePathPatterns": [
-      "react",
-      "react-addons-test-utils",
-      "react-native-router-flux",
-      "promise",
-      "source-map",
-      "key-mirror",
-      "immutable",
-      "fetch",
-      "redux",
-      "redux-thunk",
-      "fbjs"
-    ],
-    "collectCoverage": false,
-    "verbose": true
-    },
-```
-
-# License
+## License
 
 [MIT](LICENSE)

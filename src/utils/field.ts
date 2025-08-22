@@ -31,6 +31,12 @@ export function resolveError(
   prevError: string | undefined,
   options: { error?: string | ((value: unknown) => string); hasError?: boolean } | undefined,
   value: unknown,
+  // Optional legacy type hook to derive error text
+  type?: {
+    getValidationErrorMessage?: (value: unknown, path?: unknown, context?: unknown) => string;
+  },
+  // Optional validation context placeholder
+  validationCtx?: { path?: Array<string | number>; context?: unknown },
 ): { error: string | undefined; hasError: boolean } {
   let error = prevError;
   let hasError = prevHasError;
@@ -40,6 +46,16 @@ export function resolveError(
   }
   if (typeof options?.hasError === 'boolean') {
     hasError = options.hasError;
+  }
+  // If we still have an error state but no explicit message, consult type.getValidationErrorMessage
+  if (hasError && !error && type?.getValidationErrorMessage) {
+    try {
+      const path = validationCtx?.path ?? [];
+      const ctx = validationCtx?.context ?? {};
+      error = type.getValidationErrorMessage(value, path as unknown, ctx);
+    } catch {
+      // ignore
+    }
   }
   return { error, hasError: Boolean(hasError) };
 }

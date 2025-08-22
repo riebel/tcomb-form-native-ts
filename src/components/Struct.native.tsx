@@ -9,9 +9,11 @@ const Struct = ({
   hasError,
   label,
   error,
+  showRequiredIndicator,
+  required,
   ...rest
 }: StructTemplateProps) => {
-  // Resolve styles based on component state
+  // Resolve styles
   const fieldsetStyle = StyleSheet.flatten([styles.fieldset, stylesheet.fieldset]);
 
   const controlLabelStyle = StyleSheet.flatten([
@@ -28,7 +30,12 @@ const Struct = ({
 
   return (
     <View style={fieldsetStyle} {...rest}>
-      {label && <Text style={controlLabelStyle}>{label}</Text>}
+      {label && (
+        <Text style={controlLabelStyle}>
+          {label}
+          {showRequiredIndicator && required ? ' *' : ''}
+        </Text>
+      )}
 
       {hasError && error && (
         <Text style={errorBlockStyle} accessibilityLiveRegion="polite">

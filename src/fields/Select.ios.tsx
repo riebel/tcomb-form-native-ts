@@ -74,7 +74,7 @@ const SelectIOS = <T,>({
     [onChange],
   );
 
-  // Resolve common select logic and stylesheet-driven styles
+  // Resolve common select logic and styles
   const {
     selectOptions,
     displayValue,
@@ -93,7 +93,7 @@ const SelectIOS = <T,>({
     disabled,
   });
 
-  // Merge local base styles with stylesheet-driven styles from hook
+  // Merge base styles with hook styles
   const formGroupStyle = StyleSheet.flatten([styles.formGroup, sgFormGroup]);
   const controlLabelStyle = StyleSheet.flatten([styles.controlLabel, sgControlLabel]);
   const helpBlockStyle = StyleSheet.flatten([styles.helpBlock, sgHelpBlock]);
@@ -105,7 +105,7 @@ const SelectIOS = <T,>({
     return null;
   }
 
-  // selectOptions and displayValue provided by hook
+  // selectOptions and displayValue from hook
 
   return (
     <View style={formGroupStyle}>

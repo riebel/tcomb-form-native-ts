@@ -1,6 +1,6 @@
 {
   "name": "@riebel/tcomb-form-native-ts",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "React Native forms powered by tcomb-validation. Modern TypeScript build with legacy-compatible API (drop-in replacement).",
   "main": "index.js",
   "types": "dist/index.d.ts",
@@ -13,7 +13,7 @@
   ],
   "type": "commonjs",
   "scripts": {
-    "lint": "eslint src",
+    "lint": "eslint src --fix",
     "clean": "rimraf dist",
     "prebuild": "npm run clean",
     "build": "tsc -p tsconfig.json",

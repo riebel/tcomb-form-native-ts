@@ -3,7 +3,12 @@ import { Platform } from 'react-native';
 
 import DatePickerAndroid from './DatePicker.android';
 import DatePickerIOS from './DatePicker.ios';
-import type { DatePickerTemplateProps, DatePickerProps } from '../types/field.types';
+import type {
+  DatePickerTemplateProps,
+  DatePickerProps,
+  DatePickerCtx,
+  DatePickerOptions,
+} from '../types/field.types';
 import { applyAutoLabel, appendOptionalSuffix, resolveError } from '../utils/field';
 
 export class DatePicker {
@@ -18,10 +23,10 @@ export class DatePicker {
   getLocals() {
     const { type, options = {}, value, ctx } = this.props;
 
-    // Label handling
+    // Label
     let label: string | null | undefined = options.label ?? undefined;
     if (ctx?.auto === 'none') {
-      label = null; // tests expect null
+      label = null;
     } else {
       label = applyAutoLabel(label, ctx);
       label = appendOptionalSuffix(label, type, ctx);
@@ -33,8 +38,14 @@ export class DatePicker {
       displayValue = options.transformer.format(value);
     }
 
-    // Error handling
-    const { error, hasError } = resolveError(this._hasError, this._error, options, value);
+    // Error handling (pass type for legacy getValidationErrorMessage)
+    const { error, hasError } = resolveError(
+      this._hasError,
+      this._error,
+      options,
+      value,
+      type as unknown as { getValidationErrorMessage?: (v: unknown) => string },
+    );
 
     return {
       type,
@@ -58,7 +69,7 @@ export class DatePicker {
     let validatedValue: unknown = value;
     let isValid = true;
 
-    // Parse step: isolate parser exceptions only
+    // Parse (catch errors)
     try {
       if (options.transformer?.parse && value !== undefined && value !== null) {
         const formatted = options.transformer.format
@@ -72,10 +83,15 @@ export class DatePicker {
       isValid = false;
     }
 
-    // Required check without throwing
+    // Required check
     if (isValid && required && (validatedValue === null || validatedValue === undefined)) {
       this._hasError = true;
-      this._error = 'This field is required';
+      const i18n = (
+        this.props as { ctx?: { i18n?: { required?: string } | Record<string, string> } }
+      ).ctx?.i18n;
+      this._error =
+        (i18n && typeof i18n === 'object' && (i18n as { required?: string }).required) ||
+        'This field is required';
       isValid = false;
     }
 
@@ -93,14 +109,45 @@ export class DatePicker {
 
   getTemplate() {
     const { options = {}, ctx } = this.props;
-    return options.template || ctx?.templates?.datepicker;
+    const templates = (ctx as DatePickerCtx | undefined)?.templates as
+      | {
+          datepicker?: React.ComponentType<DatePickerTemplateProps>;
+          datePicker?: React.ComponentType<DatePickerTemplateProps>;
+        }
+      | undefined;
+    return options.template || templates?.datepicker || templates?.datePicker;
   }
 
-  static ReactComponent = class extends React.Component<DatePickerTemplateProps> {
+  static ReactComponent = class extends React.Component<
+    DatePickerTemplateProps & { ctx?: DatePickerCtx; options?: DatePickerOptions }
+  > {
     static displayName = 'DatePicker';
     render() {
-      const Comp = Platform.OS === 'ios' ? DatePickerIOS : DatePickerAndroid;
-      return <Comp {...(this.props as DatePickerTemplateProps)} />;
+      // Prefer explicit template, then ctx, else platform default
+      const templateOverride =
+        this.props.options?.template ||
+        (
+          this.props.ctx?.templates as
+            | {
+                datepicker?: React.ComponentType<DatePickerTemplateProps>;
+                datePicker?: React.ComponentType<DatePickerTemplateProps>;
+              }
+            | undefined
+        )?.datepicker ||
+        (
+          this.props.ctx?.templates as
+            | {
+                datepicker?: React.ComponentType<DatePickerTemplateProps>;
+                datePicker?: React.ComponentType<DatePickerTemplateProps>;
+              }
+            | undefined
+        )?.datePicker;
+      const Comp = templateOverride
+        ? templateOverride
+        : Platform.OS === 'ios'
+          ? DatePickerIOS
+          : DatePickerAndroid;
+      return <Comp {...this.props} />;
     }
   };
 }

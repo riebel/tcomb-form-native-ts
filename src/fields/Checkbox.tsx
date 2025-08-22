@@ -17,7 +17,7 @@ export class Checkbox {
     const options = this.props.options || {};
     const transformer = this.props.transformer || options.transformer;
 
-    // Label handling
+    // Label
     let finalLabel: string | null | undefined = options.label ?? this.props.label ?? undefined;
     if (ctx?.auto === 'none') {
       finalLabel = null;
@@ -32,9 +32,15 @@ export class Checkbox {
       displayValue = transformer.format(value);
     }
 
-    // Error handling
-    let { error, hasError } = resolveError(this._hasError, this._error, this.props, value);
-    // Legacy options.error + options.hasError take precedence if provided
+    // Error handling (pass type for legacy getValidationErrorMessage)
+    let { error, hasError } = resolveError(
+      this._hasError,
+      this._error,
+      this.props,
+      value,
+      type as unknown as { getValidationErrorMessage?: (v: unknown) => string },
+    );
+    // options.error + options.hasError take precedence if provided
     if (options.hasError) {
       hasError = true;
       error = typeof options.error === 'function' ? options.error(value) : options.error;
@@ -56,7 +62,7 @@ export class Checkbox {
     let validatedValue: boolean = Boolean(value);
     let isValid = true;
 
-    // Parse/transform the value, catching only real parse errors
+    // Parse/transform (catch parse errors)
     try {
       if (transformer?.parse && value !== undefined && value !== null) {
         const formatted = transformer.format ? transformer.format(value) : value;
@@ -69,10 +75,15 @@ export class Checkbox {
       isValid = false;
     }
 
-    // Required validation without using exceptions for control flow
+    // Required validation
     if (isValid && required && !validatedValue) {
       this._hasError = true;
-      this._error = 'This field is required';
+      const i18n = (
+        this.props as { ctx?: { i18n?: { required?: string } | Record<string, string> } }
+      ).ctx?.i18n;
+      this._error =
+        (i18n && typeof i18n === 'object' && (i18n as { required?: string }).required) ||
+        'This field is required';
       isValid = false;
     }
 
@@ -92,9 +103,16 @@ export class Checkbox {
     return this.props.options?.template || this.props.ctx?.templates?.checkbox;
   }
 
-  static ReactComponent = class extends React.Component<CheckboxTemplateProps> {
+  static ReactComponent = class extends React.Component<
+    CheckboxTemplateProps & {
+      ctx?: { templates?: { checkbox?: React.ComponentType<CheckboxTemplateProps> } };
+      options?: { template?: React.ComponentType<CheckboxTemplateProps> };
+    }
+  > {
     static displayName = 'Checkbox';
     render() {
+      const Template = this.props.options?.template || this.props.ctx?.templates?.checkbox;
+      if (Template) return <Template {...this.props} />;
       return <CheckboxNative {...this.props} />;
     }
   };

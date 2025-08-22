@@ -15,16 +15,16 @@ export class List<T = unknown> {
     return (t?.meta?.type || t?.meta?.of) as Dispatchable | undefined;
   }
 
-  // Builds a lightweight description of items for tests to introspect
+  // Lightweight description for tests
   getItems(): Array<ListItem<T>> {
     const values = Array.isArray(this.props.value) ? this.props.value : [];
     const inner = this.getItemType();
 
     return values.map((item, index) => {
-      // If inner type is a union with dispatch, select the concrete type for this item
+      // If inner is a union, dispatch to concrete type
       const concreteType = typeof inner?.dispatch === 'function' ? inner.dispatch(item) : inner;
       const input = {
-        // Mimic a React element-like shape that tests access via `.input.props.type`
+        // Element-like shape for tests (`.input.props.type`)
         props: { type: concreteType },
       } as unknown as React.ReactNode;
 
@@ -42,7 +42,7 @@ export class List<T = unknown> {
     return ctx?.templates?.list;
   }
 
-  // Public generic component type to preserve TValue for consumers
+  // Generic React component to preserve TValue
   static ReactComponent = class extends React.Component<
     ListTemplateProps<unknown> & {
       // Allow custom template injection similar to other fields
@@ -52,9 +52,9 @@ export class List<T = unknown> {
   > {
     static displayName = 'List';
     render() {
-      // Prefer ctx template via instance API for parity with other fields
+      // Prefer ctx template for parity
       const helper = new List<unknown>({
-        // Only ctx is needed for template resolution here
+        // Only ctx needed for template resolution
         ctx: this.props.ctx as ListProps['ctx'],
       } as ListProps);
       const Comp = helper.getTemplate() || this.props.templates?.list || ListNative;

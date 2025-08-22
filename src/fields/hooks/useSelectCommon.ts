@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, type StyleProp, type ViewStyle, type TextStyle } from 'react-native';
 import type {
   SelectOption,
   UseSelectCommonArgs,
@@ -44,16 +44,41 @@ export function useSelectCommon<T>({
 
   const errorBlockStyle = StyleSheet.flatten([stylesheet.errorBlock]);
 
+  // Fallback to legacy select styles when valueContainer not provided
+  type LegacyStyles = {
+    pickerTouchable?: {
+      normal?: StyleProp<ViewStyle>;
+      error?: StyleProp<ViewStyle>;
+      notEditable?: StyleProp<ViewStyle>;
+    };
+    select?: { normal?: StyleProp<ViewStyle> };
+    pickerValue?: {
+      normal?: StyleProp<TextStyle>;
+      error?: StyleProp<TextStyle>;
+      notEditable?: StyleProp<TextStyle>;
+    };
+  };
+  const legacy = stylesheet as unknown as LegacyStyles;
+  const valueContainerNormal =
+    stylesheet.valueContainer?.normal || legacy?.pickerTouchable?.normal || legacy?.select?.normal;
+  const valueContainerError = stylesheet.valueContainer?.error || legacy?.pickerTouchable?.error;
+  const valueContainerDisabled =
+    stylesheet.valueContainer?.disabled || legacy?.pickerTouchable?.notEditable;
+
   const valueContainerStyle = StyleSheet.flatten([
-    stylesheet.valueContainer?.normal,
-    hasError && stylesheet.valueContainer?.error,
-    disabled && stylesheet.valueContainer?.disabled,
+    valueContainerNormal,
+    hasError && valueContainerError,
+    disabled && valueContainerDisabled,
   ]);
 
+  const valueTextNormal = stylesheet.valueText?.normal || legacy?.pickerValue?.normal;
+  const valueTextError = stylesheet.valueText?.error || legacy?.pickerValue?.error;
+  const valueTextDisabled = stylesheet.valueText?.disabled || legacy?.pickerValue?.notEditable;
+
   const valueTextStyle = StyleSheet.flatten([
-    stylesheet.valueText?.normal,
-    hasError && stylesheet.valueText?.error,
-    disabled && stylesheet.valueText?.disabled,
+    valueTextNormal,
+    hasError && valueTextError,
+    disabled && valueTextDisabled,
   ]);
 
   return {

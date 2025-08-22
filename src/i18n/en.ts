@@ -1,4 +1,4 @@
-// English translations for tcomb-form-native
+// English translations
 import type { I18nTranslations } from '../types/field.types';
 
 const en: I18nTranslations = {

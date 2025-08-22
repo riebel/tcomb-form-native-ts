@@ -21,7 +21,7 @@ export type BaseTemplateProps<TValue, TStylesheet, TExtraProps = object> = {
   stylesheet: TStylesheet;
 } & TExtraProps;
 
-// Reusable generic transformer type
+// Transformer
 export type Transformer<I, O> = {
   format: (value: I) => O;
   parse: (value: O) => I;
@@ -65,6 +65,13 @@ export type BaseFieldOptions<TTemplateProps, TTransformer = unknown> = {
   hasError?: boolean;
   error?: string | ((value: unknown) => string);
   transformer?: TTransformer;
+  // Per-field overrides
+  auto?: string;
+  i18n?: I18n;
+  hidden?: boolean;
+  disabled?: boolean;
+  // Per-field stylesheet override (merged over form-level)
+  stylesheet?: Partial<typeof import('../stylesheets/bootstrap').default>;
 };
 
 export type BaseCtx<TTemplates extends Record<string, unknown> = Record<string, unknown>> = {
@@ -72,6 +79,8 @@ export type BaseCtx<TTemplates extends Record<string, unknown> = Record<string, 
   label?: string;
   i18n?: { optional?: string; required?: string } | I18n;
   templates?: TTemplates;
+  // Arbitrary config merged from ctx.config and options.config
+  config?: Record<string, unknown>;
 };
 
 export type FieldProps<TValue, TOptions, TCtx, TTypeLike = unknown> = {
@@ -79,7 +88,7 @@ export type FieldProps<TValue, TOptions, TCtx, TTypeLike = unknown> = {
   value?: TValue;
   options?: TOptions;
   ctx?: TCtx;
-  // BaseTemplateProps.required surfaced for implementation-level validation
+  // required exposed for validation
   required?: boolean;
 };
 
@@ -160,16 +169,16 @@ export type TextboxTemplateProps = BaseTemplateProps<
   string | number | null,
   TextboxStylesheet,
   {
-    // UI hint: when true and `required`, templates may render an asterisk next to the label
+    // Optional asterisk hint when `required`
     showRequiredIndicator?: boolean;
-    // Legacy tcomb-form-native props expected on Textbox instances
+    // Legacy-compatible Textbox props
     type?: {
       meta?: { optional?: boolean; kind?: string };
       (value: unknown): unknown;
     };
     options?: TextboxOptions;
     ctx?: { auto?: string; label?: string; i18n?: I18n; templates?: FormTemplates };
-    // Direct TextInput-like props used by our native template
+    // RN TextInput props passthrough
     editable?: boolean;
     placeholder?: string;
     onChangeText?: (text: string) => void;
@@ -182,7 +191,27 @@ export type TextboxTemplateProps = BaseTemplateProps<
     onFocus?: TextInputProps['onFocus'];
     onSubmitEditing?: TextInputProps['onSubmitEditing'];
     returnKeyType?: TextInputProps['returnKeyType'];
+    blurOnSubmit?: boolean;
     selectTextOnFocus?: boolean;
+    // Additional RN TextInput props
+    allowFontScaling?: boolean;
+    placeholderTextColor?: TextInputProps['placeholderTextColor'];
+    underlineColorAndroid?: TextInputProps['underlineColorAndroid'];
+    selectionColor?: TextInputProps['selectionColor'];
+    maxLength?: number;
+    onEndEditing?: TextInputProps['onEndEditing'];
+    onLayout?: TextInputProps['onLayout'];
+    onSelectionChange?: TextInputProps['onSelectionChange'];
+    onContentSizeChange?: TextInputProps['onContentSizeChange'];
+    numberOfLines?: number;
+    multiline?: boolean;
+    clearButtonMode?: 'never' | 'while-editing' | 'unless-editing' | 'always';
+    clearTextOnFocus?: boolean;
+    enablesReturnKeyAutomatically?: boolean;
+    keyboardAppearance?: 'default' | 'light' | 'dark';
+    onKeyPress?: TextInputProps['onKeyPress'];
+    selectionState?: TextInputProps['selectionState'];
+    textContentType?: TextInputProps['textContentType'];
   }
 >;
 
@@ -212,6 +241,10 @@ export type SelectOptions<T> = BaseFieldOptions<
   order?: 'asc' | 'desc';
   isCollapsed?: boolean;
   onCollapseChange?: (collapsed: boolean) => void;
+  // Android Picker options
+  mode?: 'dialog' | 'dropdown';
+  prompt?: string;
+  itemStyle?: StyleProp<TextStyle>;
 };
 
 export type SelectCtx = BaseCtx<{
@@ -225,9 +258,24 @@ export type DatePickerTypeLike = { meta?: { kind?: string; optional?: boolean } 
 export type DatePickerOptions = BaseFieldOptions<
   DatePickerTemplateProps,
   Transformer<unknown, unknown>
->;
+> & {
+  // DatePicker options
+  mode?: 'date' | 'time' | 'datetime';
+  minimumDate?: Date;
+  maximumDate?: Date;
+  minuteInterval?: number;
+  timeZoneOffsetInMinutes?: number;
+  onPress?: () => void;
+  config?: {
+    animation?: boolean;
+    animationConfig?: Record<string, unknown>;
+    format?: (date: Date) => string;
+    defaultValueText?: string;
+    dialogMode?: 'default' | 'spinner' | 'calendar';
+  };
+};
 export type DatePickerCtx = BaseCtx<{
-  datepicker?: ComponentType<DatePickerTemplateProps>;
+  datePicker?: ComponentType<DatePickerTemplateProps>;
 }>;
 export type DatePickerProps = FieldProps<
   Date | unknown,
@@ -267,16 +315,19 @@ export type Dispatchable = {
 
 export type ListTypeLike = {
   meta?: {
-    kind?: string; // 'list'
-    type?: Dispatchable; // inner type for list
-    of?: Dispatchable; // compatibility alias
+    kind?: string;
+    type?: Dispatchable;
+    of?: Dispatchable;
   };
 };
 
 export type ListProps<T = unknown> = FieldProps<
   T[],
   Record<string, unknown>,
-  { templates?: { list?: ComponentType<ListTemplateProps<unknown>> } },
+  {
+    templates?: { list?: ComponentType<ListTemplateProps<unknown>> };
+    uidGenerator?: { next: () => string };
+  },
   ListTypeLike & Dispatchable
 >;
 
@@ -284,7 +335,7 @@ export type CheckboxTemplateProps = BaseTemplateProps<
   boolean,
   CheckboxStylesheet,
   {
-    // UI hint: when true and `required`, templates may render an asterisk next to the label
+    // Optional asterisk hint when `required`
     showRequiredIndicator?: boolean;
     onTintColor?: string;
     thumbTintColor?: string;
@@ -301,7 +352,7 @@ export type SelectTemplateProps<TValue> = BaseTemplateProps<
   TValue | null,
   SelectStylesheet,
   {
-    // UI hint: when true and `required`, templates may render an asterisk next to the label
+    // Optional asterisk hint when `required`
     showRequiredIndicator?: boolean;
     options: SelectOption<TValue>[];
     nullOption?: SelectOption<null> | false;
@@ -311,6 +362,10 @@ export type SelectTemplateProps<TValue> = BaseTemplateProps<
     onCollapseChange?: (collapsed: boolean) => void;
     onOpen?: () => void;
     onClose?: () => void;
+    // Android Picker props
+    mode?: 'dialog' | 'dropdown';
+    prompt?: string;
+    itemStyle?: StyleProp<TextStyle>;
   }
 >;
 
@@ -318,7 +373,7 @@ export type DatePickerTemplateProps = BaseTemplateProps<
   Date | null,
   DatePickerStylesheet,
   {
-    // UI hint: when true and `required`, templates may render an asterisk next to the label
+    // Optional asterisk hint when `required`
     showRequiredIndicator?: boolean;
     mode?: 'date' | 'time' | 'datetime';
     format?: string;
@@ -333,6 +388,8 @@ export type DatePickerTemplateProps = BaseTemplateProps<
       defaultValueText?: string;
       dialogMode?: 'default' | 'spinner' | 'calendar';
     };
+    // Hook before opening the picker
+    onPress?: () => void;
     onOpen?: () => void;
     onClose?: () => void;
   }
@@ -355,12 +412,18 @@ export type ListTemplateProps<T> = BaseTemplateProps<
     items?: T[];
     onAdd: () => void;
     onRemove: (index: number) => void;
+    onMoveUp?: (index: number) => void;
+    onMoveDown?: (index: number) => void;
     renderItem: (item: T, index: number) => ReactNode;
     addLabel?: string;
     removeLabel?: string;
+    upLabel?: string;
+    downLabel?: string;
     disableAdd?: boolean;
     disableRemove?: boolean;
     disableOrder?: boolean;
+    // Legacy-like context for templates that need UID keys and path
+    ctx?: { uidGenerator?: { next: () => string }; path?: Array<string | number> };
   }
 >;
 
@@ -372,6 +435,8 @@ export type StructTemplateProps = BaseTemplateProps<
     fieldset?: StyleProp<ViewStyle>;
     controlLabel?: { normal?: StyleProp<TextStyle>; error?: StyleProp<TextStyle> };
     errorBlock?: StyleProp<TextStyle>;
+    // UI hint: when true and `required`, templates may render an asterisk next to the label
+    showRequiredIndicator?: boolean;
   }
 >;
 
@@ -490,7 +555,7 @@ export type FieldComponentType<T> = React.ComponentType<
   | StructTemplateProps
 >;
 
-export interface FormProps<T, TContext = unknown> {
+export type FormProps<T = unknown, TContext = Record<string, unknown>> = {
   type?: unknown;
   value?: T;
   options?: {
@@ -499,14 +564,13 @@ export interface FormProps<T, TContext = unknown> {
       options: Record<string, unknown>,
     ) => FieldComponentType<T>;
     uidGenerator?: import('../util').UIDGenerator;
-    [key: string]: unknown;
   };
-  onChange?: (value: T) => void;
+  onChange?: (value: T, path?: Array<string | number>) => void;
   context?: TContext;
   stylesheet?: Partial<typeof import('../stylesheets/bootstrap').default>;
   templates?: FormTemplates;
   i18n?: I18n;
-}
+};
 
 export interface FormState {
   hasError: boolean;
@@ -518,9 +582,16 @@ export interface FormInputComponent<T> {
 }
 
 export interface MinimalFormRef<T = unknown> {
-  getValue(): T | undefined;
+  /**
+   * Read the current valid value. Returns null when invalid per legacy contract.
+   */
+  getValue(): T | null;
   validate(): ReturnType<typeof import('tcomb-validation').validate>;
   pureValidate(): ReturnType<typeof import('tcomb-validation').validate>;
+  // Minimal legacy helper: returns the root component when path is omitted or empty
+  getComponent(path?: Array<string | number>): FormInputComponent<T> | undefined;
+  // Legacy helper exposure for apps that used uid generator directly
+  getUIDGenerator(): import('../util').UIDGenerator | undefined;
 }
 
 export type FormStatics = {

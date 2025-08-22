@@ -9,7 +9,7 @@ import i18n from './i18n/en';
 import stylesheet from './stylesheets/bootstrap';
 import templates from './templates/bootstrap';
 
-const ForwardedForm = React.forwardRef<MinimalFormRef<unknown>, CoreFormProps<unknown>>(
+const ForwardedForm = React.forwardRef<MinimalFormRef, CoreFormProps>(
   function FormForwarded(props, ref) {
     const withDefaults = {
       i18n,
@@ -18,7 +18,7 @@ const ForwardedForm = React.forwardRef<MinimalFormRef<unknown>, CoreFormProps<un
       ...props,
     };
     return React.createElement(BaseForm, {
-      ref: ref as React.Ref<MinimalFormRef<unknown>>,
+      ref: ref as React.Ref<MinimalFormRef>,
       ...withDefaults,
     });
   },
@@ -36,6 +36,16 @@ export { templates };
 
 export { default as stylesheet } from './stylesheets/bootstrap';
 export { default as i18n } from './i18n/en';
+export {
+  UIDGenerator,
+  humanize,
+  merge,
+  move,
+  getTypeInfo,
+  getOptionsOfEnum,
+  getTypeFromUnion,
+  getComponentOptions,
+} from './util';
 
 export type { FormProps } from './types/field.types';
 
@@ -65,11 +75,6 @@ export type {
   ListItem,
 } from './types/field.types';
 
-// Legacy default export typing for TS consumers using `import t from 'tcomb-form-native'`.
-// Mirrors the runtime shape provided by the CommonJS shim `index.js`.
-
-// Importing type of tcomb-validation via typeof import for compatibility
-
-// Runtime-safe placeholder to prevent ReferenceError when importing this TS entry in tests;
-// real default export is provided by the CommonJS root shim `index.js`.
+// Default export is a type-only placeholder; the actual runtime default export
+// is provided by the CommonJS shim in the root `index.js`.
 export default {} as unknown as import('./types/field.types').LegacyT;

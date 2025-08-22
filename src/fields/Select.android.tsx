@@ -70,7 +70,7 @@ const SelectAndroid = <T,>({
     }
   }, [disabled, showPicker, isCollapsedProp, onCollapseChange, onOpen, onClose]);
 
-  // Resolve common select logic and stylesheet-driven styles
+  // Resolve common select logic and styles
   const {
     selectOptions,
     displayValue,
@@ -89,7 +89,7 @@ const SelectAndroid = <T,>({
     disabled,
   });
 
-  // Merge local base styles with stylesheet-driven styles from hook
+  // Merge base styles with hook styles
   const formGroupStyle = StyleSheet.flatten([styles.formGroup, sgFormGroup]);
   const controlLabelStyle = StyleSheet.flatten([styles.controlLabel, sgControlLabel]);
   const helpBlockStyle = StyleSheet.flatten([styles.helpBlock, sgHelpBlock]);
@@ -101,7 +101,7 @@ const SelectAndroid = <T,>({
     return null;
   }
 
-  // selectOptions and displayValue provided by hook
+  // selectOptions and displayValue from hook
 
   return (
     <View style={formGroupStyle}>
@@ -126,7 +126,6 @@ const SelectAndroid = <T,>({
             onValueChange={handleValueChange}
             style={styles.picker}
             dropdownIconColor="#000000"
-            mode="dropdown"
             {...rest}
           >
             {selectOptions.map(option => (

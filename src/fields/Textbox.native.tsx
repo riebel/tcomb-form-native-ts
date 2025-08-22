@@ -1,43 +1,30 @@
 import React, { ComponentType } from 'react';
 import { View, Text, TextInput, StyleSheet } from 'react-native';
-import bootstrapStyles from '../stylesheets/bootstrap';
 
 import type { TextboxTemplateProps, LegacyNumberTransformer } from '../types/field.types';
 
-// Provide a typed way to access the static numberTransformer without using 'any'
-
 let getStaticNumberTransformer: () => LegacyNumberTransformer = () => undefined;
 
-// Keep getLocals as a standalone function
 const getLocals = (props: TextboxTemplateProps) => {
   const { type, options = {}, value, error, hasError, stylesheet = {}, ctx, ...rest } = props;
 
   let label = options?.label;
-  if (!label && ctx?.auto === 'labels' && ctx?.label) {
-    label = ctx.label;
-  }
+  if (!label && ctx?.auto === 'labels' && ctx?.label) label = ctx.label;
 
   let placeholder = options?.placeholder;
-  if (!placeholder && ctx?.auto === 'placeholders' && ctx?.label) {
-    placeholder = ctx.label;
-  }
+  if (!placeholder && ctx?.auto === 'placeholders' && ctx?.label) placeholder = ctx.label;
 
   const isOptional = type?.meta?.optional || type?.meta?.kind === 'maybe';
   if (isOptional) {
-    if (label && ctx?.i18n?.optional) {
-      label = `${label}${ctx.i18n.optional}`;
-    }
-    if (placeholder && ctx?.i18n?.optional) {
-      placeholder = `${placeholder}${ctx.i18n.optional}`;
-    }
+    if (label && ctx?.i18n?.optional) label += ctx.i18n.optional;
+    if (placeholder && ctx?.i18n?.optional) placeholder += ctx.i18n.optional;
   }
 
-  // Handle value transformation (with legacy fallback to Textbox.numberTransformer)
+  // Value transform (fallback to static numberTransformer)
   let displayValue = value;
   const legacyTransformer = getStaticNumberTransformer();
   const transformer = options?.transformer || legacyTransformer;
   if (transformer?.format && value !== null && value !== undefined) {
-    // Call format for any provided value (including arrays), matching legacy behavior
     displayValue = transformer.format(value as unknown as string | number);
   } else if (value === null || value === undefined) {
     displayValue = '';
@@ -62,7 +49,6 @@ const getLocals = (props: TextboxTemplateProps) => {
   };
 };
 
-// Create a plain class that can be instantiated with new
 export class Textbox {
   props: TextboxTemplateProps & {
     ctx?: { templates?: { textbox?: ComponentType<TextboxTemplateProps> } };
@@ -70,7 +56,7 @@ export class Textbox {
   private _hasError: boolean = false;
   private _error: string | undefined;
 
-  // Legacy-compatible static transformer holder (e.g., t.form.Textbox.numberTransformer)
+  // Legacy static numberTransformer
   static numberTransformer?: {
     format: (value: string | number) => string | null;
     parse: (value: string) => number | null | undefined;
@@ -84,7 +70,7 @@ export class Textbox {
     const { options = {}, error, hasError, value } = this.props;
     const locals = getLocals(this.props);
 
-    // Handle error state
+    // Error state
     if (options.error) {
       locals.error = typeof options.error === 'function' ? options.error(value) : options.error;
       locals.hasError = true;
@@ -93,7 +79,7 @@ export class Textbox {
       locals.hasError = this._hasError;
     }
 
-    // Override with direct props if provided
+    // Override via props
     if (error !== undefined) locals.error = error;
     if (hasError !== undefined) {
       locals.hasError = hasError;
@@ -109,7 +95,7 @@ export class Textbox {
     let validatedValue = value;
     let isValid = true;
 
-    // Parse step: isolate transformer exceptions only
+    // Parse (catch transformer errors)
     try {
       const legacyTransformer = (this.constructor as typeof Textbox).numberTransformer;
       const transformer = options.transformer || legacyTransformer;
@@ -136,7 +122,7 @@ export class Textbox {
       isValid = false;
     }
 
-    // Required check without throwing
+    // Required check
     if (isValid && this.props.required) {
       const isEmpty =
         validatedValue === undefined ||
@@ -144,12 +130,17 @@ export class Textbox {
         (typeof validatedValue === 'string' && validatedValue === '');
       if (isEmpty) {
         this._hasError = true;
-        this._error = 'This field is required';
+        const i18n = (
+          this.props as { ctx?: { i18n?: { required?: string } | Record<string, string> } }
+        ).ctx?.i18n;
+        this._error =
+          (i18n && typeof i18n === 'object' && (i18n as { required?: string }).required) ||
+          'This field is required';
         isValid = false;
       }
     }
 
-    // Type validation may throw; keep in try/catch
+    // Type validation (catch errors)
     if (
       isValid &&
       type &&
@@ -183,22 +174,43 @@ export class Textbox {
 
   getTemplate() {
     const { options = {}, ctx } = this.props;
-    return options.template || ctx?.templates?.textbox || bootstrapStyles.textboxViewNotEditable;
+    return options.template || ctx?.templates?.textbox || TextboxTemplate;
   }
 
-  // Keep the React component as a static property
-  static ReactComponent = class extends React.Component<TextboxTemplateProps> {
+  static ReactComponent = class extends React.Component<
+    TextboxTemplateProps & {
+      ctx?: { templates?: { textbox?: ComponentType<TextboxTemplateProps> } };
+      options?: { template?: ComponentType<TextboxTemplateProps> };
+    }
+  > {
     static displayName = 'Textbox';
     render() {
-      return <TextboxTemplate {...this.props} />;
+      const Template =
+        this.props.options?.template || this.props.ctx?.templates?.textbox || TextboxTemplate;
+      return <Template {...this.props} />;
     }
   };
 }
 
-// Export getLocals as a named export
+// Default number transformer helper
+export const defaultNumberTransformer: LegacyNumberTransformer = {
+  format: (value: string | number) => {
+    if (value === null || value === undefined) return '';
+    return String(value);
+  },
+  parse: (value: string) => {
+    if (value === '') return null;
+    const n = Number(value);
+    return Number.isNaN(n) ? null : n;
+  },
+};
+
+Textbox.numberTransformer = defaultNumberTransformer || Textbox.numberTransformer;
+
+getStaticNumberTransformer = () => Textbox.numberTransformer;
+
 export { getLocals };
 
-// Now that Textbox is defined, wire the static getter without using 'any'
 getStaticNumberTransformer = () => Textbox.numberTransformer;
 
 class TextboxTemplate extends React.Component<TextboxTemplateProps> {
@@ -215,6 +227,7 @@ class TextboxTemplate extends React.Component<TextboxTemplateProps> {
       onChange: _omitOnChange,
       onChangeText,
       placeholder,
+      placeholderTextColor,
       value,
       secureTextEntry,
       keyboardType,
@@ -222,10 +235,25 @@ class TextboxTemplate extends React.Component<TextboxTemplateProps> {
       autoCorrect,
       autoFocus,
       onBlur,
+      onEndEditing,
       onFocus,
       onSubmitEditing,
       returnKeyType,
       selectTextOnFocus,
+      underlineColorAndroid,
+      selectionColor,
+      onSelectionChange,
+      numberOfLines,
+      multiline,
+      clearButtonMode,
+      clearTextOnFocus,
+      enablesReturnKeyAutomatically,
+      keyboardAppearance,
+      onKeyPress,
+      selectionState,
+      allowFontScaling,
+      textContentType,
+      type,
       showRequiredIndicator,
       required,
       ...rest
@@ -237,7 +265,7 @@ class TextboxTemplate extends React.Component<TextboxTemplateProps> {
       return null;
     }
 
-    // Resolve styles based on component state
+    // Resolve styles
     const formGroupStyle = StyleSheet.flatten([
       styles.formGroup,
       stylesheet.formGroup?.normal,
@@ -274,6 +302,17 @@ class TextboxTemplate extends React.Component<TextboxTemplateProps> {
 
     const errorBlockStyle = StyleSheet.flatten([styles.errorBlock, stylesheet.errorBlock]);
 
+    // Defaults
+    const resolvedKeyboardType =
+      keyboardType !== undefined
+        ? keyboardType
+        : type?.meta?.kind === 'irreducible' &&
+            (type as { name?: string } | undefined)?.name === 'Number'
+          ? 'numeric'
+          : keyboardType;
+    const resolvedUnderlineColorAndroid =
+      underlineColorAndroid !== undefined ? underlineColorAndroid : 'transparent';
+
     return (
       <View style={formGroupStyle} testID="textbox-container">
         {label && (
@@ -281,8 +320,6 @@ class TextboxTemplate extends React.Component<TextboxTemplateProps> {
             {label}
           </Text>
         )}
-        {/* Asterisk indicator when opted-in */}
-        {/* Note: keep label rendering logic intact and only append when requested */}
         {label && showRequiredIndicator && required && <Text style={controlLabelStyle}> *</Text>}
         <View style={textboxViewStyle} testID="textbox-input-container">
           <TextInput
@@ -290,18 +327,33 @@ class TextboxTemplate extends React.Component<TextboxTemplateProps> {
             style={textboxStyle}
             onChangeText={onChangeText}
             placeholder={placeholder}
+            placeholderTextColor={placeholderTextColor}
             value={value != null ? String(value) : undefined}
             editable={isEditable}
             secureTextEntry={secureTextEntry}
-            keyboardType={keyboardType}
+            keyboardType={resolvedKeyboardType}
             autoCapitalize={autoCapitalize}
             autoCorrect={autoCorrect}
             autoFocus={autoFocus}
             onBlur={onBlur}
+            onEndEditing={onEndEditing}
             onFocus={onFocus}
             onSubmitEditing={onSubmitEditing}
             returnKeyType={returnKeyType}
             selectTextOnFocus={selectTextOnFocus}
+            underlineColorAndroid={resolvedUnderlineColorAndroid}
+            selectionColor={selectionColor}
+            onSelectionChange={onSelectionChange}
+            numberOfLines={numberOfLines}
+            multiline={multiline}
+            clearButtonMode={clearButtonMode}
+            clearTextOnFocus={clearTextOnFocus}
+            enablesReturnKeyAutomatically={enablesReturnKeyAutomatically}
+            keyboardAppearance={keyboardAppearance}
+            onKeyPress={onKeyPress}
+            selectionState={selectionState}
+            allowFontScaling={allowFontScaling}
+            textContentType={textContentType}
             {...rest}
           />
         </View>

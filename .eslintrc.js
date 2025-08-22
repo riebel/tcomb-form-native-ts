@@ -36,7 +36,15 @@ module.exports = {
       { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
     ],
   },
-  ignorePatterns: ['node_modules/', 'android/', 'ios/', '**/__tests__/*', '**/*.test.js'],
+  ignorePatterns: [
+    'node_modules/',
+    'android/',
+    'ios/',
+    'old/',
+    'test/',
+    '**/__tests__/*',
+    '**/*.test.js',
+  ],
   overrides: [
     {
       files: ['*.ts', '*.tsx'],

@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import { View, StyleSheet, Text, TouchableOpacity } from 'react-native';
 
 import type { ListTemplateProps } from '../types/field.types';
@@ -11,8 +11,14 @@ const List = <T,>({
   renderItem: renderItemProp,
   addLabel = 'Add',
   removeLabel = 'Remove',
+  // ordering controls
+  onMoveUp,
+  onMoveDown,
   disableAdd,
   disableRemove,
+  disableOrder,
+  upLabel,
+  downLabel,
   disabled = false,
   hidden,
   stylesheet,
@@ -22,10 +28,12 @@ const List = <T,>({
   error,
   showRequiredIndicator,
   required,
+  ctx,
   ...rest
 }: ListTemplateProps<T>) => {
+  const keyMap = useRef(new Map<unknown, string>());
   const items = (itemsProp ?? (value as T[] | undefined) ?? []) as T[];
-  // Resolve styles based on component state
+  // Resolve styles
   const formGroupStyle = StyleSheet.flatten([
     styles.formGroup,
     stylesheet.formGroup?.normal,
@@ -65,7 +73,11 @@ const List = <T,>({
 
   const renderItemWithButtons = useCallback(
     (item: T, index: number) => {
-      const canRemove = !disabled && !disableRemove && items.length > 1;
+      // Allow removing to empty list
+      const canRemove = !disabled && !disableRemove && items.length >= 1;
+      const canMoveUp = !disabled && !disableOrder && typeof onMoveUp === 'function' && index > 0;
+      const canMoveDown =
+        !disabled && !disableOrder && typeof onMoveDown === 'function' && index < items.length - 1;
       const buttons = disableRemove
         ? []
         : [
@@ -77,11 +89,21 @@ const List = <T,>({
             },
           ];
 
-      const itemKey = (item as unknown as { key?: string })?.key ?? `item-${index}`;
+      let itemKey = (item as unknown as { key?: string })?.key;
+      if (!itemKey) {
+        const existing = keyMap.current.get(item as unknown as object);
+        if (existing) {
+          itemKey = existing;
+        } else {
+          const generated = ctx?.uidGenerator?.next?.() ?? `item-${index}`;
+          keyMap.current.set(item as unknown as object, generated);
+          itemKey = generated;
+        }
+      }
       return (
         <View key={itemKey} style={itemContainerStyle}>
           <View style={styles.itemContent}>{renderItemProp(item, index)}</View>
-          {!disabled && !disableRemove && (
+          {!disabled && (
             <View style={styles.buttonGroup}>
               {buttons.map(button => (
                 <TouchableOpacity
@@ -93,6 +115,30 @@ const List = <T,>({
                   <Text style={buttonTextStyle}>{button.label}</Text>
                 </TouchableOpacity>
               ))}
+              {!disableOrder && (
+                <>
+                  {typeof onMoveUp === 'function' && (
+                    <TouchableOpacity
+                      key="move-up"
+                      style={[buttonStyle, !canMoveUp && styles.disabledButton]}
+                      onPress={() => onMoveUp(index)}
+                      disabled={!canMoveUp}
+                    >
+                      <Text style={buttonTextStyle}>{upLabel ?? '↑'}</Text>
+                    </TouchableOpacity>
+                  )}
+                  {typeof onMoveDown === 'function' && (
+                    <TouchableOpacity
+                      key="move-down"
+                      style={[buttonStyle, !canMoveDown && styles.disabledButton]}
+                      onPress={() => onMoveDown(index)}
+                      disabled={!canMoveDown}
+                    >
+                      <Text style={buttonTextStyle}>{downLabel ?? '↓'}</Text>
+                    </TouchableOpacity>
+                  )}
+                </>
+              )}
             </View>
           )}
         </View>
@@ -108,6 +154,12 @@ const List = <T,>({
       buttonStyle,
       buttonTextStyle,
       renderItemProp,
+      disableOrder,
+      onMoveUp,
+      onMoveDown,
+      upLabel,
+      downLabel,
+      ctx,
     ],
   );
 
