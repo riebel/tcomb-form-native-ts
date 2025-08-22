@@ -150,7 +150,7 @@ export interface SelectStylesheet {
 }
 
 export interface DatePickerStylesheet extends SelectStylesheet {}
-export interface ListStylesheet {
+export type ListStylesheet = {
   formGroup?: { normal?: StyleProp<ViewStyle>; error?: StyleProp<ViewStyle> };
   controlLabel?: { normal?: StyleProp<TextStyle>; error?: StyleProp<TextStyle> };
   helpBlock?: { normal?: StyleProp<TextStyle>; error?: StyleProp<TextStyle> };
@@ -162,7 +162,9 @@ export interface ListStylesheet {
   };
   button?: { normal?: StyleProp<ViewStyle>; disabled?: StyleProp<ViewStyle> };
   buttonText?: { normal?: StyleProp<TextStyle>; disabled?: StyleProp<TextStyle> };
-}
+} & {
+  [index: string]: { [index: string]: TextStyle };
+};
 export interface StructStylesheet {
   fieldset?: StyleProp<ViewStyle>;
   controlLabel?: { normal?: StyleProp<TextStyle>; error?: StyleProp<TextStyle> };
