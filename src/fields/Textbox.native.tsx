@@ -2,24 +2,33 @@ import React, { ComponentType } from 'react';
 import { View, Text, TextInput, StyleSheet } from 'react-native';
 import HelpBlock from '../templates/shared/HelpBlock';
 import ErrorBlock from '../templates/shared/ErrorBlock';
+import { applyAutoLabel, appendOptionalSuffix } from '../utils/field';
 
-import type { TextboxTemplateProps, LegacyNumberTransformer } from '../types/field.types';
+import type {
+  TextboxTemplateProps,
+  LegacyNumberTransformer,
+  AutoLabelCtx,
+} from '../types/field.types';
 
 let getStaticNumberTransformer: () => LegacyNumberTransformer = () => undefined;
 
 const getLocals = (props: TextboxTemplateProps) => {
   const { type, options = {}, value, error, hasError, stylesheet = {}, ctx, ...rest } = props;
 
-  let label = options?.label;
-  if (!label && ctx?.auto === 'labels' && ctx?.label) label = ctx.label;
+  // Resolve label respecting React elements (do not concatenate strings with elements)
+  let label = applyAutoLabel(options?.label ?? undefined, ctx as unknown as AutoLabelCtx);
+  label = appendOptionalSuffix(
+    label,
+    type as unknown as { meta?: { optional?: boolean; kind?: string } },
+    ctx as unknown as { i18n?: { optional?: string } },
+  );
 
+  // Resolve placeholder based on auto placeholders; placeholder is a string in options
   let placeholder = options?.placeholder;
   if (!placeholder && ctx?.auto === 'placeholders' && ctx?.label) placeholder = ctx.label;
-
   const isOptional = type?.meta?.optional || type?.meta?.kind === 'maybe';
-  if (isOptional) {
-    if (label && ctx?.i18n?.optional) label += ctx.i18n.optional;
-    if (placeholder && ctx?.i18n?.optional) placeholder += ctx.i18n.optional;
+  if (isOptional && placeholder && ctx?.i18n?.optional) {
+    placeholder = `${placeholder}${ctx.i18n.optional}`;
   }
 
   // Value transform (fallback to static numberTransformer)
