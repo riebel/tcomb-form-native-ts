@@ -220,18 +220,16 @@ const List = <T,>({
           onPress={onAdd}
           disabled={disabled || Boolean(addBtn?.disabled)}
         >
-          {
-            typeof effectiveAddLabel === 'string' || typeof effectiveAddLabel === 'number' ? (
-              <Text style={buttonTextStyle}>+ {effectiveAddLabel}</Text>
-            ) : React.isValidElement(effectiveAddLabel) ? (
-              <View style={styles.inlineLabelRow}>
-                <Text style={buttonTextStyle}>+</Text>
-                {effectiveAddLabel}
-              </View>
-            ) : (
+          {typeof effectiveAddLabel === 'string' || typeof effectiveAddLabel === 'number' ? (
+            <Text style={buttonTextStyle}>+ {effectiveAddLabel}</Text>
+          ) : React.isValidElement(effectiveAddLabel) ? (
+            <View style={styles.inlineLabelRow}>
               <Text style={buttonTextStyle}>+</Text>
-            )
-          }
+              {effectiveAddLabel}
+            </View>
+          ) : (
+            <Text style={buttonTextStyle}>+</Text>
+          )}
         </TouchableOpacity>
       )}
 
@@ -284,6 +282,11 @@ const styles = StyleSheet.create({
     color: '#737373',
     fontSize: 12,
     marginTop: 5,
+  },
+  inlineLabelRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
   },
   itemContainer: {
     alignItems: 'center',
