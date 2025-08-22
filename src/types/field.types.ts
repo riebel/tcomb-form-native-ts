@@ -402,6 +402,14 @@ export interface ListItem<T> {
   index: number;
 }
 
+// Legacy button object shape some apps pass for list controls
+export interface LegacyListButton {
+  label?: string;
+  onPress: () => void;
+  disabled?: boolean;
+  testID?: string;
+}
+
 export type ListTemplateProps<T> = BaseTemplateProps<
   T[],
   ListStylesheet,
@@ -419,13 +427,13 @@ export type ListTemplateProps<T> = BaseTemplateProps<
     // NOTE: Some apps declare these as required in their component types. We include them here
     // so user components remain assignable to our template slot without code changes.
     /** @deprecated Use onAdd */
-    add: () => void;
+    add: LegacyListButton;
     /** @deprecated Use onRemove */
-    remove: (index: number) => void;
+    remove?: LegacyListButton;
     /** @deprecated Use onMoveUp */
-    moveUp?: (index: number) => void;
+    moveUp?: LegacyListButton;
     /** @deprecated Use onMoveDown */
-    moveDown?: (index: number) => void;
+    moveDown?: LegacyListButton;
     renderItem: (item: T, index: number) => ReactNode;
     addLabel?: string;
     removeLabel?: string;

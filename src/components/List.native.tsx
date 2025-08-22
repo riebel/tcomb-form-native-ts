@@ -37,11 +37,13 @@ const List = <T,>({
   ctx,
   ...rest
 }: ListTemplateProps<T>) => {
-  // Alias legacy props to new ones
-  const onAdd = onAddProp ?? add;
-  const onRemove = onRemoveProp ?? remove;
-  const onMoveUp = onMoveUpProp ?? moveUp;
-  const onMoveDown = onMoveDownProp ?? moveDown;
+  // Support legacy Button object for add/remove/move controls
+  const addBtn = add && typeof add === 'object' ? add : undefined;
+  const onAdd = onAddProp ?? addBtn?.onPress;
+  const effectiveAddLabel = addBtn?.label ?? addLabel;
+  const onRemove = onRemoveProp ?? (typeof remove === 'object' ? undefined : remove);
+  const onMoveUp = onMoveUpProp ?? (typeof moveUp === 'object' ? undefined : moveUp);
+  const onMoveDown = onMoveDownProp ?? (typeof moveDown === 'object' ? undefined : moveDown);
   const keyMap = useRef(new Map<unknown, string>());
   const items = (itemsProp ?? (value as T[] | undefined) ?? []) as T[];
   // Resolve styles
@@ -189,9 +191,9 @@ const List = <T,>({
         <TouchableOpacity
           style={[buttonStyle, styles.addButton]}
           onPress={onAdd}
-          disabled={disabled}
+          disabled={disabled || Boolean(addBtn?.disabled)}
         >
-          <Text style={buttonTextStyle}>+ {addLabel}</Text>
+          <Text style={buttonTextStyle}>+ {effectiveAddLabel}</Text>
         </TouchableOpacity>
       )}
 

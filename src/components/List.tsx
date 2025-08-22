@@ -67,10 +67,18 @@ export class List<T = unknown> {
       };
       const merged = {
         ...p,
-        add: p.add ?? p.onAdd,
-        remove: p.remove ?? p.onRemove,
-        moveUp: p.moveUp ?? p.onMoveUp,
-        moveDown: p.moveDown ?? p.onMoveDown,
+        // Ensure legacy Button object shape for compatibility
+        add:
+          p.add && typeof p.add === 'object'
+            ? (p.add as ListTemplateProps<unknown>['add'])
+            : {
+                label: p.addLabel ?? 'Add',
+                onPress: p.onAdd as () => void,
+                disabled: Boolean(p.disabled || p.disableAdd),
+              },
+        remove: p.remove && typeof p.remove === 'object' ? p.remove : undefined,
+        moveUp: p.moveUp && typeof p.moveUp === 'object' ? p.moveUp : undefined,
+        moveDown: p.moveDown && typeof p.moveDown === 'object' ? p.moveDown : undefined,
       } as ListTemplateProps<unknown>;
       return <Comp {...merged} />;
     }
