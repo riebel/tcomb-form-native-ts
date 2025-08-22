@@ -403,9 +403,14 @@ export interface ListItem<T> {
 }
 
 // Legacy button object shape some apps pass for list controls
-export interface LegacyListButton {
+// Legacy action button used by some older list templates
+export interface LegacyActionButton {
+  // Legacy fields observed in older templates
+  type: string; // e.g. 'add', 'remove', 'up', 'down'
+  click: () => void;
+  // Friendly fields for RN templates (optional)
   label?: string;
-  onPress: () => void;
+  onPress?: () => void;
   disabled?: boolean;
   testID?: string;
 }
@@ -427,13 +432,13 @@ export type ListTemplateProps<T> = BaseTemplateProps<
     // NOTE: Some apps declare these as required in their component types. We include them here
     // so user components remain assignable to our template slot without code changes.
     /** @deprecated Use onAdd */
-    add: LegacyListButton;
+    add: LegacyActionButton;
     /** @deprecated Use onRemove */
-    remove?: LegacyListButton;
+    remove?: LegacyActionButton;
     /** @deprecated Use onMoveUp */
-    moveUp?: LegacyListButton;
+    moveUp?: LegacyActionButton;
     /** @deprecated Use onMoveDown */
-    moveDown?: LegacyListButton;
+    moveDown?: LegacyActionButton;
     renderItem: (item: T, index: number) => ReactNode;
     addLabel?: string;
     removeLabel?: string;

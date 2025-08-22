@@ -72,6 +72,8 @@ export class List<T = unknown> {
           p.add && typeof p.add === 'object'
             ? (p.add as ListTemplateProps<unknown>['add'])
             : {
+                type: 'add',
+                click: p.onAdd as () => void,
                 label: p.addLabel ?? 'Add',
                 onPress: p.onAdd as () => void,
                 disabled: Boolean(p.disabled || p.disableAdd),

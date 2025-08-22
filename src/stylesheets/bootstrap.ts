@@ -9,19 +9,19 @@ const COLORS = {
   border: '#cccccc',
   disabled: '#777777',
   disabledBackground: '#eeeeee',
-} as const;
+};
 
 // Font
 const FONT = {
   size: 17,
-  weight: '500' as const,
-} as const;
+  weight: '500' as '500' | 'normal' | 'bold',
+};
 
 // Base values
 const baseText = {
   fontSize: FONT.size,
   marginBottom: 5,
-} as const;
+};
 
 const baseInput = {
   ...baseText,
@@ -32,7 +32,7 @@ const baseInput = {
   height: 36,
   paddingHorizontal: 7,
   paddingVertical: Platform.OS === 'ios' ? 7 : 0,
-} as const;
+};
 
 // Bootstrap-like stylesheet
 export const bootstrapStyles = {
@@ -165,9 +165,9 @@ export const bootstrapStyles = {
     },
   },
   buttonText: {
-    normal: { color: 'white', fontSize: FONT.size, fontWeight: FONT.weight as '500' },
-    disabled: { color: COLORS.disabled, fontSize: FONT.size, fontWeight: FONT.weight as '500' },
+    normal: { color: 'white', fontSize: FONT.size, fontWeight: FONT.weight },
+    disabled: { color: COLORS.disabled, fontSize: FONT.size, fontWeight: FONT.weight },
   },
-} as const;
+};
 
 export default bootstrapStyles;

@@ -39,7 +39,7 @@ const List = <T,>({
 }: ListTemplateProps<T>) => {
   // Support legacy Button object for add/remove/move controls
   const addBtn = add && typeof add === 'object' ? add : undefined;
-  const onAdd = onAddProp ?? addBtn?.onPress;
+  const onAdd = onAddProp ?? addBtn?.onPress ?? addBtn?.click;
   const effectiveAddLabel = addBtn?.label ?? addLabel;
   const onRemove = onRemoveProp ?? (typeof remove === 'object' ? undefined : remove);
   const onMoveUp = onMoveUpProp ?? (typeof moveUp === 'object' ? undefined : moveUp);
