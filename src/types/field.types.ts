@@ -405,11 +405,11 @@ export interface ListItem<T> {
 // Legacy button object shape some apps pass for list controls
 // Legacy action button used by some older list templates
 export interface LegacyActionButton {
-  // Legacy fields observed in older templates
+  // Legacy fields observed in older list templates
   type: string; // e.g. 'add', 'remove', 'up', 'down'
   click: () => void;
   // Friendly fields for RN templates (optional)
-  label?: string;
+  label: string;
   onPress?: () => void;
   disabled?: boolean;
   testID?: string;
