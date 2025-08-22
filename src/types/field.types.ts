@@ -418,7 +418,7 @@ export interface LegacyActionButton {
   type: string; // e.g. 'add', 'remove', 'up', 'down'
   click: () => void;
   // Friendly fields for RN templates (optional)
-  label: ReactNode;
+  label: string;
   onPress?: () => void;
   disabled?: boolean;
   testID?: string;
@@ -428,14 +428,14 @@ export type ListTemplateProps<T> = Omit<
   BaseTemplateProps<T[], ListStylesheet>,
   'error' | 'label' | 'hasError' | 'hidden' | 'stylesheet'
 > & {
-  // Allow string/number or React elements for error; templates should render safely
-  error: ReactNode;
+  // Legacy templates expect error as a required string
+  error: string;
   // Legacy templates expect hasError to be boolean (not optional)
   hasError: boolean;
   // Legacy templates expect hidden to be boolean (not optional)
   hidden: boolean;
-  // Allow string/number or React elements for label; required in many templates
-  label: ReactNode;
+  // Legacy templates expect a string label; required in many templates
+  label: string;
   // UI hint: when true and `required`, templates may render an asterisk next to the label
   showRequiredIndicator?: boolean;
   // Provide a very generic stylesheet shape to match legacy templates using index access
@@ -462,10 +462,10 @@ export type ListTemplateProps<T> = Omit<
   /** @deprecated Use onMoveDown */
   moveDown?: LegacyActionButton;
   renderItem: (item: T, index: number) => ReactNode;
-  addLabel?: ReactNode;
-  removeLabel?: ReactNode;
-  upLabel?: ReactNode;
-  downLabel?: ReactNode;
+  addLabel?: string;
+  removeLabel?: string;
+  upLabel?: string;
+  downLabel?: string;
   disableAdd?: boolean;
   disableRemove?: boolean;
   disableOrder?: boolean;
