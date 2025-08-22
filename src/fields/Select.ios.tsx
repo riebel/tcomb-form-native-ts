@@ -1,3 +1,4 @@
+import React from 'react';
 import { Picker } from '@react-native-picker/picker';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { View, StyleSheet, Animated, TouchableOpacity, Text } from 'react-native';
@@ -123,7 +124,13 @@ const SelectIOS = <T,>({
 
       <TouchableOpacity onPress={togglePicker} disabled={disabled}>
         <View style={valueContainerStyle}>
-          <Text style={valueTextStyle}>{displayValue || 'Select an option...'}</Text>
+          {typeof displayValue === 'string' || typeof displayValue === 'number' ? (
+            <Text style={valueTextStyle}>{displayValue || 'Select an option...'}</Text>
+          ) : React.isValidElement(displayValue) ? (
+            displayValue
+          ) : (
+            <Text style={valueTextStyle}>Select an option...</Text>
+          )}
         </View>
       </TouchableOpacity>
 

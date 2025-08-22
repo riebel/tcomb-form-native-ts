@@ -1,3 +1,4 @@
+import React from 'react';
 import { Picker } from '@react-native-picker/picker';
 import { useState, useCallback, useEffect } from 'react';
 import { View, StyleSheet, TouchableOpacity, Text } from 'react-native';
@@ -119,7 +120,13 @@ const SelectAndroid = <T,>({
 
       <TouchableOpacity onPress={togglePicker} disabled={disabled}>
         <View style={valueContainerStyle}>
-          <Text style={valueTextStyle}>{displayValue || 'Select an option...'}</Text>
+          {typeof displayValue === 'string' || typeof displayValue === 'number' ? (
+            <Text style={valueTextStyle}>{displayValue || 'Select an option...'}</Text>
+          ) : React.isValidElement(displayValue) ? (
+            displayValue
+          ) : (
+            <Text style={valueTextStyle}>Select an option...</Text>
+          )}
         </View>
       </TouchableOpacity>
 
@@ -137,13 +144,19 @@ const SelectAndroid = <T,>({
             dropdownIconColor="#000000"
             {...rest}
           >
-            {selectOptions.map(option => (
-              <Picker.Item
-                key={option ? `option-${option.value}` : 'option-null'}
-                label={option?.text || ''}
-                value={option?.value}
-              />
-            ))}
+            {selectOptions.map(option => {
+              const labelValue =
+                typeof option?.text === 'string' || typeof option?.text === 'number'
+                  ? String(option?.text)
+                  : '';
+              return (
+                <Picker.Item
+                  key={option ? `option-${option.value}` : 'option-null'}
+                  label={labelValue}
+                  value={option?.value}
+                />
+              );
+            })}
           </Picker>
         </View>
       )}
