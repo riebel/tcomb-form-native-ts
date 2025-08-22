@@ -1,6 +1,6 @@
 import { StyleProp, ViewStyle, TextStyle, TextInputProps } from 'react-native';
 import { ComponentType, ReactNode } from 'react';
-import type React from 'react';
+import type { JSX } from 'react';
 import { Type } from 'tcomb';
 
 /* --------------------
@@ -50,7 +50,8 @@ export interface TextboxStylesheet {
 // Legacy list item shape from the original tcomb-form-native templates
 export interface LegacyListItem {
   key: string;
-  input: React.ReactElement | null;
+  // Use JSX.Element to avoid tying to a specific @types/react namespace
+  input: JSX.Element | null;
   buttons: LegacyActionButton[];
 }
 
@@ -572,7 +573,7 @@ export type UseSelectCommonResult<T> = {
 
 // Template component callable types
 export type SelectComponent = {
-  <T>(props: SelectTemplateProps<T>): React.ReactElement | null;
+  <T>(props: SelectTemplateProps<T>): JSX.Element | null;
   displayName?: string;
 };
 
@@ -652,7 +653,7 @@ export type FormStatics = {
 export type FormComponent = {
   <T>(
     props: FormProps<T> & React.RefAttributes<MinimalFormRef<T> | { getValue(): T | null }>,
-  ): React.ReactElement | null;
+  ): JSX.Element | null;
 } & FormStatics;
 
 export type LegacyFormNamespace = {
