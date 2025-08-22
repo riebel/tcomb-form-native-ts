@@ -65,8 +65,23 @@ export class List<T = unknown> {
         moveUp?: (index: number) => void;
         moveDown?: (index: number) => void;
       };
+      // Build legacy items array expected by classic templates
+      const legacyItems = helper.getItems().map(({ key, input }, index) => ({
+        key,
+        input,
+        buttons: [
+          // Minimal remove button; actual enable/disable handled in native template
+          {
+            type: 'remove',
+            label: p.removeLabel ?? 'Remove',
+            click: () => (p.onRemove as (i: number) => void)?.(index),
+          },
+        ],
+      }));
+
       const merged = {
         ...p,
+        items: legacyItems,
         // Ensure legacy Button object shape for compatibility
         add:
           p.add && typeof p.add === 'object'

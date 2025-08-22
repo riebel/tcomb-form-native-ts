@@ -4,7 +4,8 @@ import { View, StyleSheet, Text, TouchableOpacity } from 'react-native';
 import type { ListTemplateProps } from '../types/field.types';
 
 const List = <T,>({
-  items: itemsProp = [] as T[],
+  // Items provided for legacy web templates; native computes items from value
+  items: _legacyItems,
   value,
   // New API callbacks
   onAdd: onAddProp,
@@ -45,7 +46,7 @@ const List = <T,>({
   const onMoveUp = onMoveUpProp ?? (typeof moveUp === 'object' ? undefined : moveUp);
   const onMoveDown = onMoveDownProp ?? (typeof moveDown === 'object' ? undefined : moveDown);
   const keyMap = useRef(new Map<unknown, string>());
-  const items = (itemsProp ?? (value as T[] | undefined) ?? []) as T[];
+  const items = ((value as T[] | undefined) ?? []) as T[];
   // Resolve styles
   const formGroupStyle = StyleSheet.flatten([
     styles.formGroup,

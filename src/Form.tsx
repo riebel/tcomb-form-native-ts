@@ -587,7 +587,17 @@ class FormImpl<T> extends Component<FormProps<T>, FormState> {
 
               const listProps: ListTemplateProps<unknown> = {
                 ...(innerBaseProps as unknown as ListTemplateProps<unknown>),
-                items: innerItems,
+                items: innerItems.map((it, i) => ({
+                  key: String(i),
+                  input: null,
+                  buttons: [
+                    {
+                      type: 'remove',
+                      label: (options?.i18n as I18n | undefined)?.remove ?? 'Remove',
+                      click: () => handleInnerRemove(i),
+                    },
+                  ],
+                })),
                 onAdd: handleInnerAdd,
                 onRemove: handleInnerRemove,
                 onMoveUp: handleInnerMoveUp,
@@ -1265,7 +1275,17 @@ class FormImpl<T> extends Component<FormProps<T>, FormState> {
             <List.ReactComponent
               key={this.listKeys[index]}
               {...(itemBaseProps as unknown as ListTemplateProps<unknown>)}
-              items={Array.isArray(item) ? (item as unknown[]) : []}
+              items={(Array.isArray(item) ? (item as unknown[]) : []).map((it, i) => ({
+                key: String(i),
+                input: null,
+                buttons: [
+                  {
+                    type: 'remove',
+                    label: (options?.i18n as I18n | undefined)?.remove ?? 'Remove',
+                    click: () => handleRemove(i),
+                  },
+                ],
+              }))}
               onAdd={handleAdd}
               onRemove={handleRemove}
               onMoveUp={handleMoveUp}
@@ -1291,7 +1311,17 @@ class FormImpl<T> extends Component<FormProps<T>, FormState> {
       return (
         <List.ReactComponent
           {...(restBase as unknown as ListTemplateProps<unknown>)}
-          items={items}
+          items={items.map((it, i) => ({
+            key: String(i),
+            input: null,
+            buttons: [
+              {
+                type: 'remove',
+                label: (options?.i18n as I18n | undefined)?.remove ?? 'Remove',
+                click: () => handleRemove(i),
+              },
+            ],
+          }))}
           onAdd={handleAdd}
           onRemove={handleRemove}
           onMoveUp={handleMoveUp}

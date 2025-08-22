@@ -436,9 +436,8 @@ export type ListTemplateProps<T> = Omit<
   label?: string | null;
   // UI hint: when true and `required`, templates may render an asterisk next to the label
   showRequiredIndicator?: boolean;
-  // Old API often passes an explicit items array separate from value
-  // Accept both modern item arrays and legacy item objects ({ key, input, buttons })
-  items?: T[] | LegacyListItem[];
+  // Legacy templates expect framework-provided items array with key/input/buttons
+  items: LegacyListItem[];
   // Legacy list locals included a className string on locals
   className?: string;
   // New API callbacks
