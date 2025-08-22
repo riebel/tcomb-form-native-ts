@@ -58,7 +58,21 @@ export class List<T = unknown> {
         ctx: this.props.ctx as ListProps['ctx'],
       } as ListProps);
       const Comp = helper.getTemplate() || this.props.templates?.list || ListNative;
-      return <Comp {...(this.props as unknown as ListTemplateProps<unknown>)} />;
+      // Provide legacy aliases expected by older templates
+      const p = this.props as unknown as ListTemplateProps<unknown> & {
+        add?: () => void;
+        remove?: (index: number) => void;
+        moveUp?: (index: number) => void;
+        moveDown?: (index: number) => void;
+      };
+      const merged = {
+        ...p,
+        add: p.add ?? p.onAdd,
+        remove: p.remove ?? p.onRemove,
+        moveUp: p.moveUp ?? p.onMoveUp,
+        moveDown: p.moveDown ?? p.onMoveDown,
+      } as ListTemplateProps<unknown>;
+      return <Comp {...merged} />;
     }
   } as unknown as {
     <U>(props: ListTemplateProps<U>): React.ReactElement | null;

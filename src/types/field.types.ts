@@ -410,10 +410,22 @@ export type ListTemplateProps<T> = BaseTemplateProps<
     showRequiredIndicator?: boolean;
     // Old API often passes an explicit items array separate from value
     items?: T[];
+    // New API callbacks
     onAdd: () => void;
     onRemove: (index: number) => void;
     onMoveUp?: (index: number) => void;
     onMoveDown?: (index: number) => void;
+    // Legacy aliases (kept for backward compatibility)
+    // NOTE: Some apps declare these as required in their component types. We include them here
+    // so user components remain assignable to our template slot without code changes.
+    /** @deprecated Use onAdd */
+    add: () => void;
+    /** @deprecated Use onRemove */
+    remove: (index: number) => void;
+    /** @deprecated Use onMoveUp */
+    moveUp?: (index: number) => void;
+    /** @deprecated Use onMoveDown */
+    moveDown?: (index: number) => void;
     renderItem: (item: T, index: number) => ReactNode;
     addLabel?: string;
     removeLabel?: string;

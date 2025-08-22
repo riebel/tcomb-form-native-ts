@@ -6,14 +6,20 @@ import type { ListTemplateProps } from '../types/field.types';
 const List = <T,>({
   items: itemsProp = [] as T[],
   value,
-  onAdd,
-  onRemove,
+  // New API callbacks
+  onAdd: onAddProp,
+  onRemove: onRemoveProp,
+  // Legacy aliases (if provided by user templates)
+  add,
+  remove,
+  // ordering controls
+  onMoveUp: onMoveUpProp,
+  onMoveDown: onMoveDownProp,
+  moveUp,
+  moveDown,
   renderItem: renderItemProp,
   addLabel = 'Add',
   removeLabel = 'Remove',
-  // ordering controls
-  onMoveUp,
-  onMoveDown,
   disableAdd,
   disableRemove,
   disableOrder,
@@ -31,6 +37,11 @@ const List = <T,>({
   ctx,
   ...rest
 }: ListTemplateProps<T>) => {
+  // Alias legacy props to new ones
+  const onAdd = onAddProp ?? add;
+  const onRemove = onRemoveProp ?? remove;
+  const onMoveUp = onMoveUpProp ?? moveUp;
+  const onMoveDown = onMoveDownProp ?? moveDown;
   const keyMap = useRef(new Map<unknown, string>());
   const items = (itemsProp ?? (value as T[] | undefined) ?? []) as T[];
   // Resolve styles
