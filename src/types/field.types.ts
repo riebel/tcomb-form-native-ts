@@ -11,9 +11,9 @@ export type BaseTemplateProps<TValue, TStylesheet, TExtraProps = object> = {
   disabled?: boolean;
   required?: boolean;
   hasError?: boolean;
-  label?: string;
-  help?: string;
-  error?: string;
+  label?: ReactNode;
+  help?: ReactNode;
+  error?: ReactNode;
   testID?: string;
   accessibilityLabel?: string;
   value?: TValue;
@@ -59,11 +59,11 @@ export type TextboxOptions = BaseFieldOptions<
  * Shared option/ctx/props generics (for component-level props)
  * ------------------- */
 export type BaseFieldOptions<TTemplateProps, TTransformer = unknown> = {
-  label?: string;
-  help?: string;
+  label?: ReactNode;
+  help?: ReactNode;
   template?: ComponentType<TTemplateProps>;
   hasError?: boolean;
-  error?: string | ((value: unknown) => string);
+  error?: ReactNode | ((value: unknown) => ReactNode);
   transformer?: TTransformer;
   // Per-field overrides
   auto?: string;
@@ -459,6 +459,7 @@ export interface FormTemplates {
   checkbox?: ComponentType<CheckboxTemplateProps>;
   select?: ComponentType<SelectTemplateProps<unknown>>;
   datePicker?: ComponentType<DatePickerTemplateProps>;
+  // Custom list templates
   list?: ComponentType<ListTemplateProps<unknown>>;
   struct?: ComponentType<StructTemplateProps>;
   [key: string]: unknown;
@@ -558,13 +559,15 @@ export type FieldComponentType<T> = React.ComponentType<
 export type FormProps<T = unknown, TContext = Record<string, unknown>> = {
   type?: unknown;
   value?: T;
-  options?: {
-    getComponent?: (
-      type: TypeWithMeta | null,
-      options: Record<string, unknown>,
-    ) => FieldComponentType<T>;
-    uidGenerator?: import('../util').UIDGenerator;
-  };
+  options?:
+    | (Record<string, unknown> & {
+        getComponent?: (
+          type: TypeWithMeta | null,
+          options: Record<string, unknown>,
+        ) => FieldComponentType<T>;
+        uidGenerator?: import('../util').UIDGenerator;
+      })
+    | undefined;
   onChange?: (value: T, path?: Array<string | number>) => void;
   context?: TContext;
   stylesheet?: Partial<typeof import('../stylesheets/bootstrap').default>;
@@ -601,7 +604,9 @@ export type FormStatics = {
 };
 
 export type FormComponent = {
-  <T>(props: FormProps<T> & React.RefAttributes<MinimalFormRef<T>>): React.ReactElement | null;
+  <T>(
+    props: FormProps<T> & React.RefAttributes<MinimalFormRef<T> | { getValue(): T | null }>,
+  ): React.ReactElement | null;
 } & FormStatics;
 
 export type LegacyFormNamespace = {
@@ -634,12 +639,12 @@ export interface TypeInfo {
 // Shared small component prop types
 export type ErrorBlockProps = {
   hasError?: boolean;
-  error?: string;
+  error?: ReactNode;
   style?: StyleProp<TextStyle>;
 };
 
 export type HelpBlockProps = {
-  help?: string;
+  help?: ReactNode;
   hasError?: boolean;
   style?: StyleProp<TextStyle>;
 };

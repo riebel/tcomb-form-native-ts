@@ -315,12 +315,17 @@ class TextboxTemplate extends React.Component<TextboxTemplateProps> {
 
     return (
       <View style={formGroupStyle} testID="textbox-container">
-        {label && (
+        {label && (typeof label === 'string' || typeof label === 'number') ? (
           <Text style={controlLabelStyle} testID="textbox-label">
             {label}
+            {showRequiredIndicator && required ? ' *' : ''}
           </Text>
-        )}
-        {label && showRequiredIndicator && required && <Text style={controlLabelStyle}> *</Text>}
+        ) : label && React.isValidElement(label) ? (
+          <View style={styles.inlineLabelRow}>
+            {label}
+            {showRequiredIndicator && required ? <Text style={controlLabelStyle}> *</Text> : null}
+          </View>
+        ) : null}
         <View style={textboxViewStyle} testID="textbox-input-container">
           <TextInput
             testID="text-input"
@@ -389,6 +394,11 @@ const styles = StyleSheet.create({
     color: '#737373',
     fontSize: 12,
     marginTop: 5,
+  },
+  inlineLabelRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
   },
   textbox: {
     fontSize: 16,

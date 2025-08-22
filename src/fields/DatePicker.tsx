@@ -14,7 +14,7 @@ import { applyAutoLabel, appendOptionalSuffix, resolveError } from '../utils/fie
 export class DatePicker {
   props: DatePickerProps;
   private _hasError = false;
-  private _error: string | undefined;
+  private _error: React.ReactNode | undefined;
 
   constructor(props: DatePickerProps) {
     this.props = props;
@@ -24,7 +24,7 @@ export class DatePicker {
     const { type, options = {}, value, ctx } = this.props;
 
     // Label
-    let label: string | null | undefined = options.label ?? undefined;
+    let label: React.ReactNode | null | undefined = options.label ?? undefined;
     if (ctx?.auto === 'none') {
       label = null;
     } else {

@@ -1,35 +1,36 @@
 // Shared field utilities to reduce duplication across field classes
 import type { TypeLikeMeta, AutoLabelCtx, I18nCtx } from '../types/field.types';
+import type { ReactNode } from 'react';
 
 export function isOptionalType(type?: TypeLikeMeta): boolean {
   return Boolean(type?.meta?.optional || type?.meta?.kind === 'maybe');
 }
 
 export function applyAutoLabel(
-  label: string | undefined | null,
+  label: ReactNode | undefined | null,
   ctx: AutoLabelCtx,
-): string | undefined | null {
+): ReactNode | undefined | null {
   if (!label && ctx?.auto === 'labels' && ctx?.label) {
     return ctx.label;
   }
   return label;
 }
 
-export function appendOptionalSuffix<T extends string | undefined | null>(
-  label: T,
+export function appendOptionalSuffix(
+  label: ReactNode | undefined | null,
   type?: TypeLikeMeta,
   ctx?: I18nCtx,
-): T {
-  if (label && isOptionalType(type) && ctx?.i18n?.optional) {
-    return `${label}${ctx.i18n.optional}` as unknown as T;
+): ReactNode | undefined | null {
+  if (typeof label === 'string' && isOptionalType(type) && ctx?.i18n?.optional) {
+    return `${label}${ctx.i18n.optional}`;
   }
   return label;
 }
 
 export function resolveError(
   prevHasError: boolean,
-  prevError: string | undefined,
-  options: { error?: string | ((value: unknown) => string); hasError?: boolean } | undefined,
+  prevError: ReactNode | undefined,
+  options: { error?: ReactNode | ((value: unknown) => ReactNode); hasError?: boolean } | undefined,
   value: unknown,
   // Optional legacy type hook to derive error text
   type?: {
@@ -37,7 +38,7 @@ export function resolveError(
   },
   // Optional validation context placeholder
   validationCtx?: { path?: Array<string | number>; context?: unknown },
-): { error: string | undefined; hasError: boolean } {
+): { error: ReactNode | undefined; hasError: boolean } {
   let error = prevError;
   let hasError = prevHasError;
   if (options?.error) {

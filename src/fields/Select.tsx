@@ -64,7 +64,7 @@ const buildOptions = <T,>(
 export class Select<T = unknown> {
   props: SelectProps<T>;
   private _hasError = false;
-  private _error: string | undefined;
+  private _error: React.ReactNode | undefined;
 
   constructor(props: SelectProps<T>) {
     this.props = props;
@@ -74,7 +74,7 @@ export class Select<T = unknown> {
     const { type, options = {}, value, ctx } = this.props;
 
     // Label
-    let label: string | null | undefined = options.label ?? undefined;
+    let label: React.ReactNode | null | undefined = options.label ?? undefined;
     label = applyAutoLabel(label, ctx);
     label = appendOptionalSuffix(label, type, ctx);
 

@@ -4,9 +4,12 @@ import type { ErrorBlockProps } from '../../types/field.types';
 
 export default function ErrorBlock({ hasError, error, style }: ErrorBlockProps) {
   if (!hasError || !error) return null;
-  return (
-    <Text style={style} accessibilityLiveRegion="polite">
-      {error}
-    </Text>
-  );
+  if (typeof error === 'string' || typeof error === 'number') {
+    return (
+      <Text style={style} accessibilityLiveRegion="polite">
+        {error}
+      </Text>
+    );
+  }
+  return React.isValidElement(error) ? error : null;
 }

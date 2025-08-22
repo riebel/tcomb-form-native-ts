@@ -105,8 +105,17 @@ const SelectAndroid = <T,>({
 
   return (
     <View style={formGroupStyle}>
-      {label && <Text style={controlLabelStyle}>{label}</Text>}
-      {label && showRequiredIndicator && required && <Text style={controlLabelStyle}> *</Text>}
+      {label && (typeof label === 'string' || typeof label === 'number') ? (
+        <Text style={controlLabelStyle}>
+          {label}
+          {showRequiredIndicator && required ? ' *' : ''}
+        </Text>
+      ) : label ? (
+        <View style={styles.inlineLabelRow}>
+          {label}
+          {showRequiredIndicator && required ? <Text style={controlLabelStyle}> *</Text> : null}
+        </View>
+      ) : null}
 
       <TouchableOpacity onPress={togglePicker} disabled={disabled}>
         <View style={valueContainerStyle}>
@@ -168,6 +177,11 @@ const styles = StyleSheet.create({
     color: '#737373',
     fontSize: 12,
     marginTop: 5,
+  },
+  inlineLabelRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
   },
   picker: {
     backgroundColor: 'white',

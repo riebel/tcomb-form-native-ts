@@ -722,15 +722,19 @@ class FormImpl<T> extends Component<FormProps<T>, FormState> {
           });
 
           // Compute Struct label with legend alias, auto-label and optional suffix
-          const childOpts = (childBaseProps.options as { label?: string; legend?: string }) || {};
-          let structLabel = childOpts.label ?? childOpts.legend;
-          const structCtx = childBaseProps.ctx as {
-            auto: string;
-            label?: string;
-            i18n?: { optional?: string };
-          };
-          structLabel = applyAutoLabel(structLabel, structCtx) ?? undefined;
-          const structI18nCtx = { i18n: structCtx?.i18n } as
+          const childOpts =
+            (childBaseProps.options as { label?: React.ReactNode; legend?: React.ReactNode }) || {};
+          let structLabel: React.ReactNode | undefined = childOpts.label ?? childOpts.legend;
+          const structCtxForAuto = {
+            auto: (childBaseProps.ctx as { auto: string } | undefined)?.auto ?? 'none',
+            label:
+              typeof (childBaseProps.ctx as { label?: unknown } | undefined)?.label === 'string'
+                ? ((childBaseProps.ctx as { label?: string } | undefined)?.label as string)
+                : undefined,
+            i18n: (childBaseProps.ctx as { i18n?: { optional?: string } } | undefined)?.i18n,
+          } as { auto: string; label?: string; i18n?: { optional?: string } };
+          structLabel = applyAutoLabel(structLabel, structCtxForAuto) ?? undefined;
+          const structI18nCtx = { i18n: structCtxForAuto?.i18n } as
             | { i18n?: { optional?: string } }
             | undefined;
           structLabel =
@@ -1003,20 +1007,29 @@ class FormImpl<T> extends Component<FormProps<T>, FormState> {
       // Build Struct wrapper props with label auto/legend alias and optional suffix
       const structOptions = (resolvedOptions ?? options) as
         | {
-            label?: string;
-            legend?: string;
-            help?: string;
-            error?: string;
+            label?: React.ReactNode;
+            legend?: React.ReactNode;
+            help?: React.ReactNode;
+            error?: React.ReactNode;
             hasError?: boolean;
             template?: React.ComponentType<StructTemplateProps>;
           }
         | Record<string, unknown>;
-      let rootStructLabel =
-        (structOptions as { label?: string; legend?: string }).label ??
-        (structOptions as { legend?: string }).legend;
-      const structCtx = baseCtx as { auto: string; label?: string; i18n?: { optional?: string } };
-      rootStructLabel = applyAutoLabel(rootStructLabel, structCtx) ?? undefined;
-      const rootI18nCtx = { i18n: structCtx?.i18n } as { i18n?: { optional?: string } } | undefined;
+      let rootStructLabel: React.ReactNode | undefined =
+        (structOptions as { label?: React.ReactNode; legend?: React.ReactNode }).label ??
+        (structOptions as { legend?: React.ReactNode }).legend;
+      const rootStructCtxForAuto = {
+        auto: (baseCtx as { auto: string } | undefined)?.auto ?? 'none',
+        label:
+          typeof (baseCtx as { label?: unknown } | undefined)?.label === 'string'
+            ? ((baseCtx as { label?: string } | undefined)?.label as string)
+            : undefined,
+        i18n: (baseCtx as { i18n?: { optional?: string } } | undefined)?.i18n,
+      } as { auto: string; label?: string; i18n?: { optional?: string } };
+      rootStructLabel = applyAutoLabel(rootStructLabel, rootStructCtxForAuto) ?? undefined;
+      const rootI18nCtx = { i18n: rootStructCtxForAuto?.i18n } as
+        | { i18n?: { optional?: string } }
+        | undefined;
       rootStructLabel =
         appendOptionalSuffix(rootStructLabel, tType ?? undefined, rootI18nCtx) ?? undefined;
 
@@ -1033,8 +1046,8 @@ class FormImpl<T> extends Component<FormProps<T>, FormState> {
       const structTemplateProps: StructTemplateProps = {
         ...(baseProps as unknown as StructTemplateProps),
         label: rootStructLabel ?? undefined,
-        help: (structOptions as { help?: string }).help as unknown as string,
-        error: (structOptions as { error?: string }).error,
+        help: (structOptions as { help?: React.ReactNode }).help,
+        error: (structOptions as { error?: React.ReactNode }).error,
         hasError: (structOptions as { hasError?: boolean }).hasError,
         required: rootStructRequired,
         showRequiredIndicator: true,

@@ -6,7 +6,7 @@ import type { CheckboxTemplateProps, CheckboxInternalProps } from '../types/fiel
 export class Checkbox {
   props: CheckboxInternalProps;
   private _hasError = false;
-  private _error: string | undefined;
+  private _error: React.ReactNode | undefined;
 
   constructor(props: CheckboxInternalProps) {
     this.props = props;
@@ -18,7 +18,8 @@ export class Checkbox {
     const transformer = this.props.transformer || options.transformer;
 
     // Label
-    let finalLabel: string | null | undefined = options.label ?? this.props.label ?? undefined;
+    let finalLabel: React.ReactNode | null | undefined =
+      options.label ?? this.props.label ?? undefined;
     if (ctx?.auto === 'none') {
       finalLabel = null;
     } else {
@@ -36,7 +37,7 @@ export class Checkbox {
     let { error, hasError } = resolveError(
       this._hasError,
       this._error,
-      this.props,
+      options,
       value,
       type as unknown as { getValidationErrorMessage?: (v: unknown) => string },
     );

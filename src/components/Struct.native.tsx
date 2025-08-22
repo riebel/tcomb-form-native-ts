@@ -1,3 +1,4 @@
+import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 
 import type { StructTemplateProps } from '../types/field.types';
@@ -30,12 +31,17 @@ const Struct = ({
 
   return (
     <View style={fieldsetStyle} {...rest}>
-      {label && (
+      {label && (typeof label === 'string' || typeof label === 'number') ? (
         <Text style={controlLabelStyle}>
           {label}
           {showRequiredIndicator && required ? ' *' : ''}
         </Text>
-      )}
+      ) : label && React.isValidElement(label) ? (
+        <View style={styles.inlineLabelRow}>
+          {label}
+          {showRequiredIndicator && required ? <Text style={controlLabelStyle}> *</Text> : null}
+        </View>
+      ) : null}
 
       {hasError && error && (
         <Text style={errorBlockStyle} accessibilityLiveRegion="polite">
@@ -64,6 +70,11 @@ const styles = StyleSheet.create({
     borderWidth: 0,
     marginBottom: 16,
     padding: 0,
+  },
+  inlineLabelRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
   },
 });
 

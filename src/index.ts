@@ -17,10 +17,7 @@ const ForwardedForm = React.forwardRef<MinimalFormRef, CoreFormProps>(
       templates,
       ...props,
     };
-    return React.createElement(BaseForm, {
-      ref: ref as React.Ref<MinimalFormRef>,
-      ...withDefaults,
-    });
+    return React.createElement(BaseForm, { ref, ...withDefaults });
   },
 );
 
