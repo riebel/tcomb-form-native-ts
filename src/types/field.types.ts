@@ -424,12 +424,14 @@ export interface LegacyActionButton {
 
 export type ListTemplateProps<T> = Omit<
   BaseTemplateProps<T[], ListStylesheet>,
-  'error' | 'label' | 'hasError'
+  'error' | 'label' | 'hasError' | 'hidden'
 > & {
   // Force legacy-compatible error to be a required string
   error: string;
   // Legacy templates expect hasError to be boolean (not optional)
   hasError: boolean;
+  // Legacy templates expect hidden to be boolean (not optional)
+  hidden: boolean;
   // Legacy templates generally used string label
   label?: string | null;
   // UI hint: when true and `required`, templates may render an asterisk next to the label
