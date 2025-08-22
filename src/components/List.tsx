@@ -81,6 +81,7 @@ export class List<T = unknown> {
 
       const merged = {
         ...p,
+        label: (p.label as string | undefined) ?? '',
         items: legacyItems,
         // Ensure legacy Button object shape for compatibility
         add:

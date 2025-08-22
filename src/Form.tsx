@@ -587,6 +587,7 @@ class FormImpl<T> extends Component<FormProps<T>, FormState> {
 
               const listProps: ListTemplateProps<unknown> = {
                 ...(innerBaseProps as unknown as ListTemplateProps<unknown>),
+                label: String((innerBaseProps as { label?: unknown })?.label ?? ''),
                 items: innerItems.map((it, i) => ({
                   key: String(i),
                   input: null,
@@ -1275,6 +1276,7 @@ class FormImpl<T> extends Component<FormProps<T>, FormState> {
             <List.ReactComponent
               key={this.listKeys[index]}
               {...(itemBaseProps as unknown as ListTemplateProps<unknown>)}
+              label={String((itemBaseProps as { label?: unknown })?.label ?? '')}
               items={(Array.isArray(item) ? (item as unknown[]) : []).map((it, i) => ({
                 key: String(i),
                 input: null,
@@ -1311,6 +1313,7 @@ class FormImpl<T> extends Component<FormProps<T>, FormState> {
       return (
         <List.ReactComponent
           {...(restBase as unknown as ListTemplateProps<unknown>)}
+          label={String((restBase as { label?: unknown })?.label ?? '')}
           items={items.map((it, i) => ({
             key: String(i),
             input: null,

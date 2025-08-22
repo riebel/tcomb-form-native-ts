@@ -432,8 +432,8 @@ export type ListTemplateProps<T> = Omit<
   hasError: boolean;
   // Legacy templates expect hidden to be boolean (not optional)
   hidden: boolean;
-  // Legacy templates generally used string label
-  label?: string | null;
+  // Legacy templates generally used string label; required in many templates
+  label: string;
   // UI hint: when true and `required`, templates may render an asterisk next to the label
   showRequiredIndicator?: boolean;
   // Legacy templates expect framework-provided items array with key/input/buttons
