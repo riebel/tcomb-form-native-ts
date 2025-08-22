@@ -1,4 +1,5 @@
 import React from 'react';
+import type { LegacyActionButton } from '../types/field.types';
 import ListNative from './List.native';
 
 import type { ListTemplateProps, ListItem, Dispatchable, ListProps } from '../types/field.types';
@@ -58,13 +59,11 @@ export class List<T = unknown> {
         ctx: this.props.ctx as ListProps['ctx'],
       } as ListProps);
       const Comp = helper.getTemplate() || this.props.templates?.list || ListNative;
-      // Provide legacy aliases expected by older templates
-      const p = this.props as unknown as ListTemplateProps<unknown> & {
-        add?: () => void;
-        remove?: (index: number) => void;
-        moveUp?: (index: number) => void;
-        moveDown?: (index: number) => void;
-      };
+      const isNativeTemplate = Comp === ListNative;
+      const asText = (node: unknown): string | undefined =>
+        typeof node === 'string' || typeof node === 'number' ? String(node) : undefined;
+      // Provide legacy-compatible view over props
+      const p = this.props as unknown as ListTemplateProps<unknown>;
       // Build legacy items array expected by classic templates
       const legacyItems = helper.getItems().map(({ key }, index) => ({
         key,
@@ -73,7 +72,9 @@ export class List<T = unknown> {
           // Minimal remove button; actual enable/disable handled in native template
           {
             type: 'remove',
-            label: p.removeLabel ?? 'Remove',
+            label: isNativeTemplate
+              ? (p.removeLabel ?? 'Remove')
+              : (asText(p.removeLabel) ?? 'Remove'),
             click: () => (p.onRemove as (i: number) => void)?.(index),
           },
         ],
@@ -81,22 +82,26 @@ export class List<T = unknown> {
 
       const merged = {
         ...p,
-        label: (p.label as string | undefined) ?? '',
+        // For custom/legacy templates, coerce textual props to strings to avoid rendering elements inside Text
+        label: isNativeTemplate ? p.label : (asText(p.label) ?? ''),
+        error: isNativeTemplate ? p.error : (asText(p.error) ?? ''),
         items: legacyItems,
         // Ensure legacy Button object shape for compatibility
-        add:
-          p.add && typeof p.add === 'object'
-            ? (p.add as ListTemplateProps<unknown>['add'])
-            : {
-                type: 'add',
-                click: p.onAdd as () => void,
-                label: p.addLabel ?? 'Add',
-                onPress: p.onAdd as () => void,
-                disabled: Boolean(p.disabled || p.disableAdd),
-              },
+        add: {
+          type: 'add',
+          click: p.onAdd as () => void,
+          label: isNativeTemplate ? (p.addLabel ?? 'Add') : (asText(p.addLabel) ?? 'Add'),
+          onPress: p.onAdd as () => void,
+          disabled: Boolean(p.disabled || p.disableAdd),
+        } as LegacyActionButton,
         remove: p.remove && typeof p.remove === 'object' ? p.remove : undefined,
         moveUp: p.moveUp && typeof p.moveUp === 'object' ? p.moveUp : undefined,
         moveDown: p.moveDown && typeof p.moveDown === 'object' ? p.moveDown : undefined,
+        // For native template, keep ReactNode labels; for custom, coerce
+        addLabel: isNativeTemplate ? p.addLabel : (asText(p.addLabel) ?? undefined),
+        removeLabel: isNativeTemplate ? p.removeLabel : (asText(p.removeLabel) ?? undefined),
+        upLabel: isNativeTemplate ? p.upLabel : (asText(p.upLabel) ?? undefined),
+        downLabel: isNativeTemplate ? p.downLabel : (asText(p.downLabel) ?? undefined),
       } as ListTemplateProps<unknown>;
       return <Comp {...merged} />;
     }

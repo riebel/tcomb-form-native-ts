@@ -153,13 +153,19 @@ const SelectIOS = <T,>({
           style={styles.picker}
           {...rest}
         >
-          {selectOptions.map(option => (
-            <Picker.Item
-              key={option ? `option-${option.value}` : 'option-null'}
-              label={option?.text || ''}
-              value={option?.value}
-            />
-          ))}
+          {selectOptions.map(option => {
+            const labelValue =
+              typeof option?.text === 'string' || typeof option?.text === 'number'
+                ? String(option?.text)
+                : '';
+            return (
+              <Picker.Item
+                key={option ? `option-${option.value}` : 'option-null'}
+                label={labelValue}
+                value={option?.value}
+              />
+            );
+          })}
         </Picker>
       </Animated.View>
 
