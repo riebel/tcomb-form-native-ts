@@ -149,7 +149,7 @@ const List = <T,>({
                   onPress={button.click}
                   disabled={button.disabled}
                 >
-                  <Text style={buttonTextStyle}>{button.label}</Text>
+                  {renderMaybeText(button.label, buttonTextStyle)}
                 </TouchableOpacity>
               ))}
               {!disableOrder && (
@@ -161,7 +161,7 @@ const List = <T,>({
                       onPress={() => onMoveUp(index)}
                       disabled={!canMoveUp}
                     >
-                      <Text style={buttonTextStyle}>{upLabel ?? '↑'}</Text>
+                      {renderMaybeText(upLabel ?? '↑', buttonTextStyle)}
                     </TouchableOpacity>
                   )}
                   {typeof onMoveDown === 'function' && (
@@ -174,7 +174,7 @@ const List = <T,>({
                       onPress={() => onMoveDown(index)}
                       disabled={!canMoveDown}
                     >
-                      <Text style={buttonTextStyle}>{downLabel ?? '↓'}</Text>
+                      {renderMaybeText(downLabel ?? '↓', buttonTextStyle)}
                     </TouchableOpacity>
                   )}
                 </>
@@ -220,7 +220,18 @@ const List = <T,>({
           onPress={onAdd}
           disabled={disabled || Boolean(addBtn?.disabled)}
         >
-          <Text style={buttonTextStyle}>+ {effectiveAddLabel}</Text>
+          {
+            typeof effectiveAddLabel === 'string' || typeof effectiveAddLabel === 'number' ? (
+              <Text style={buttonTextStyle}>+ {effectiveAddLabel}</Text>
+            ) : React.isValidElement(effectiveAddLabel) ? (
+              <View style={styles.inlineLabelRow}>
+                <Text style={buttonTextStyle}>+</Text>
+                {effectiveAddLabel}
+              </View>
+            ) : (
+              <Text style={buttonTextStyle}>+</Text>
+            )
+          }
         </TouchableOpacity>
       )}
 
