@@ -585,6 +585,18 @@ class FormImpl<T> extends Component<FormProps<T>, FormState> {
                 onChange?.(nextStruct, [fieldName, innerName]);
               };
 
+              const i18nForList = ((innerBaseProps.ctx as { i18n?: I18n } | undefined)?.i18n ||
+                (perFieldResolved as { i18n?: I18n } | undefined)?.i18n ||
+                (options as { i18n?: I18n } | undefined)?.i18n ||
+                undefined) as I18n | undefined;
+
+              const listI18n = (i18nForList || {}) as Partial<{
+                add: React.ReactNode;
+                remove: React.ReactNode;
+                up: React.ReactNode;
+                down: React.ReactNode;
+              }>;
+
               const listProps: ListTemplateProps<unknown> = {
                 ...(innerBaseProps as unknown as ListTemplateProps<unknown>),
                 label: String((innerBaseProps as { label?: unknown })?.label ?? ''),
@@ -594,7 +606,7 @@ class FormImpl<T> extends Component<FormProps<T>, FormState> {
                   buttons: [
                     {
                       type: 'remove',
-                      label: (options?.i18n as I18n | undefined)?.remove ?? 'Remove',
+                      label: (listI18n.remove as React.ReactNode) ?? 'Remove',
                       click: () => handleInnerRemove(i),
                     },
                   ],
@@ -603,6 +615,10 @@ class FormImpl<T> extends Component<FormProps<T>, FormState> {
                 onRemove: handleInnerRemove,
                 onMoveUp: handleInnerMoveUp,
                 onMoveDown: handleInnerMoveDown,
+                addLabel: listI18n.add as React.ReactNode,
+                removeLabel: listI18n.remove as React.ReactNode,
+                upLabel: listI18n.up as React.ReactNode,
+                downLabel: listI18n.down as React.ReactNode,
                 renderItem: (it: unknown, idx: number) => {
                   const dispatched =
                     (
@@ -888,6 +904,12 @@ class FormImpl<T> extends Component<FormProps<T>, FormState> {
           };
 
           const listFieldOptions = (perFieldResolved as Record<string, unknown> | undefined) ?? {};
+          const listI18nTop = (i18n || {}) as Partial<{
+            add: React.ReactNode;
+            remove: React.ReactNode;
+            up: React.ReactNode;
+            down: React.ReactNode;
+          }>;
           const listBaseProps = {
             ...(childBaseProps as unknown as ListTemplateProps<unknown>),
             items,
@@ -896,17 +918,17 @@ class FormImpl<T> extends Component<FormProps<T>, FormState> {
             onMoveUp: handleMoveUpChild,
             onMoveDown: handleMoveDownChild,
             addLabel:
-              (listFieldOptions as { addLabel?: string }).addLabel ??
-              (i18n as { add?: string } | undefined)?.add,
+              (listFieldOptions as { addLabel?: React.ReactNode }).addLabel ??
+              (listI18nTop.add as React.ReactNode),
             removeLabel:
-              (listFieldOptions as { removeLabel?: string }).removeLabel ??
-              (i18n as { remove?: string } | undefined)?.remove,
+              (listFieldOptions as { removeLabel?: React.ReactNode }).removeLabel ??
+              (listI18nTop.remove as React.ReactNode),
             upLabel:
-              (listFieldOptions as { upLabel?: string }).upLabel ??
-              (i18n as { up?: string } | undefined)?.up,
+              (listFieldOptions as { upLabel?: React.ReactNode }).upLabel ??
+              (listI18nTop.up as React.ReactNode),
             downLabel:
-              (listFieldOptions as { downLabel?: string }).downLabel ??
-              (i18n as { down?: string } | undefined)?.down,
+              (listFieldOptions as { downLabel?: React.ReactNode }).downLabel ??
+              (listI18nTop.down as React.ReactNode),
             required: !(dispatchedChildType as { meta?: { optional?: boolean } } | undefined)?.meta
               ?.optional,
             showRequiredIndicator: true,

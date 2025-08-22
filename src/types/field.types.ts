@@ -419,7 +419,7 @@ export interface LegacyActionButton {
   type: string; // e.g. 'add', 'remove', 'up', 'down'
   click: () => void;
   // Friendly fields for RN templates (optional)
-  label: string;
+  label: ReactNode;
   onPress?: () => void;
   disabled?: boolean;
   testID?: string;
@@ -463,10 +463,10 @@ export type ListTemplateProps<T> = Omit<
   /** @deprecated Use onMoveDown */
   moveDown?: LegacyActionButton;
   renderItem: (item: T, index: number) => ReactNode;
-  addLabel?: string;
-  removeLabel?: string;
-  upLabel?: string;
-  downLabel?: string;
+  addLabel?: ReactNode;
+  removeLabel?: ReactNode;
+  upLabel?: ReactNode;
+  downLabel?: ReactNode;
   disableAdd?: boolean;
   disableRemove?: boolean;
   disableOrder?: boolean;
@@ -494,13 +494,14 @@ export type StructTemplateProps = BaseTemplateProps<
 export interface I18nTranslations {
   optional: string;
   required: string;
-  add: string;
-  remove: string;
-  up: string;
-  down: string;
+  // List control labels may be text or React elements (e.g., icons)
+  add: string | ReactNode;
+  remove: string | ReactNode;
+  up: string | ReactNode;
+  down: string | ReactNode;
 }
 
-export type I18n = I18nTranslations | Record<string, string>;
+export type I18n = I18nTranslations | Record<string, string | ReactNode>;
 export interface FormTemplates {
   textbox?: ComponentType<TextboxTemplateProps>;
   checkbox?: ComponentType<CheckboxTemplateProps>;
