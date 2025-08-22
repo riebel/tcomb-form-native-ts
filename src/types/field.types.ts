@@ -50,7 +50,7 @@ export interface TextboxStylesheet {
 // Legacy list item shape from the original tcomb-form-native templates
 export interface LegacyListItem {
   key: string;
-  input: ReactNode;
+  input: React.ReactElement | null;
   buttons: LegacyActionButton[];
 }
 

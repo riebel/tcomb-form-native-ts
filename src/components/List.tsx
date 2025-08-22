@@ -66,9 +66,9 @@ export class List<T = unknown> {
         moveDown?: (index: number) => void;
       };
       // Build legacy items array expected by classic templates
-      const legacyItems = helper.getItems().map(({ key, input }, index) => ({
+      const legacyItems = helper.getItems().map(({ key }, index) => ({
         key,
-        input,
+        input: null,
         buttons: [
           // Minimal remove button; actual enable/disable handled in native template
           {
