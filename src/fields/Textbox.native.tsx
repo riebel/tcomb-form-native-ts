@@ -1,5 +1,7 @@
 import React, { ComponentType } from 'react';
 import { View, Text, TextInput, StyleSheet } from 'react-native';
+import HelpBlock from '../templates/shared/HelpBlock';
+import ErrorBlock from '../templates/shared/ErrorBlock';
 
 import type { TextboxTemplateProps, LegacyNumberTransformer } from '../types/field.types';
 
@@ -362,16 +364,8 @@ class TextboxTemplate extends React.Component<TextboxTemplateProps> {
             {...rest}
           />
         </View>
-        {help && (
-          <Text testID="textbox-help" style={helpBlockStyle}>
-            {help}
-          </Text>
-        )}
-        {hasError && error && (
-          <Text testID="textbox-error" accessibilityLiveRegion="polite" style={errorBlockStyle}>
-            {error}
-          </Text>
-        )}
+        <HelpBlock help={help} hasError={hasError} style={helpBlockStyle} />
+        <ErrorBlock hasError={hasError} error={error} style={errorBlockStyle} />
       </View>
     );
   }

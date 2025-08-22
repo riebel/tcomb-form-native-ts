@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import ErrorBlock from '../templates/shared/ErrorBlock';
 
 import type { StructTemplateProps } from '../types/field.types';
 
@@ -43,11 +44,7 @@ const Struct = ({
         </View>
       ) : null}
 
-      {hasError && error && (
-        <Text style={errorBlockStyle} accessibilityLiveRegion="polite">
-          {error}
-        </Text>
-      )}
+      <ErrorBlock hasError={hasError} error={error} style={errorBlockStyle} />
 
       {children}
     </View>

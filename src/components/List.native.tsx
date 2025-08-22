@@ -1,5 +1,13 @@
-import { useCallback, useRef } from 'react';
-import { View, StyleSheet, Text, TouchableOpacity } from 'react-native';
+import React, { useCallback, useRef } from 'react';
+import {
+  View,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  type StyleProp,
+  type TextStyle,
+  type ViewStyle,
+} from 'react-native';
 
 import type { ListTemplateProps } from '../types/field.types';
 
@@ -38,6 +46,15 @@ const List = <T,>({
   ctx,
   ...rest
 }: ListTemplateProps<T>) => {
+  const asTextStyle = (s: unknown): StyleProp<TextStyle> => s as StyleProp<TextStyle>;
+  const asViewStyle = (s: unknown): StyleProp<ViewStyle> => s as StyleProp<ViewStyle>;
+
+  const renderMaybeText = (node: unknown, textStyle: StyleProp<TextStyle>) => {
+    if (typeof node === 'string' || typeof node === 'number') {
+      return <Text style={textStyle}>{node}</Text>;
+    }
+    return React.isValidElement(node) ? (node as React.ReactElement) : null;
+  };
   // Support legacy Button object for add/remove/move controls
   const addBtn = add && typeof add === 'object' ? add : undefined;
   const onAdd = onAddProp ?? addBtn?.onPress ?? addBtn?.click;
@@ -48,41 +65,44 @@ const List = <T,>({
   const keyMap = useRef(new Map<unknown, string>());
   const items = ((value as T[] | undefined) ?? []) as T[];
   // Resolve styles
-  const formGroupStyle = StyleSheet.flatten([
+  const formGroupStyle: ViewStyle = StyleSheet.flatten([
     styles.formGroup,
-    stylesheet.formGroup?.normal,
-    hasError && stylesheet.formGroup?.error,
+    asViewStyle(stylesheet.formGroup?.normal),
+    hasError && asViewStyle(stylesheet.formGroup?.error),
   ]);
 
-  const controlLabelStyle = StyleSheet.flatten([
+  const controlLabelStyle: TextStyle = StyleSheet.flatten([
     styles.controlLabel,
-    stylesheet.controlLabel?.normal,
-    hasError && stylesheet.controlLabel?.error,
+    asTextStyle(stylesheet.controlLabel?.normal),
+    hasError && asTextStyle(stylesheet.controlLabel?.error),
   ]);
 
-  const helpBlockStyle = StyleSheet.flatten([
+  const helpBlockStyle: TextStyle = StyleSheet.flatten([
     styles.helpBlock,
-    stylesheet.helpBlock?.normal,
-    hasError && stylesheet.helpBlock?.error,
+    asTextStyle(stylesheet.helpBlock?.normal),
+    hasError && asTextStyle(stylesheet.helpBlock?.error),
   ]);
 
-  const errorBlockStyle = StyleSheet.flatten([styles.errorBlock, stylesheet.errorBlock]);
+  const errorBlockStyle: TextStyle = StyleSheet.flatten([
+    styles.errorBlock,
+    asTextStyle(stylesheet.errorBlock),
+  ]);
 
-  const buttonStyle = StyleSheet.flatten([
+  const buttonStyle: ViewStyle = StyleSheet.flatten([
     styles.button,
-    stylesheet.button?.normal,
-    disabled && stylesheet.button?.disabled,
+    asViewStyle(stylesheet.button?.normal),
+    disabled && asViewStyle(stylesheet.button?.disabled),
   ]);
 
-  const buttonTextStyle = StyleSheet.flatten([
+  const buttonTextStyle: TextStyle = StyleSheet.flatten([
     styles.buttonText,
-    stylesheet.buttonText?.normal,
-    disabled && stylesheet.buttonText?.disabled,
+    asTextStyle(stylesheet.buttonText?.normal),
+    disabled && asTextStyle(stylesheet.buttonText?.disabled),
   ]);
 
-  const itemContainerStyle = StyleSheet.flatten([
+  const itemContainerStyle: ViewStyle = StyleSheet.flatten([
     styles.itemContainer,
-    stylesheet.itemContainer?.normal,
+    asViewStyle(stylesheet.itemContainer?.normal),
   ]);
 
   const renderItemWithButtons = useCallback(
@@ -122,7 +142,10 @@ const List = <T,>({
               {buttons.map(button => (
                 <TouchableOpacity
                   key={button.type}
-                  style={[buttonStyle, button.disabled && styles.disabledButton]}
+                  style={StyleSheet.flatten([
+                    buttonStyle,
+                    button.disabled && styles.disabledButton,
+                  ])}
                   onPress={button.click}
                   disabled={button.disabled}
                 >
@@ -134,7 +157,7 @@ const List = <T,>({
                   {typeof onMoveUp === 'function' && (
                     <TouchableOpacity
                       key="move-up"
-                      style={[buttonStyle, !canMoveUp && styles.disabledButton]}
+                      style={StyleSheet.flatten([buttonStyle, !canMoveUp && styles.disabledButton])}
                       onPress={() => onMoveUp(index)}
                       disabled={!canMoveUp}
                     >
@@ -144,7 +167,10 @@ const List = <T,>({
                   {typeof onMoveDown === 'function' && (
                     <TouchableOpacity
                       key="move-down"
-                      style={[buttonStyle, !canMoveDown && styles.disabledButton]}
+                      style={StyleSheet.flatten([
+                        buttonStyle,
+                        !canMoveDown && styles.disabledButton,
+                      ])}
                       onPress={() => onMoveDown(index)}
                       disabled={!canMoveDown}
                     >
@@ -183,14 +209,14 @@ const List = <T,>({
 
   return (
     <View style={formGroupStyle} {...rest}>
-      {label && <Text style={controlLabelStyle}>{label}</Text>}
+      {label && renderMaybeText(label, controlLabelStyle)}
       {label && showRequiredIndicator && required && <Text style={controlLabelStyle}> *</Text>}
 
       {items.map((item: T, index: number) => renderItemWithButtons(item, index))}
 
       {!disabled && !disableAdd && onAdd && (
         <TouchableOpacity
-          style={[buttonStyle, styles.addButton]}
+          style={StyleSheet.flatten([buttonStyle, styles.addButton])}
           onPress={onAdd}
           disabled={disabled || Boolean(addBtn?.disabled)}
         >
@@ -198,12 +224,8 @@ const List = <T,>({
         </TouchableOpacity>
       )}
 
-      {help && !hasError && <Text style={helpBlockStyle}>{help}</Text>}
-      {hasError && error && (
-        <Text style={errorBlockStyle} accessibilityLiveRegion="polite">
-          {error}
-        </Text>
-      )}
+      {help && !hasError && renderMaybeText(help, helpBlockStyle)}
+      {hasError && error && renderMaybeText(error, errorBlockStyle)}
     </View>
   );
 };

@@ -1,5 +1,7 @@
-import { useCallback } from 'react';
+import React, { useCallback } from 'react';
 import { View, Text, Switch, StyleSheet } from 'react-native';
+import HelpBlock from '../templates/shared/HelpBlock';
+import ErrorBlock from '../templates/shared/ErrorBlock';
 
 import type { CheckboxTemplateProps } from '../types/field.types';
 
@@ -79,12 +81,17 @@ const Checkbox = ({
   return (
     <View testID="checkbox-container" style={formGroupStyle}>
       <View style={containerStyle}>
-        {label && (
+        {label && (typeof label === 'string' || typeof label === 'number') ? (
           <Text testID="checkbox-label" style={controlLabelStyle}>
             {label}
+            {showRequiredIndicator && required ? ' *' : ''}
           </Text>
-        )}
-        {label && showRequiredIndicator && required && <Text style={controlLabelStyle}> *</Text>}
+        ) : label && React.isValidElement(label) ? (
+          <View style={styles.inlineLabelRow}>
+            {label}
+            {showRequiredIndicator && required ? <Text style={controlLabelStyle}> *</Text> : null}
+          </View>
+        ) : null}
         <Switch
           testID="checkbox-switch"
           value={value}
@@ -98,12 +105,8 @@ const Checkbox = ({
         />
       </View>
 
-      {help && !hasError && <Text style={helpBlockStyle}>{help}</Text>}
-      {hasError && error && (
-        <Text style={errorBlockStyle} accessibilityLiveRegion="polite">
-          {error}
-        </Text>
-      )}
+      <HelpBlock help={help} hasError={hasError} style={helpBlockStyle} />
+      <ErrorBlock hasError={hasError} error={error} style={errorBlockStyle} />
     </View>
   );
 };
@@ -135,6 +138,11 @@ const styles = StyleSheet.create({
     color: '#737373',
     fontSize: 12,
     marginTop: 5,
+  },
+  inlineLabelRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
   },
 });
 
