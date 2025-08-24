@@ -1,5 +1,4 @@
 import React, { Component, forwardRef, useImperativeHandle, useRef } from 'react';
-import type { StyleProp, TextStyle } from 'react-native';
 import { validate } from 'tcomb-validation';
 
 import List from './components/List';
@@ -10,10 +9,6 @@ import Select from './fields/Select';
 import Textbox from './fields/Textbox';
 
 import {
-  TextboxTemplateProps,
-  CheckboxTemplateProps,
-  SelectTemplateProps,
-  DatePickerTemplateProps,
   ListTemplateProps,
   StructTemplateProps,
   TypeWithMeta,
@@ -28,6 +23,7 @@ import {
 import type { AutoLabelCtx } from './types/field.types';
 import { getTypeInfo, UIDGenerator, getComponentOptions } from './util';
 import { applyAutoLabel, appendOptionalSuffix } from './utils/field';
+import { renderFieldComponent, canUseCentralizedRenderer } from './utils/componentRenderer';
 
 function isTypeWithMeta(x: unknown): x is TypeWithMeta {
   return (
@@ -79,8 +75,7 @@ const defaultGetComponent = <T,>(
   }
 };
 
-// Heuristic: some legacy apps keep date fields as String but expect a DatePicker UI.
-// We detect likely date/time fields and coerce the component to DatePicker.
+// Simplified date picker coercion logic
 function shouldCoerceToDatePicker(args: {
   dispatchedType: TypeWithMeta | null | undefined;
   fieldName: string | number;
@@ -88,37 +83,32 @@ function shouldCoerceToDatePicker(args: {
   value?: unknown;
 }): boolean {
   const { dispatchedType, fieldName, resolvedOptions, value } = args;
+
   try {
     const ti = dispatchedType ? getTypeInfo(dispatchedType) : null;
-    const isStringType = ti?.kind === 'irreducible' && ti?.type?.name === 'String';
-    const isIrreducibleType = ti?.kind === 'irreducible';
-    const isMaybeType = ti?.isMaybe === true;
+    const isCoercibleType = ti?.kind === 'irreducible' || ti?.isMaybe === true;
 
-    // Check if options indicate this should be a date picker
-    const opts = (resolvedOptions as { mode?: string; template?: unknown } | undefined) || {};
-    const looksLikeDateByOptions =
-      opts && typeof opts.mode === 'string' && ['date', 'time', 'datetime'].includes(opts.mode);
+    if (!isCoercibleType) return false;
 
-    // Check if field name suggests it's a date field
+    // Check options mode
+    const opts = resolvedOptions as { mode?: string } | undefined;
+    if (opts?.mode && ['date', 'time', 'datetime'].includes(opts.mode)) {
+      return true;
+    }
+
+    // Check field name pattern
     const name = String(fieldName).toLowerCase();
-    const looksLikeDateByName = /(date|datum|dob|birth|zeit|time|from|start|until|end)$/i.test(
-      name,
-    );
+    if (/(date|datum|dob|birth|zeit|time|from|start|until|end)$/i.test(name)) {
+      return true;
+    }
 
-    // Check if value looks like a date
-    const looksLikeDateByValue =
-      value instanceof Date ||
-      (typeof value === 'string' && !Number.isNaN(Date.parse(value as string)));
+    // Check value type
+    if (value instanceof Date || (typeof value === 'string' && !Number.isNaN(Date.parse(value)))) {
+      return true;
+    }
 
-    // Coerce if any of these conditions are met AND the type is coercible
-    const shouldCoerce = Boolean(
-      looksLikeDateByName || looksLikeDateByOptions || looksLikeDateByValue,
-    );
-    const isCoercibleType = isStringType || isIrreducibleType || isMaybeType;
-    const decision = shouldCoerce && isCoercibleType;
-
-    return decision;
-  } catch (_) {
+    return false;
+  } catch {
     return false;
   }
 }
@@ -445,24 +435,16 @@ class FormImpl<T> extends Component<FormProps<T>, FormState> {
           ref: (r: FormInputComponent<unknown> | null) => this.registerRef([fieldName], r),
         } as const;
 
-        if (ChildComponent === Textbox.ReactComponent) {
-          return (
-            <Textbox.ReactComponent
-              key={fieldName}
-              {...(childBaseProps as unknown as TextboxTemplateProps)}
-              onChangeText={(text: string) => handleFieldChange(text)}
-            />
-          );
-        }
-        if (ChildComponent === Checkbox.ReactComponent) {
-          return (
-            <Checkbox.ReactComponent
-              key={fieldName}
-              {...(childBaseProps as unknown as CheckboxTemplateProps)}
-              value={!!structValue[fieldName]}
-              onChange={(v: boolean) => handleFieldChange(v)}
-            />
-          );
+        // Use centralized renderer for simple components
+        if (canUseCentralizedRenderer(ChildComponent)) {
+          return renderFieldComponent({
+            Component: ChildComponent,
+            baseProps: childBaseProps,
+            resolvedOptions: (childResolvedOptions as Record<string, unknown>) || {},
+            value: structValue[fieldName],
+            onChange: handleFieldChange,
+            key: fieldName,
+          });
         }
         if (ChildComponent === (Struct as unknown as FieldComponentType<T>)) {
           // Nested struct: render fields and register refs using [fieldName, inner]
@@ -560,101 +542,18 @@ class FormImpl<T> extends Component<FormProps<T>, FormState> {
                 this.registerRef([fieldName, innerName], r),
             } as const;
 
-            if (InnerComponent === Textbox.ReactComponent) {
-              return (
-                <Textbox.ReactComponent
-                  key={innerName}
-                  {...(innerBaseProps as unknown as TextboxTemplateProps)}
-                  onChangeText={(text: string) => handleInnerChange(text)}
-                />
-              );
+            // Use centralized renderer for simple components
+            if (canUseCentralizedRenderer(InnerComponent)) {
+              return renderFieldComponent({
+                Component: InnerComponent,
+                baseProps: innerBaseProps,
+                resolvedOptions: (innerResolvedOptions as Record<string, unknown>) || {},
+                value: innerValue[innerName],
+                onChange: handleInnerChange,
+                key: innerName,
+              });
             }
-            if (InnerComponent === Checkbox.ReactComponent) {
-              return (
-                <Checkbox.ReactComponent
-                  key={innerName}
-                  {...(innerBaseProps as unknown as CheckboxTemplateProps)}
-                  value={!!innerValue[innerName]}
-                  onChange={(v: boolean) => handleInnerChange(v)}
-                />
-              );
-            }
-            if (InnerComponent === Select.ReactComponent) {
-              const ti = dispatchedInnerType ? getTypeInfo(dispatchedInnerType) : null;
-              let enumOptions: { value: string; text: string }[] = [];
-              if (ti?.isEnum && dispatchedInnerType) {
-                const meta = (dispatchedInnerType as TypeWithMeta).meta as {
-                  map?: Record<string, unknown>;
-                };
-                const map = meta?.map;
-                if (map) {
-                  enumOptions = Object.keys(map).map(value => ({
-                    value,
-                    text: String(map[value]),
-                  }));
-                }
-              }
-              return (
-                <Select.ReactComponent
-                  key={innerName}
-                  {...(innerBaseProps as unknown as SelectTemplateProps<unknown>)}
-                  options={enumOptions}
-                  mode={
-                    (innerResolvedOptions as { mode?: 'dialog' | 'dropdown' } | undefined)?.mode
-                  }
-                  prompt={(innerResolvedOptions as { prompt?: string } | undefined)?.prompt}
-                  itemStyle={
-                    (innerResolvedOptions as { itemStyle?: StyleProp<TextStyle> } | undefined)
-                      ?.itemStyle
-                  }
-                  isCollapsed={
-                    (innerResolvedOptions as { isCollapsed?: boolean } | undefined)?.isCollapsed
-                  }
-                  onCollapseChange={
-                    (
-                      innerResolvedOptions as
-                        | { onCollapseChange?: (collapsed: boolean) => void }
-                        | undefined
-                    )?.onCollapseChange
-                  }
-                  value={
-                    (innerValue[innerName] !== undefined
-                      ? String(innerValue[innerName] as unknown)
-                      : null) as unknown
-                  }
-                  onChange={(nv: unknown) => handleInnerChange(nv)}
-                />
-              );
-            }
-            if (InnerComponent === DatePicker.ReactComponent) {
-              return (
-                <DatePicker.ReactComponent
-                  key={innerName}
-                  {...(innerBaseProps as unknown as DatePickerTemplateProps)}
-                  mode={
-                    (innerResolvedOptions as { mode?: 'date' | 'time' | 'datetime' } | undefined)
-                      ?.mode
-                  }
-                  minimumDate={
-                    (innerResolvedOptions as { minimumDate?: Date } | undefined)?.minimumDate
-                  }
-                  maximumDate={
-                    (innerResolvedOptions as { maximumDate?: Date } | undefined)?.maximumDate
-                  }
-                  minuteInterval={
-                    (innerResolvedOptions as { minuteInterval?: number } | undefined)
-                      ?.minuteInterval
-                  }
-                  timeZoneOffsetInMinutes={
-                    (innerResolvedOptions as { timeZoneOffsetInMinutes?: number } | undefined)
-                      ?.timeZoneOffsetInMinutes
-                  }
-                  onPress={(innerResolvedOptions as { onPress?: () => void } | undefined)?.onPress}
-                  value={(innerValue[innerName] as unknown as Date) ?? null}
-                  onChange={(d: Date | null) => handleInnerChange(d)}
-                />
-              );
-            }
+            // These cases are now handled by the centralized renderer above
             if (InnerComponent === List.ReactComponent) {
               const innerItems = Array.isArray(innerValue[innerName])
                 ? (innerValue[innerName] as unknown[])
@@ -806,59 +705,16 @@ class FormImpl<T> extends Component<FormProps<T>, FormState> {
                       this.registerRef(thisItemPath, r),
                   } as const;
 
-                  if (ItemComponent === Textbox.ReactComponent) {
-                    return (
-                      <Textbox.ReactComponent
-                        key={keys[idx] ?? String(idx)}
-                        {...(itemBaseProps as unknown as TextboxTemplateProps)}
-                        onChangeText={(text: string) => handleItemChange(text)}
-                      />
-                    );
-                  }
-                  if (ItemComponent === Checkbox.ReactComponent) {
-                    return (
-                      <Checkbox.ReactComponent
-                        key={keys[idx] ?? String(idx)}
-                        {...(itemBaseProps as unknown as CheckboxTemplateProps)}
-                        value={!!it}
-                        onChange={(v: boolean) => handleItemChange(v)}
-                      />
-                    );
-                  }
-                  if (ItemComponent === Select.ReactComponent) {
-                    const ti2 = dispatched ? getTypeInfo(dispatched) : null;
-                    let enumOptions: { value: string; text: string }[] = [];
-                    if (ti2?.isEnum && dispatched) {
-                      const meta = (dispatched as TypeWithMeta).meta as {
-                        map?: Record<string, unknown>;
-                      };
-                      const map = meta?.map;
-                      if (map) {
-                        enumOptions = Object.keys(map).map(k => ({
-                          value: k,
-                          text: String(map[k]),
-                        }));
-                      }
-                    }
-                    return (
-                      <Select.ReactComponent
-                        key={keys[idx] ?? String(idx)}
-                        {...(itemBaseProps as unknown as SelectTemplateProps<unknown>)}
-                        options={enumOptions}
-                        value={(it !== undefined ? String(it as unknown) : null) as unknown}
-                        onChange={(nv: unknown) => handleItemChange(nv)}
-                      />
-                    );
-                  }
-                  if (ItemComponent === DatePicker.ReactComponent) {
-                    return (
-                      <DatePicker.ReactComponent
-                        key={keys[idx] ?? String(idx)}
-                        {...(itemBaseProps as unknown as DatePickerTemplateProps)}
-                        value={(it as Date) ?? null}
-                        onChange={(d: Date | null) => handleItemChange(d)}
-                      />
-                    );
+                  // Use centralized renderer for simple components
+                  if (canUseCentralizedRenderer(ItemComponent)) {
+                    return renderFieldComponent({
+                      Component: ItemComponent,
+                      baseProps: itemBaseProps,
+                      resolvedOptions: (itemResolvedOptions as Record<string, unknown>) || {},
+                      value: it,
+                      onChange: handleItemChange,
+                      key: keys[idx] ?? String(idx),
+                    });
                   }
 
                   return (
@@ -925,66 +781,7 @@ class FormImpl<T> extends Component<FormProps<T>, FormState> {
             </StructTemplate>
           );
         }
-        if (ChildComponent === Select.ReactComponent) {
-          const ti = dispatchedChildType ? getTypeInfo(dispatchedChildType) : null;
-          let enumOptions: { value: string; text: string }[] = [];
-          if (ti?.isEnum && dispatchedChildType) {
-            const meta = (dispatchedChildType as TypeWithMeta).meta as {
-              map?: Record<string, unknown>;
-            };
-            const map = meta?.map;
-            if (map) {
-              enumOptions = Object.keys(map).map(value => ({ value, text: String(map[value]) }));
-            }
-          }
-          return (
-            <Select.ReactComponent
-              key={fieldName}
-              {...(childBaseProps as unknown as SelectTemplateProps<unknown>)}
-              options={enumOptions}
-              mode={(perFieldResolved as { mode?: 'dialog' | 'dropdown' } | undefined)?.mode}
-              prompt={(perFieldResolved as { prompt?: string } | undefined)?.prompt}
-              itemStyle={
-                (perFieldResolved as { itemStyle?: StyleProp<TextStyle> } | undefined)?.itemStyle
-              }
-              isCollapsed={(perFieldResolved as { isCollapsed?: boolean } | undefined)?.isCollapsed}
-              onCollapseChange={
-                (
-                  perFieldResolved as
-                    | { onCollapseChange?: (collapsed: boolean) => void }
-                    | undefined
-                )?.onCollapseChange
-              }
-              value={
-                (structValue[fieldName] !== undefined
-                  ? String(structValue[fieldName] as unknown)
-                  : null) as unknown
-              }
-              onChange={(nv: unknown) => handleFieldChange(nv)}
-            />
-          );
-        }
-        if (ChildComponent === DatePicker.ReactComponent) {
-          return (
-            <DatePicker.ReactComponent
-              key={fieldName}
-              {...(childBaseProps as unknown as DatePickerTemplateProps)}
-              mode={(perFieldResolved as { mode?: 'date' | 'time' | 'datetime' } | undefined)?.mode}
-              minimumDate={(perFieldResolved as { minimumDate?: Date } | undefined)?.minimumDate}
-              maximumDate={(perFieldResolved as { maximumDate?: Date } | undefined)?.maximumDate}
-              minuteInterval={
-                (perFieldResolved as { minuteInterval?: number } | undefined)?.minuteInterval
-              }
-              timeZoneOffsetInMinutes={
-                (perFieldResolved as { timeZoneOffsetInMinutes?: number } | undefined)
-                  ?.timeZoneOffsetInMinutes
-              }
-              onPress={(perFieldResolved as { onPress?: () => void } | undefined)?.onPress}
-              value={(structValue[fieldName] as unknown as Date) ?? null}
-              onChange={(d: Date | null) => handleFieldChange(d)}
-            />
-          );
-        }
+        // These cases are now handled by the centralized renderer above
         if (ChildComponent === List.ReactComponent) {
           // Nested list under struct: reuse list renderer with path prefix of the field name
           const items = Array.isArray(structValue[fieldName])
@@ -1130,73 +927,23 @@ class FormImpl<T> extends Component<FormProps<T>, FormState> {
         required: rootStructRequired,
         showRequiredIndicator: true,
       };
-      // Ensure we never pass null entries to React children
-      const safeChildren = (Array.isArray(children) ? children : []).filter(
-        Boolean,
-      ) as React.ReactNode[];
+      // Filter out null children to prevent React errors
+      const safeChildren = children.filter(Boolean) as React.ReactNode[];
       return <RootStructTemplate {...structTemplateProps}>{safeChildren}</RootStructTemplate>;
     }
-    if (Component === Textbox.ReactComponent) {
-      return (
-        <Textbox.ReactComponent
-          {...(baseProps as unknown as TextboxTemplateProps)}
-          onChangeText={(text: string) => onChange?.(text as unknown as T, undefined)}
-        />
-      );
-    }
-    if (Component === Checkbox.ReactComponent) {
-      return (
-        <Checkbox.ReactComponent
-          {...(baseProps as unknown as CheckboxTemplateProps)}
-          value={!!value}
-          onChange={(v: boolean) =>
-            (onChange as ((v: unknown, path?: Array<string | number>) => void) | undefined)?.(
-              v as unknown as T,
-              undefined,
-            )
-          }
-        />
-      );
-    }
-    if (Component === Select.ReactComponent) {
-      // Get options from enum type if it's an enum
-      const typeInfo = tType ? getTypeInfo(tType) : null;
-      let enumOptions: { value: string; text: string }[] = [];
-      if (typeInfo?.isEnum && tType) {
-        const meta = (tType as TypeWithMeta).meta as { map?: Record<string, unknown> } | undefined;
-        const map = meta?.map;
-        if (map) {
-          enumOptions = Object.keys(map).map(value => ({ value, text: String(map[value]) }));
-        }
-      }
-
-      return (
-        <Select.ReactComponent
-          {...(baseProps as unknown as SelectTemplateProps<unknown>)}
-          options={enumOptions}
-          value={(value !== undefined ? String(value as unknown) : null) as unknown}
-          onChange={(nv: unknown) =>
-            (onChange as ((v: unknown, path?: Array<string | number>) => void) | undefined)?.(
-              nv as unknown as T,
-              undefined,
-            )
-          }
-        />
-      );
-    }
-    if (Component === DatePicker.ReactComponent) {
-      return (
-        <DatePicker.ReactComponent
-          {...(baseProps as unknown as DatePickerTemplateProps)}
-          value={(value as Date) ?? null}
-          onChange={(d: Date | null) =>
-            (onChange as ((v: unknown, path?: Array<string | number>) => void) | undefined)?.(
-              d as unknown as T,
-              undefined,
-            )
-          }
-        />
-      );
+    // Use centralized renderer for simple components
+    if (canUseCentralizedRenderer(Component)) {
+      return renderFieldComponent({
+        Component,
+        baseProps,
+        resolvedOptions:
+          (resolvedOptions as Record<string, unknown>) ??
+          (options as Record<string, unknown>) ??
+          {},
+        value,
+        onChange: (v: unknown) => onChange?.(v as T, undefined),
+        key: 'root',
+      });
     }
     if (rootTypeInfo?.kind === 'list' || Component === List.ReactComponent) {
       // Determine inner item type (support union dispatch at render time)
@@ -1292,54 +1039,16 @@ class FormImpl<T> extends Component<FormProps<T>, FormState> {
           ref: (r: FormInputComponent<unknown> | null) => this.registerRef(thisItemPath, r),
         } as const;
 
-        if (ItemComponent === Textbox.ReactComponent) {
-          return (
-            <Textbox.ReactComponent
-              key={this.listKeys[index]}
-              {...(itemBaseProps as unknown as TextboxTemplateProps)}
-              onChangeText={(text: string) => handleItemChange(text)}
-            />
-          );
-        }
-        if (ItemComponent === Checkbox.ReactComponent) {
-          return (
-            <Checkbox.ReactComponent
-              key={this.listKeys[index]}
-              {...(itemBaseProps as unknown as CheckboxTemplateProps)}
-              value={!!item}
-              onChange={(v: boolean) => handleItemChange(v)}
-            />
-          );
-        }
-        if (ItemComponent === Select.ReactComponent) {
-          const ti = dispatched ? getTypeInfo(dispatched) : null;
-          let enumOptions: { value: string; text: string }[] = [];
-          if (ti?.isEnum && dispatched) {
-            const meta = (dispatched as TypeWithMeta).meta as { map?: Record<string, unknown> };
-            const map = meta?.map;
-            if (map) {
-              enumOptions = Object.keys(map).map(k => ({ value: k, text: String(map[k]) }));
-            }
-          }
-          return (
-            <Select.ReactComponent
-              key={this.listKeys[index]}
-              {...(itemBaseProps as unknown as SelectTemplateProps<unknown>)}
-              options={enumOptions}
-              value={(item !== undefined ? String(item as unknown) : null) as unknown}
-              onChange={(nv: unknown) => handleItemChange(nv)}
-            />
-          );
-        }
-        if (ItemComponent === DatePicker.ReactComponent) {
-          return (
-            <DatePicker.ReactComponent
-              key={this.listKeys[index]}
-              {...(itemBaseProps as unknown as DatePickerTemplateProps)}
-              value={(item as Date) ?? null}
-              onChange={(d: Date | null) => handleItemChange(d)}
-            />
-          );
+        // Use centralized renderer for simple components
+        if (canUseCentralizedRenderer(ItemComponent)) {
+          return renderFieldComponent({
+            Component: ItemComponent,
+            baseProps: itemBaseProps,
+            resolvedOptions: (itemResolvedOptions as Record<string, unknown>) || {},
+            value: item,
+            onChange: handleItemChange,
+            key: this.listKeys[index],
+          });
         }
         if (ItemComponent === List.ReactComponent) {
           // Nested lists: render recursively using the same mechanism
