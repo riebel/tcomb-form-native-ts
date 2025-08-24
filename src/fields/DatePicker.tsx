@@ -142,12 +142,37 @@ export class DatePicker {
               }
             | undefined
         )?.datePicker;
+
       const Comp = templateOverride
         ? templateOverride
         : Platform.OS === 'ios'
           ? DatePickerIOS
           : DatePickerAndroid;
-      return <Comp {...this.props} />;
+
+      // Ensure stylesheet has the expected structure for custom templates
+      const hasValidStylesheet =
+        this.props.stylesheet &&
+        Object.keys(this.props.stylesheet).length > 0 &&
+        this.props.stylesheet.controlLabel;
+
+      const propsWithStylesheet = {
+        ...this.props,
+        stylesheet: hasValidStylesheet
+          ? this.props.stylesheet
+          : {
+              formGroup: { normal: {}, error: {} },
+              controlLabel: { normal: {}, error: {} },
+              helpBlock: { normal: {}, error: {} },
+              errorBlock: {},
+              valueContainer: { normal: {}, error: {}, disabled: {} },
+              valueText: { normal: {}, error: {}, disabled: {} },
+              // Legacy DatePicker support
+              datepicker: { normal: {}, error: {} },
+              dateValue: { normal: {}, error: {}, disabled: {} },
+            },
+      };
+
+      return <Comp {...propsWithStylesheet} />;
     }
   };
 }

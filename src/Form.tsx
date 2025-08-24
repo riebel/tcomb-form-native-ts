@@ -25,6 +25,7 @@ import {
   FormInputComponent,
   I18n,
 } from './types/field.types';
+import type { AutoLabelCtx } from './types/field.types';
 import { getTypeInfo, UIDGenerator, getComponentOptions } from './util';
 import { applyAutoLabel, appendOptionalSuffix } from './utils/field';
 
@@ -42,6 +43,7 @@ const defaultGetComponent = <T,>(
   if (!type) return Textbox.ReactComponent as FieldComponentType<T>;
 
   const typeInfo = getTypeInfo(type);
+
   // For unions, default to the first variant; runtime dispatch still works via `dispatch`.
   if ((typeInfo as unknown as { isUnion?: boolean }).isUnion) {
     const variants = ((type.meta as unknown as { types?: TypeWithMeta[] })?.types || []) as
@@ -76,6 +78,50 @@ const defaultGetComponent = <T,>(
       return Textbox.ReactComponent as FieldComponentType<T>;
   }
 };
+
+// Heuristic: some legacy apps keep date fields as String but expect a DatePicker UI.
+// We detect likely date/time fields and coerce the component to DatePicker.
+function shouldCoerceToDatePicker(args: {
+  dispatchedType: TypeWithMeta | null | undefined;
+  fieldName: string | number;
+  resolvedOptions?: unknown;
+  value?: unknown;
+}): boolean {
+  const { dispatchedType, fieldName, resolvedOptions, value } = args;
+  try {
+    const ti = dispatchedType ? getTypeInfo(dispatchedType) : null;
+    const isStringType = ti?.kind === 'irreducible' && ti?.type?.name === 'String';
+    const isIrreducibleType = ti?.kind === 'irreducible';
+    const isMaybeType = ti?.isMaybe === true;
+
+    // Check if options indicate this should be a date picker
+    const opts = (resolvedOptions as { mode?: string; template?: unknown } | undefined) || {};
+    const looksLikeDateByOptions =
+      opts && typeof opts.mode === 'string' && ['date', 'time', 'datetime'].includes(opts.mode);
+
+    // Check if field name suggests it's a date field
+    const name = String(fieldName).toLowerCase();
+    const looksLikeDateByName = /(date|datum|dob|birth|zeit|time|from|start|until|end)$/i.test(
+      name,
+    );
+
+    // Check if value looks like a date
+    const looksLikeDateByValue =
+      value instanceof Date ||
+      (typeof value === 'string' && !Number.isNaN(Date.parse(value as string)));
+
+    // Coerce if any of these conditions are met AND the type is coercible
+    const shouldCoerce = Boolean(
+      looksLikeDateByName || looksLikeDateByOptions || looksLikeDateByValue,
+    );
+    const isCoercibleType = isStringType || isIrreducibleType || isMaybeType;
+    const decision = shouldCoerce && isCoercibleType;
+
+    return decision;
+  } catch (_) {
+    return false;
+  }
+}
 
 class FormImpl<T> extends Component<FormProps<T>, FormState> {
   static defaultProps: Partial<FormProps> = {
@@ -249,22 +295,27 @@ class FormImpl<T> extends Component<FormProps<T>, FormState> {
       path: Array<string | number>,
       ss = stylesheet,
       overrides?: { auto?: string; config?: Record<string, unknown>; i18n?: I18n },
-    ) => ({
-      auto: (overrides?.auto ?? baseAuto) as string,
-      label: undefined as string | undefined,
-      i18n: (overrides?.i18n ?? (i18n as unknown)) as unknown,
-      templates: templates as unknown,
-      stylesheet: ss as unknown,
-      uidGenerator: this.uidGen,
-      // Merge config: outer ctx, then base options, then overrides
-      config: {
-        ...(context as { config?: Record<string, unknown> } | undefined)?.config,
-        ...baseConfig,
-        ...(overrides?.config || {}),
-      } as Record<string, unknown>,
-      context,
-      path,
-    });
+    ) => {
+      const auto = (overrides?.auto ?? baseAuto) as string;
+      // Derive a default label from the last path segment so applyAutoLabel can render it
+      const defaultLabel = path.length > 0 ? String(path[path.length - 1]) : undefined;
+      return {
+        auto,
+        label: defaultLabel as string | undefined,
+        i18n: (overrides?.i18n ?? (i18n as unknown)) as unknown,
+        templates: templates as unknown,
+        stylesheet: ss as unknown,
+        uidGenerator: this.uidGen,
+        // Merge config: outer ctx, then base options, then overrides
+        config: {
+          ...(context as { config?: Record<string, unknown> } | undefined)?.config,
+          ...baseConfig,
+          ...(overrides?.config || {}),
+        } as Record<string, unknown>,
+        context,
+        path,
+      };
+    };
     const baseCtx = makeCtx([]);
     const baseProps = {
       ref: this.input,
@@ -315,7 +366,7 @@ class FormImpl<T> extends Component<FormProps<T>, FormState> {
           rawChildType ||
           null;
 
-        const ChildComponent = getComponent(dispatchedChildType, options);
+        let ChildComponent = getComponent(dispatchedChildType, options);
         if (!ChildComponent) return null;
 
         // Resolve per-field options from options.fields[fieldName] first
@@ -332,6 +383,19 @@ class FormImpl<T> extends Component<FormProps<T>, FormState> {
           perFieldResolved ??
           getComponentOptions(options as unknown, structValue[fieldName], dispatchedChildType);
 
+        // Apply legacy coercion after options are resolved
+        if (
+          ChildComponent === Textbox.ReactComponent &&
+          shouldCoerceToDatePicker({
+            dispatchedType: dispatchedChildType,
+            fieldName,
+            resolvedOptions: childResolvedOptions,
+            value: structValue[fieldName],
+          })
+        ) {
+          ChildComponent = DatePicker.ReactComponent as unknown as FieldComponentType<T>;
+        }
+
         const handleFieldChange = (nextValue: unknown) => {
           const next = { ...structValue, [fieldName]: nextValue } as unknown as T;
           onChange?.(next, [fieldName]);
@@ -344,6 +408,25 @@ class FormImpl<T> extends Component<FormProps<T>, FormState> {
         const childStylesheet = (
           fieldStylesheet ? { ...stylesheet, ...fieldStylesheet } : stylesheet
         ) as typeof stylesheet;
+
+        const childCtx = makeCtx([fieldName], childStylesheet, {
+          auto: (perFieldResolved as { auto?: string } | undefined)?.auto,
+          config: (perFieldResolved as { config?: Record<string, unknown> } | undefined)?.config,
+          i18n: (perFieldResolved as { i18n?: I18n } | undefined)?.i18n,
+        });
+        // Compute label/help/error/hasError/required for templates which expect them via props
+        let childLabel: React.ReactNode | null | undefined = (
+          perFieldResolved as { label?: React.ReactNode } | undefined
+        )?.label;
+        childLabel = applyAutoLabel(childLabel, childCtx as unknown as AutoLabelCtx);
+        childLabel = appendOptionalSuffix(
+          childLabel,
+          dispatchedChildType as unknown as { meta?: { optional?: boolean; kind?: string } },
+          childCtx as unknown as { i18n?: { optional?: string } },
+        );
+        const childRequired = !(
+          dispatchedChildType as { meta?: { optional?: boolean } } | undefined
+        )?.meta?.optional;
         const childBaseProps = {
           ...baseProps,
           type: dispatchedChildType,
@@ -351,11 +434,12 @@ class FormImpl<T> extends Component<FormProps<T>, FormState> {
           onChange: handleFieldChange as (v: T) => void,
           options: (childResolvedOptions ?? options) as Record<string, unknown>,
           stylesheet: childStylesheet,
-          ctx: makeCtx([fieldName], childStylesheet, {
-            auto: (perFieldResolved as { auto?: string } | undefined)?.auto,
-            config: (perFieldResolved as { config?: Record<string, unknown> } | undefined)?.config,
-            i18n: (perFieldResolved as { i18n?: I18n } | undefined)?.i18n,
-          }),
+          ctx: childCtx,
+          label: childLabel ?? undefined,
+          help: (perFieldResolved as { help?: React.ReactNode } | undefined)?.help,
+          error: (perFieldResolved as { error?: React.ReactNode } | undefined)?.error,
+          hasError: (perFieldResolved as { hasError?: boolean } | undefined)?.hasError,
+          required: childRequired,
           hidden: (perFieldResolved as { hidden?: boolean } | undefined)?.hidden,
           disabled: (perFieldResolved as { disabled?: boolean } | undefined)?.disabled,
           ref: (r: FormInputComponent<unknown> | null) => this.registerRef([fieldName], r),
@@ -413,7 +497,7 @@ class FormImpl<T> extends Component<FormProps<T>, FormState> {
               rawInnerType ||
               null;
 
-            const InnerComponent = getComponent(dispatchedInnerType, options);
+            let InnerComponent = getComponent(dispatchedInnerType, options);
             if (!InnerComponent) return null;
 
             const innerResolvedOptions = getComponentOptions(
@@ -422,11 +506,43 @@ class FormImpl<T> extends Component<FormProps<T>, FormState> {
               dispatchedInnerType,
             );
 
+            // Apply legacy coercion after options are resolved
+            if (
+              InnerComponent === Textbox.ReactComponent &&
+              shouldCoerceToDatePicker({
+                dispatchedType: dispatchedInnerType,
+                fieldName: innerName,
+                resolvedOptions: innerResolvedOptions,
+                value: innerValue[innerName],
+              })
+            ) {
+              InnerComponent = DatePicker.ReactComponent as unknown as FieldComponentType<T>;
+            }
+
             const handleInnerChange = (nextVal: unknown) => {
               const nextInner = { ...innerValue, [innerName]: nextVal };
               const nextStruct = { ...structValue, [fieldName]: nextInner } as unknown as T;
               onChange?.(nextStruct, [fieldName, innerName]);
             };
+
+            const innerCtx = makeCtx([fieldName, innerName], undefined, {
+              auto: (perFieldResolved as { auto?: string } | undefined)?.auto,
+              config: (perFieldResolved as { config?: Record<string, unknown> } | undefined)
+                ?.config,
+              i18n: (perFieldResolved as { i18n?: I18n } | undefined)?.i18n,
+            });
+            let innerLabel: React.ReactNode | null | undefined = (
+              perFieldResolved as { label?: React.ReactNode } | undefined
+            )?.label;
+            innerLabel = applyAutoLabel(innerLabel, innerCtx as unknown as AutoLabelCtx);
+            innerLabel = appendOptionalSuffix(
+              innerLabel,
+              dispatchedInnerType as unknown as { meta?: { optional?: boolean; kind?: string } },
+              innerCtx as unknown as { i18n?: { optional?: string } },
+            );
+            const innerRequired = !(
+              dispatchedInnerType as { meta?: { optional?: boolean } } | undefined
+            )?.meta?.optional;
 
             const innerBaseProps = {
               ...baseProps,
@@ -434,12 +550,12 @@ class FormImpl<T> extends Component<FormProps<T>, FormState> {
               value: innerValue[innerName],
               onChange: handleInnerChange as (v: T) => void,
               options: (innerResolvedOptions ?? options) as Record<string, unknown>,
-              ctx: makeCtx([fieldName, innerName], undefined, {
-                auto: (perFieldResolved as { auto?: string } | undefined)?.auto,
-                config: (perFieldResolved as { config?: Record<string, unknown> } | undefined)
-                  ?.config,
-                i18n: (perFieldResolved as { i18n?: I18n } | undefined)?.i18n,
-              }),
+              ctx: innerCtx,
+              label: innerLabel ?? undefined,
+              help: (perFieldResolved as { help?: React.ReactNode } | undefined)?.help,
+              error: (perFieldResolved as { error?: React.ReactNode } | undefined)?.error,
+              hasError: (perFieldResolved as { hasError?: boolean } | undefined)?.hasError,
+              required: innerRequired,
               ref: (r: FormInputComponent<unknown> | null) =>
                 this.registerRef([fieldName, innerName], r),
             } as const;
@@ -624,7 +740,7 @@ class FormImpl<T> extends Component<FormProps<T>, FormState> {
                     )?.dispatch?.(it) ||
                     innerItemType ||
                     null;
-                  const ItemComponent = getComponent(dispatched, options);
+                  let ItemComponent = getComponent(dispatched, options);
                   if (!ItemComponent) return null;
                   // Resolve per-item options: prefer list field options.item, then global options.item, then fallback to options
                   const rawItemOptions =
@@ -632,6 +748,18 @@ class FormImpl<T> extends Component<FormProps<T>, FormState> {
                     (fieldOptionsRaw?.item as unknown) ??
                     (options as unknown);
                   const itemResolvedOptions = getComponentOptions(rawItemOptions, it, dispatched);
+                  // Apply legacy coercion after options are resolved
+                  if (
+                    ItemComponent === Textbox.ReactComponent &&
+                    shouldCoerceToDatePicker({
+                      dispatchedType: dispatched as TypeWithMeta,
+                      fieldName: idx,
+                      resolvedOptions: itemResolvedOptions,
+                      value: it,
+                    })
+                  ) {
+                    ItemComponent = DatePicker.ReactComponent as unknown as FieldComponentType<T>;
+                  }
                   const thisItemPath: Array<string | number> = [fieldName, innerName, idx];
                   const keys = this.ensureNestedListKeys([fieldName], innerItems.length);
 
@@ -642,12 +770,38 @@ class FormImpl<T> extends Component<FormProps<T>, FormState> {
                     onChange?.(nextStruct, thisItemPath);
                   };
 
+                  const itemCtx = makeCtx(thisItemPath, undefined, {
+                    auto: (itemResolvedOptions as { auto?: string } | undefined)?.auto,
+                    config: (
+                      itemResolvedOptions as { config?: Record<string, unknown> } | undefined
+                    )?.config,
+                    i18n: (itemResolvedOptions as { i18n?: I18n } | undefined)?.i18n,
+                  });
+                  let itemLabel: React.ReactNode | null | undefined = (
+                    itemResolvedOptions as { label?: React.ReactNode } | undefined
+                  )?.label;
+                  itemLabel = applyAutoLabel(itemLabel, itemCtx as unknown as AutoLabelCtx);
+                  itemLabel = appendOptionalSuffix(
+                    itemLabel,
+                    dispatched as unknown as { meta?: { optional?: boolean; kind?: string } },
+                    itemCtx as unknown as { i18n?: { optional?: string } },
+                  );
+                  const itemRequired = !(
+                    dispatched as { meta?: { optional?: boolean } } | undefined
+                  )?.meta?.optional;
+
                   const itemBaseProps = {
                     ...baseProps,
                     type: dispatched,
                     value: it,
                     onChange: handleItemChange as (v: T) => void,
                     options: (itemResolvedOptions ?? options) as Record<string, unknown>,
+                    ctx: itemCtx,
+                    label: itemLabel ?? undefined,
+                    help: (itemResolvedOptions as { help?: React.ReactNode } | undefined)?.help,
+                    error: (itemResolvedOptions as { error?: React.ReactNode } | undefined)?.error,
+                    hasError: (itemResolvedOptions as { hasError?: boolean } | undefined)?.hasError,
+                    required: itemRequired,
                     ref: (r: FormInputComponent<unknown> | null) =>
                       this.registerRef(thisItemPath, r),
                   } as const;

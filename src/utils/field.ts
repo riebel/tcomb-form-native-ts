@@ -10,7 +10,8 @@ export function applyAutoLabel(
   label: ReactNode | undefined | null,
   ctx: AutoLabelCtx,
 ): ReactNode | undefined | null {
-  if (!label && ctx?.auto === 'labels' && ctx?.label) {
+  const shouldAuto = !label && ctx?.auto === 'labels' && ctx?.label;
+  if (shouldAuto) {
     return ctx.label;
   }
   return label;
@@ -21,8 +22,11 @@ export function appendOptionalSuffix(
   type?: TypeLikeMeta,
   ctx?: I18nCtx,
 ): ReactNode | undefined | null {
-  if (typeof label === 'string' && isOptionalType(type) && ctx?.i18n?.optional) {
-    return `${label}${ctx.i18n.optional}`;
+  const shouldAppend = typeof label === 'string' && isOptionalType(type) && ctx?.i18n?.optional;
+  if (shouldAppend) {
+    const suffix = String(ctx?.i18n?.optional ?? '');
+    const after = `${label}${suffix}`;
+    return after;
   }
   return label;
 }
