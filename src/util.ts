@@ -41,13 +41,18 @@ export function getTypeInfo(type: TypeWithMeta | null): TypeInfo {
   }
 
   if (type.meta) {
-    info.isMaybe = type.meta.kind === 'maybe';
-    info.isSubtype = type.meta.kind === 'subtype';
-    info.isEnum = type.meta.kind === 'enums';
-    info.isList = type.meta.kind === 'list';
-    info.isDict = type.meta.kind === 'dict';
-    info.isUnion = type.meta.kind === 'union';
-    info.isRefinement = type.meta.kind === 'refinement';
+    const kind = (type.meta as { kind?: string }).kind;
+    if (typeof kind === 'string' && kind.length > 0) {
+      // Preserve canonical kind string from tcomb meta
+      info.kind = kind as TypeInfo['kind'];
+    }
+    info.isMaybe = kind === 'maybe';
+    info.isSubtype = kind === 'subtype';
+    info.isEnum = kind === 'enums';
+    info.isList = kind === 'list';
+    info.isDict = kind === 'dict';
+    info.isUnion = kind === 'union';
+    info.isRefinement = kind === 'refinement';
   }
 
   info.isPrimitive =

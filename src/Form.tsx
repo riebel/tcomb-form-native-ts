@@ -240,11 +240,6 @@ class FormImpl<T> extends Component<FormProps<T>, FormState> {
     const tType = isTypeWithMeta(type) ? type : null;
     const Component = getComponent(tType, options);
 
-    if (!Component) {
-      console.error(`No component found for type: ${type}`);
-      return null;
-    }
-
     const resolvedOptions = getComponentOptions(options as unknown, value, tType);
     // Build ctx with uidGenerator and path-aware context
     const baseAuto = (options as { auto?: string } | undefined)?.auto ?? ('labels' as const);
@@ -285,7 +280,9 @@ class FormImpl<T> extends Component<FormProps<T>, FormState> {
       ...otherProps,
     };
 
-    if (Component === (Struct as unknown as FieldComponentType<T>)) {
+    // Prefer branching by type kind to avoid identity mismatches across module copies
+    const rootTypeInfo = tType ? getTypeInfo(tType) : null;
+    if (rootTypeInfo?.kind === 'struct') {
       // Render struct children to register per-field refs
       const structMeta = (tType?.meta as { props?: Record<string, TypeWithMeta> } | undefined)
         ?.props;
@@ -500,9 +497,7 @@ class FormImpl<T> extends Component<FormProps<T>, FormState> {
                   onCollapseChange={
                     (
                       innerResolvedOptions as
-                        | {
-                            onCollapseChange?: (collapsed: boolean) => void;
-                          }
+                        | { onCollapseChange?: (collapsed: boolean) => void }
                         | undefined
                     )?.onCollapseChange
                   }
@@ -620,6 +615,7 @@ class FormImpl<T> extends Component<FormProps<T>, FormState> {
                 upLabel: listI18n.up as React.ReactNode,
                 downLabel: listI18n.down as React.ReactNode,
                 renderItem: (it: unknown, idx: number) => {
+                  // If innerType has a dispatch (union), use it to pick concrete type
                   const dispatched =
                     (
                       innerItemType as unknown as {
@@ -630,38 +626,48 @@ class FormImpl<T> extends Component<FormProps<T>, FormState> {
                     null;
                   const ItemComponent = getComponent(dispatched, options);
                   if (!ItemComponent) return null;
-                  const resolved = getComponentOptions(options as unknown, it, dispatched);
-                  const thisPath: Array<string | number> = [fieldName, innerName, idx];
-                  const handleChange = (nv: unknown) => {
+                  // Resolve per-item options: prefer list field options.item, then global options.item, then fallback to options
+                  const rawItemOptions =
+                    (listProps as { item?: unknown }).item ??
+                    (fieldOptionsRaw?.item as unknown) ??
+                    (options as unknown);
+                  const itemResolvedOptions = getComponentOptions(rawItemOptions, it, dispatched);
+                  const thisItemPath: Array<string | number> = [fieldName, innerName, idx];
+                  const keys = this.ensureNestedListKeys([fieldName], innerItems.length);
+
+                  const handleItemChange = (nextValue: unknown) => {
                     const next = innerItems.slice();
-                    next[idx] = nv;
+                    next[idx] = nextValue;
                     const nextStruct = { ...structValue, [fieldName]: next } as unknown as T;
-                    onChange?.(nextStruct, thisPath);
+                    onChange?.(nextStruct, thisItemPath);
                   };
-                  const base = {
+
+                  const itemBaseProps = {
                     ...baseProps,
                     type: dispatched,
                     value: it,
-                    onChange: handleChange as (v: T) => void,
-                    options: (resolved ?? options) as Record<string, unknown>,
-                    ref: (r: FormInputComponent<unknown> | null) => this.registerRef(thisPath, r),
+                    onChange: handleItemChange as (v: T) => void,
+                    options: (itemResolvedOptions ?? options) as Record<string, unknown>,
+                    ref: (r: FormInputComponent<unknown> | null) =>
+                      this.registerRef(thisItemPath, r),
                   } as const;
+
                   if (ItemComponent === Textbox.ReactComponent) {
                     return (
                       <Textbox.ReactComponent
-                        key={String(idx)}
-                        {...(base as unknown as TextboxTemplateProps)}
-                        onChangeText={(text: string) => handleChange(text)}
+                        key={keys[idx] ?? String(idx)}
+                        {...(itemBaseProps as unknown as TextboxTemplateProps)}
+                        onChangeText={(text: string) => handleItemChange(text)}
                       />
                     );
                   }
                   if (ItemComponent === Checkbox.ReactComponent) {
                     return (
                       <Checkbox.ReactComponent
-                        key={String(idx)}
-                        {...(base as unknown as CheckboxTemplateProps)}
+                        key={keys[idx] ?? String(idx)}
+                        {...(itemBaseProps as unknown as CheckboxTemplateProps)}
                         value={!!it}
-                        onChange={(v: boolean) => handleChange(v)}
+                        onChange={(v: boolean) => handleItemChange(v)}
                       />
                     );
                   }
@@ -682,60 +688,33 @@ class FormImpl<T> extends Component<FormProps<T>, FormState> {
                     }
                     return (
                       <Select.ReactComponent
-                        key={String(idx)}
-                        {...(base as unknown as SelectTemplateProps<unknown>)}
+                        key={keys[idx] ?? String(idx)}
+                        {...(itemBaseProps as unknown as SelectTemplateProps<unknown>)}
                         options={enumOptions}
-                        mode={(resolved as { mode?: 'dialog' | 'dropdown' } | undefined)?.mode}
-                        prompt={(resolved as { prompt?: string } | undefined)?.prompt}
-                        itemStyle={
-                          (resolved as { itemStyle?: StyleProp<TextStyle> } | undefined)?.itemStyle
-                        }
-                        isCollapsed={
-                          (resolved as { isCollapsed?: boolean } | undefined)?.isCollapsed
-                        }
-                        onCollapseChange={
-                          (
-                            resolved as
-                              | { onCollapseChange?: (collapsed: boolean) => void }
-                              | undefined
-                          )?.onCollapseChange
-                        }
                         value={(it !== undefined ? String(it as unknown) : null) as unknown}
-                        onChange={(nv: unknown) => handleChange(nv)}
+                        onChange={(nv: unknown) => handleItemChange(nv)}
                       />
                     );
                   }
                   if (ItemComponent === DatePicker.ReactComponent) {
                     return (
                       <DatePicker.ReactComponent
-                        key={String(idx)}
-                        {...(base as unknown as DatePickerTemplateProps)}
-                        mode={
-                          (resolved as { mode?: 'date' | 'time' | 'datetime' } | undefined)?.mode
-                        }
-                        minimumDate={(resolved as { minimumDate?: Date } | undefined)?.minimumDate}
-                        maximumDate={(resolved as { maximumDate?: Date } | undefined)?.maximumDate}
-                        minuteInterval={
-                          (resolved as { minuteInterval?: number } | undefined)?.minuteInterval
-                        }
-                        timeZoneOffsetInMinutes={
-                          (resolved as { timeZoneOffsetInMinutes?: number } | undefined)
-                            ?.timeZoneOffsetInMinutes
-                        }
-                        onPress={(resolved as { onPress?: () => void } | undefined)?.onPress}
+                        key={keys[idx] ?? String(idx)}
+                        {...(itemBaseProps as unknown as DatePickerTemplateProps)}
                         value={(it as Date) ?? null}
-                        onChange={(d: Date | null) => handleChange(d)}
+                        onChange={(d: Date | null) => handleItemChange(d)}
                       />
                     );
                   }
+
                   return (
                     <ItemComponent
-                      key={String(idx)}
-                      {...(base as unknown as AnyTemplateProps<T>)}
+                      key={keys[idx] ?? String(idx)}
+                      {...(itemBaseProps as unknown as AnyTemplateProps<T>)}
                     />
                   );
                 },
-              };
+              } as ListTemplateProps<unknown>;
 
               return <List.ReactComponent key={innerName} {...listProps} />;
             }
@@ -858,10 +837,10 @@ class FormImpl<T> extends Component<FormProps<T>, FormState> {
             ? (structValue[fieldName] as unknown[])
             : [];
 
-          // Determine inner item type for this list field
-          const listMeta =
+          // Determine inner item type for this list field (not currently used here)
+          const _listMeta =
             (dispatchedChildType?.meta as { type?: unknown; of?: unknown } | undefined) ?? {};
-          const childInnerType = (listMeta.type ?? listMeta.of) as TypeWithMeta | undefined;
+          const _childInnerType = (_listMeta.type ?? _listMeta.of) as TypeWithMeta | undefined;
 
           const handleAddChild = () => {
             const next = items.slice();
@@ -910,9 +889,12 @@ class FormImpl<T> extends Component<FormProps<T>, FormState> {
             up: React.ReactNode;
             down: React.ReactNode;
           }>;
+          // Do not pass field input ref down to List template (function components cannot receive refs)
+          const { ref: _ignoreFieldRef, ...childBaseNoRef } = childBaseProps as unknown as {
+            ref?: unknown;
+          } & Record<string, unknown>;
           const listBaseProps = {
-            ...(childBaseProps as unknown as ListTemplateProps<unknown>),
-            items,
+            ...(childBaseNoRef as unknown as ListTemplateProps<unknown>),
             onAdd: handleAddChild,
             onRemove: handleRemoveChild,
             onMoveUp: handleMoveUpChild,
@@ -932,103 +914,8 @@ class FormImpl<T> extends Component<FormProps<T>, FormState> {
             required: !(dispatchedChildType as { meta?: { optional?: boolean } } | undefined)?.meta
               ?.optional,
             showRequiredIndicator: true,
-            renderItem: (it: unknown, idx: number) => {
-              // If innerType has a dispatch (union), use it to pick concrete type
-              const dispatched =
-                (
-                  childInnerType as unknown as {
-                    dispatch?: (v: unknown) => TypeWithMeta | undefined;
-                  }
-                )?.dispatch?.(it) ||
-                childInnerType ||
-                null;
-              const ItemComponent = getComponent(dispatched, options);
-              if (!ItemComponent) return null;
-              // Resolve per-item options: prefer list field options.item, then global options.item, then fallback to options
-              const rawItemOptions =
-                (listFieldOptions as { item?: unknown }).item ??
-                (fieldOptionsRaw?.item as unknown) ??
-                (options as unknown);
-              const itemResolvedOptions = getComponentOptions(rawItemOptions, it, dispatched);
-              const thisItemPath: Array<string | number> = [fieldName, idx];
-              const keys = this.ensureNestedListKeys([fieldName], items.length);
-
-              const handleItemChange = (nextValue: unknown) => {
-                const next = items.slice();
-                next[idx] = nextValue;
-                handleFieldChange(next);
-              };
-
-              const itemBaseProps = {
-                ...baseProps,
-                type: dispatched,
-                value: it,
-                onChange: handleItemChange as (v: T) => void,
-                options: (itemResolvedOptions ?? options) as Record<string, unknown>,
-                ref: (r: FormInputComponent<unknown> | null) => this.registerRef(thisItemPath, r),
-              } as const;
-
-              if (ItemComponent === Textbox.ReactComponent) {
-                return (
-                  <Textbox.ReactComponent
-                    key={keys[idx] ?? String(idx)}
-                    {...(itemBaseProps as unknown as TextboxTemplateProps)}
-                    onChangeText={(text: string) => handleItemChange(text)}
-                  />
-                );
-              }
-              if (ItemComponent === Checkbox.ReactComponent) {
-                return (
-                  <Checkbox.ReactComponent
-                    key={keys[idx] ?? String(idx)}
-                    {...(itemBaseProps as unknown as CheckboxTemplateProps)}
-                    value={!!it}
-                    onChange={(v: boolean) => handleItemChange(v)}
-                  />
-                );
-              }
-              if (ItemComponent === Select.ReactComponent) {
-                const ti = dispatched ? getTypeInfo(dispatched) : null;
-                let enumOptions: { value: string; text: string }[] = [];
-                if (ti?.isEnum && dispatched) {
-                  const meta = (dispatched as TypeWithMeta).meta as {
-                    map?: Record<string, unknown>;
-                  };
-                  const map = meta?.map;
-                  if (map) {
-                    enumOptions = Object.keys(map).map(k => ({ value: k, text: String(map[k]) }));
-                  }
-                }
-                return (
-                  <Select.ReactComponent
-                    key={keys[idx] ?? String(idx)}
-                    {...(itemBaseProps as unknown as SelectTemplateProps<unknown>)}
-                    options={enumOptions}
-                    value={(it !== undefined ? String(it as unknown) : null) as unknown}
-                    onChange={(nv: unknown) => handleItemChange(nv)}
-                  />
-                );
-              }
-              if (ItemComponent === DatePicker.ReactComponent) {
-                return (
-                  <DatePicker.ReactComponent
-                    key={keys[idx] ?? String(idx)}
-                    {...(itemBaseProps as unknown as DatePickerTemplateProps)}
-                    value={(it as Date) ?? null}
-                    onChange={(d: Date | null) => handleItemChange(d)}
-                  />
-                );
-              }
-
-              return (
-                <ItemComponent
-                  key={keys[idx] ?? String(idx)}
-                  {...(itemBaseProps as unknown as AnyTemplateProps<T>)}
-                />
-              );
-            },
-          } as ListTemplateProps<unknown>;
-
+          };
+          // List.ReactComponent consumes items via props, not children
           return <List.ReactComponent key={fieldName} {...listBaseProps} />;
         }
 
@@ -1076,8 +963,12 @@ class FormImpl<T> extends Component<FormProps<T>, FormState> {
             .template as React.ComponentType<StructTemplateProps>)
         : Struct;
 
+      // Do not pass root ref to Struct template (may be a function component)
+      const { ref: _ignoreRootRef, ...basePropsNoRef } = baseProps as unknown as {
+        ref?: unknown;
+      } & Record<string, unknown>;
       const structTemplateProps: StructTemplateProps = {
-        ...(baseProps as unknown as StructTemplateProps),
+        ...(basePropsNoRef as unknown as StructTemplateProps),
         label: rootStructLabel ?? undefined,
         help: (structOptions as { help?: React.ReactNode }).help,
         error: (structOptions as { error?: React.ReactNode }).error,
@@ -1085,7 +976,11 @@ class FormImpl<T> extends Component<FormProps<T>, FormState> {
         required: rootStructRequired,
         showRequiredIndicator: true,
       };
-      return <RootStructTemplate {...structTemplateProps}>{children}</RootStructTemplate>;
+      // Ensure we never pass null entries to React children
+      const safeChildren = (Array.isArray(children) ? children : []).filter(
+        Boolean,
+      ) as React.ReactNode[];
+      return <RootStructTemplate {...structTemplateProps}>{safeChildren}</RootStructTemplate>;
     }
     if (Component === Textbox.ReactComponent) {
       return (
@@ -1149,7 +1044,7 @@ class FormImpl<T> extends Component<FormProps<T>, FormState> {
         />
       );
     }
-    if (Component === List.ReactComponent) {
+    if (rootTypeInfo?.kind === 'list' || Component === List.ReactComponent) {
       // Determine inner item type (support union dispatch at render time)
       const listMeta = (tType?.meta as { type?: unknown; of?: unknown } | undefined) ?? {};
       const innerType = (listMeta.type ?? listMeta.of) as TypeWithMeta | undefined;
