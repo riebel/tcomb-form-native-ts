@@ -24,7 +24,7 @@ export function useSelectCommon<T>({
 
   const displayValue = useMemo(() => {
     const selectedOption = selectOptions.find(opt => opt?.value === selectedValue) || null;
-    return selectedOption?.text || '';
+    return selectedOption?.text ?? '';
   }, [selectOptions, selectedValue]);
 
   const formGroupStyle = StyleSheet.flatten([

@@ -86,6 +86,44 @@ export {
   getComponentOptions,
 } from './util';
 
+// Advanced utility types and functions
+export {
+  type ExtractFieldValue,
+  type RequireFields,
+  type OptionalFields,
+  type Branded,
+  type FieldName,
+  type ComponentKey,
+  type ValidationError,
+  type StrictFieldConfig,
+  type EnhancedComponentProps,
+  type DeepReadonly,
+  type NonEmptyArray,
+  type Exact,
+  type SupportedFieldType,
+  type FieldId,
+  isFieldName,
+  isComponentKey,
+  createFieldName,
+  createComponentKey,
+  createValidationError,
+  isNonEmptyArray,
+  generateFieldId,
+} from './types/utility.types';
+
+// Component renderer utilities
+export {
+  renderFieldComponent,
+  canUseCentralizedRenderer,
+  getEnumOptions,
+  type ComponentRenderProps,
+  type EnumOptions,
+} from './utils/componentRenderer';
+
+// Performance and error handling components
+export { ErrorBoundary } from './components/ErrorBoundary';
+export { MemoizedFieldComponent, useMemoizedFieldProps } from './components/MemoizedFieldComponent';
+
 export type { FormProps } from './types/field.types';
 
 export type {
@@ -112,6 +150,10 @@ export type {
   ListTemplateProps,
   SelectOption,
   ListItem,
+  // Advanced types
+  MinimalFormRef,
+  FormInputComponent,
+  FieldComponentType,
 } from './types/field.types';
 
 // Default export is a type-only placeholder; the actual runtime default export

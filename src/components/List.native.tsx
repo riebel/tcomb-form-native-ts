@@ -136,7 +136,9 @@ const List = <T,>({
       }
       return (
         <View key={itemKey} style={itemContainerStyle}>
-          <View style={styles.itemContent}>{renderItemProp(item, index)}</View>
+          <View style={styles.itemContent}>
+            {typeof renderItemProp === 'function' ? renderItemProp(item, index) : null}
+          </View>
           {!disabled && (
             <View style={styles.buttonGroup}>
               {buttons.map(button => (

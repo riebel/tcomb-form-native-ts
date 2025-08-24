@@ -24,6 +24,8 @@ import type { AutoLabelCtx } from './types/field.types';
 import { getTypeInfo, UIDGenerator, getComponentOptions } from './util';
 import { applyAutoLabel, appendOptionalSuffix } from './utils/field';
 import { renderFieldComponent, canUseCentralizedRenderer } from './utils/componentRenderer';
+import { DateModeOptions } from './types/utility.types';
+import defaultStylesheet from './stylesheets/bootstrap';
 
 function isTypeWithMeta(x: unknown): x is TypeWithMeta {
   return (
@@ -41,12 +43,11 @@ const defaultGetComponent = <T,>(
   const typeInfo = getTypeInfo(type);
 
   // For unions, default to the first variant; runtime dispatch still works via `dispatch`.
-  if ((typeInfo as unknown as { isUnion?: boolean }).isUnion) {
-    const variants = ((type.meta as unknown as { types?: TypeWithMeta[] })?.types || []) as
-      | TypeWithMeta[]
-      | undefined;
+  if (typeInfo.isUnion) {
+    const unionMeta = type.meta as { types?: TypeWithMeta[] } | undefined;
+    const variants = unionMeta?.types;
     const first = variants && variants.length > 0 ? variants[0] : null;
-    return defaultGetComponent(first as TypeWithMeta | null, options);
+    return defaultGetComponent(first, options);
   }
 
   if (typeInfo.isEnum) return Select.ReactComponent as FieldComponentType<T>;
@@ -75,7 +76,10 @@ const defaultGetComponent = <T,>(
   }
 };
 
-// Simplified date picker coercion logic
+function hasDateMode(options: unknown): options is DateModeOptions {
+  return typeof options === 'object' && options !== null && 'mode' in options;
+}
+
 function shouldCoerceToDatePicker(args: {
   dispatchedType: TypeWithMeta | null | undefined;
   fieldName: string | number;
@@ -84,33 +88,31 @@ function shouldCoerceToDatePicker(args: {
 }): boolean {
   const { dispatchedType, fieldName, resolvedOptions, value } = args;
 
-  try {
-    const ti = dispatchedType ? getTypeInfo(dispatchedType) : null;
-    const isCoercibleType = ti?.kind === 'irreducible' || ti?.isMaybe === true;
+  const ti = dispatchedType ? getTypeInfo(dispatchedType) : null;
+  const isCoercibleType = ti?.kind === 'irreducible' || ti?.isMaybe === true;
 
-    if (!isCoercibleType) return false;
+  if (!isCoercibleType) return false;
 
-    // Check options mode
-    const opts = resolvedOptions as { mode?: string } | undefined;
-    if (opts?.mode && ['date', 'time', 'datetime'].includes(opts.mode)) {
+  // Check options mode
+  if (hasDateMode(resolvedOptions) && resolvedOptions.mode) {
+    const validModes = ['date', 'time', 'datetime'] as const;
+    if (validModes.includes(resolvedOptions.mode as 'date' | 'time' | 'datetime')) {
       return true;
     }
-
-    // Check field name pattern
-    const name = String(fieldName).toLowerCase();
-    if (/(date|datum|dob|birth|zeit|time|from|start|until|end)$/i.test(name)) {
-      return true;
-    }
-
-    // Check value type
-    if (value instanceof Date || (typeof value === 'string' && !Number.isNaN(Date.parse(value)))) {
-      return true;
-    }
-
-    return false;
-  } catch {
-    return false;
   }
+
+  // Check field name pattern
+  const name = String(fieldName).toLowerCase();
+  if (/(date|datum|dob|birth|zeit|time|from|start|until|end)$/i.test(name)) {
+    return true;
+  }
+
+  // Check value type
+  if (value instanceof Date || (typeof value === 'string' && !Number.isNaN(Date.parse(value)))) {
+    return true;
+  }
+
+  return false;
 }
 
 class FormImpl<T> extends Component<FormProps<T>, FormState> {
@@ -118,7 +120,7 @@ class FormImpl<T> extends Component<FormProps<T>, FormState> {
     value: undefined,
     options: {},
     context: {},
-    stylesheet: {},
+    stylesheet: defaultStylesheet,
     templates: {},
     i18n: {},
   };
@@ -717,11 +719,12 @@ class FormImpl<T> extends Component<FormProps<T>, FormState> {
                     });
                   }
 
-                  return (
-                    <ItemComponent
-                      key={keys[idx] ?? String(idx)}
-                      {...(itemBaseProps as unknown as AnyTemplateProps<T>)}
-                    />
+                  return React.createElement(
+                    ItemComponent as React.ComponentType<AnyTemplateProps<T>>,
+                    {
+                      key: keys[idx] ?? String(idx),
+                      ...(itemBaseProps as unknown as AnyTemplateProps<T>),
+                    },
                   );
                 },
               } as ListTemplateProps<unknown>;
@@ -729,12 +732,10 @@ class FormImpl<T> extends Component<FormProps<T>, FormState> {
               return <List.ReactComponent key={innerName} {...listProps} />;
             }
 
-            return (
-              <InnerComponent
-                key={innerName}
-                {...(innerBaseProps as unknown as AnyTemplateProps<T>)}
-              />
-            );
+            return React.createElement(InnerComponent as React.ComponentType<AnyTemplateProps<T>>, {
+              key: innerName,
+              ...(innerBaseProps as unknown as AnyTemplateProps<T>),
+            });
           });
 
           // Compute Struct label with legend alias, auto-label and optional suffix
@@ -870,9 +871,10 @@ class FormImpl<T> extends Component<FormProps<T>, FormState> {
           return <List.ReactComponent key={fieldName} {...listBaseProps} />;
         }
 
-        return (
-          <ChildComponent key={fieldName} {...(childBaseProps as unknown as AnyTemplateProps<T>)} />
-        );
+        return React.createElement(ChildComponent as React.ComponentType<AnyTemplateProps<T>>, {
+          key: fieldName,
+          ...(childBaseProps as unknown as AnyTemplateProps<T>),
+        });
       });
 
       // Build Struct wrapper props with label auto/legend alias and optional suffix
@@ -1077,12 +1079,10 @@ class FormImpl<T> extends Component<FormProps<T>, FormState> {
           );
         }
 
-        return (
-          <ItemComponent
-            key={this.listKeys[index]}
-            {...(itemBaseProps as unknown as AnyTemplateProps<T>)}
-          />
-        );
+        return React.createElement(ItemComponent as React.ComponentType<AnyTemplateProps<T>>, {
+          key: this.listKeys[index],
+          ...(itemBaseProps as unknown as AnyTemplateProps<T>),
+        });
       };
 
       const { onChange: _omitOnChange, ...restBase } = baseProps as Record<string, unknown> & {
@@ -1117,7 +1117,9 @@ class FormImpl<T> extends Component<FormProps<T>, FormState> {
       return <Struct {...(baseProps as unknown as StructTemplateProps)}>{null}</Struct>;
     }
 
-    return <Component {...(baseProps as unknown as AnyTemplateProps<T>)} />;
+    return React.createElement(Component as React.ComponentType<AnyTemplateProps<T>>, {
+      ...(baseProps as unknown as AnyTemplateProps<T>),
+    });
   }
 }
 

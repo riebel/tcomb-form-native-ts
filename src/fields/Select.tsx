@@ -40,8 +40,8 @@ const buildOptions = <T,>(
   const order = opts?.order;
   if (order === 'asc' || order === 'desc') {
     built = [...built].sort((a, b) => {
-      const at = a.text.toLowerCase();
-      const bt = b.text.toLowerCase();
+      const at = (a?.text ?? '').toLowerCase();
+      const bt = (b?.text ?? '').toLowerCase();
       if (at < bt) return order === 'asc' ? -1 : 1;
       if (at > bt) return order === 'asc' ? 1 : -1;
       return 0;
