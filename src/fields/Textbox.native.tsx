@@ -3,6 +3,7 @@ import { View, Text, TextInput, StyleSheet } from 'react-native';
 import HelpBlock from '../templates/shared/HelpBlock';
 import ErrorBlock from '../templates/shared/ErrorBlock';
 import { applyAutoLabel, appendOptionalSuffix } from '../utils/field';
+import { renderSafeReactNodeForPlatform } from '../utils/renderSafeReactNode';
 
 import type {
   TextboxTemplateProps,
@@ -226,6 +227,7 @@ getStaticNumberTransformer = () => Textbox.numberTransformer;
 
 class TextboxTemplate extends React.Component<TextboxTemplateProps> {
   render() {
+    const renderSafeReactNode = renderSafeReactNodeForPlatform('native');
     const {
       hidden,
       stylesheet,
@@ -326,17 +328,12 @@ class TextboxTemplate extends React.Component<TextboxTemplateProps> {
 
     return (
       <View style={formGroupStyle} testID="textbox-container">
-        {label && (typeof label === 'string' || typeof label === 'number') ? (
-          <Text style={controlLabelStyle} testID="textbox-label">
-            {label}
-            {showRequiredIndicator && required ? ' *' : ''}
-          </Text>
-        ) : label && React.isValidElement(label) ? (
+        {label && (
           <View style={styles.inlineLabelRow}>
-            {label}
+            {renderSafeReactNode(label, controlLabelStyle)}
             {showRequiredIndicator && required ? <Text style={controlLabelStyle}> *</Text> : null}
           </View>
-        ) : null}
+        )}
         <View style={textboxViewStyle} testID="textbox-input-container">
           <TextInput
             testID="text-input"
@@ -359,7 +356,11 @@ class TextboxTemplate extends React.Component<TextboxTemplateProps> {
             selectTextOnFocus={selectTextOnFocus}
             underlineColorAndroid={resolvedUnderlineColorAndroid}
             selectionColor={selectionColor}
-            onSelectionChange={onSelectionChange}
+            onSelectionChange={onSelectionChange ? (event) => {
+              // Prevent synthetic event pooling warning by calling persist() or extracting values immediately
+              event.persist?.();
+              onSelectionChange(event);
+            } : undefined}
             numberOfLines={numberOfLines}
             multiline={multiline}
             clearButtonMode={clearButtonMode}

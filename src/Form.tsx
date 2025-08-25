@@ -8,6 +8,18 @@ import DatePicker from './fields/DatePicker';
 import Select from './fields/Select';
 import Textbox from './fields/Textbox';
 
+// CRITICAL DEBUG: Verify DatePicker import and ReactComponent availability
+console.log('[Form.tsx] DatePicker import check:', {
+  hasDatePicker: !!DatePicker,
+  hasReactComponent: !!DatePicker.ReactComponent,
+  componentName:
+    DatePicker.ReactComponent?.displayName || DatePicker.ReactComponent?.name || 'undefined',
+  datePickerName: DatePicker.name || 'DatePicker',
+  datePickerKeys: Object.keys(DatePicker || {}),
+  datePickerPrototype: Object.getOwnPropertyNames(DatePicker.prototype || {}),
+  reactComponentType: typeof DatePicker.ReactComponent,
+});
+
 import {
   ListTemplateProps,
   StructTemplateProps,
@@ -38,40 +50,209 @@ const defaultGetComponent = <T,>(
   type: TypeWithMeta | null,
   options: Record<string, unknown> = {},
 ): FieldComponentType<T> => {
-  if (!type) return Textbox.ReactComponent as FieldComponentType<T>;
+  console.log('[defaultGetComponent] Called with:', {
+    hasType: !!type,
+    typeName: type?.name || 'unknown',
+    typeDisplayName: type?.displayName || 'unknown',
+    hasOptions: !!options,
+    optionsKeys: Object.keys(options || {}),
+  });
+
+  if (!type) {
+    console.log('[defaultGetComponent] No type provided, returning Textbox');
+    return Textbox.ReactComponent as FieldComponentType<T>;
+  }
 
   const typeInfo = getTypeInfo(type);
+  console.log('[defaultGetComponent] Type analysis:', {
+    typeName: type.name || 'unknown',
+    typeDisplayName: type.displayName || 'unknown',
+    kind: typeInfo.kind,
+    isUnion: typeInfo.isUnion,
+    isEnum: typeInfo.isEnum,
+    isMaybe: typeInfo.isMaybe,
+    isSubtype: typeInfo.isSubtype,
+    isList: typeInfo.isList,
+    isDict: typeInfo.isDict,
+    isPrimitive: typeInfo.isPrimitive,
+    isObject: typeInfo.isObject,
+    isRefinement: typeInfo.isRefinement,
+    typeMeta: type.meta,
+  });
 
   // For unions, default to the first variant; runtime dispatch still works via `dispatch`.
   if (typeInfo.isUnion) {
+    console.log('[defaultGetComponent] Processing union type');
     const unionMeta = type.meta as { types?: TypeWithMeta[] } | undefined;
     const variants = unionMeta?.types;
     const first = variants && variants.length > 0 ? variants[0] : null;
+    console.log('[defaultGetComponent] Union variants:', {
+      variantCount: variants?.length || 0,
+      firstVariant: first?.name || 'none',
+    });
     return defaultGetComponent(first, options);
   }
 
-  if (typeInfo.isEnum) return Select.ReactComponent as FieldComponentType<T>;
+  if (typeInfo.isEnum) {
+    console.log('[defaultGetComponent] Detected enum type, returning Select');
+    return Select.ReactComponent as FieldComponentType<T>;
+  }
+
   if (typeInfo.isMaybe || typeInfo.isSubtype) {
-    if (typeInfo.type === type) return Textbox.ReactComponent as FieldComponentType<T>;
+    console.log('[defaultGetComponent] Processing maybe/subtype:', {
+      isMaybe: typeInfo.isMaybe,
+      isSubtype: typeInfo.isSubtype,
+      sameAsOriginal: typeInfo.type === type,
+      innerTypeName: typeInfo.type?.name || 'unknown',
+      fieldName: (options as { name?: string } | undefined)?.name || 'unknown',
+    });
+    if (typeInfo.type === type) {
+      console.log('[defaultGetComponent] Maybe/subtype same as original, returning Textbox');
+      return Textbox.ReactComponent as FieldComponentType<T>;
+    }
+
+    // Get inner type info to see what we're recursing into
+    const innerTypeInfo = getTypeInfo(typeInfo.type);
+    console.log('[defaultGetComponent] Inner type analysis before recursion:', {
+      innerKind: innerTypeInfo.kind,
+      innerIsList: innerTypeInfo.isList,
+      innerTypeName: typeInfo.type?.name || 'unknown',
+      fieldName: (options as { name?: string } | undefined)?.name || 'unknown',
+      willRecurseIntoList: innerTypeInfo.kind === 'list',
+    });
+
+    console.log('[defaultGetComponent] Recursing into maybe/subtype inner type');
     return defaultGetComponent(typeInfo.type, options);
   }
+
+  console.log('[defaultGetComponent] Processing by kind:', typeInfo.kind);
   switch (typeInfo.kind) {
     case 'struct':
+      console.log('[defaultGetComponent] Returning Struct component');
       return Struct as unknown as FieldComponentType<T>;
-    case 'list':
+    case 'list': {
+      console.log(
+        '[defaultGetComponent] Processing list type - checking if should be Select vs List',
+      );
+
+      // Check if this list should render as a Select component (multi-select)
+      // This happens when:
+      // 1. The list contains primitive types (String, Number, etc.)
+      // 2. The options suggest it's for selection rather than dynamic item management
+      // 3. The field name suggests it's for assignment/selection (assignedUsers, selectedItems, etc.)
+
+      const listMeta = type.meta as { type?: TypeWithMeta } | undefined;
+      const itemType = listMeta?.type;
+      const optionsWithName = options as { name?: string } | undefined;
+      const fieldName = optionsWithName?.name || '';
+
+      console.log('[defaultGetComponent] List analysis:', {
+        hasItemType: !!itemType,
+        itemTypeName: itemType?.name || 'unknown',
+        itemTypeKind: itemType?.meta?.kind || 'unknown',
+        fieldName,
+        options: Object.keys(options || {}),
+      });
+
+      // If the list contains primitive types (String, Number, Boolean) and looks like a selection field,
+      // render as Select component for better UX
+      const isPrimitiveItemType =
+        itemType &&
+        (itemType.name === 'String' ||
+          itemType.name === 'Number' ||
+          itemType.name === 'Boolean' ||
+          // Also check for irreducible types that are primitives
+          (itemType.meta?.kind === 'irreducible' &&
+            (itemType.displayName === 'String' ||
+              itemType.displayName === 'Number' ||
+              itemType.displayName === 'Boolean')));
+
+      const looksLikeSelectionField =
+        fieldName &&
+        (fieldName.toLowerCase().includes('assigned') ||
+          fieldName.toLowerCase().includes('selected') ||
+          fieldName.toLowerCase().includes('chosen') ||
+          fieldName.toLowerCase().includes('users') ||
+          fieldName.toLowerCase().includes('items') ||
+          fieldName.toLowerCase().includes('options') ||
+          fieldName.toLowerCase().includes('clients') ||
+          fieldName.toLowerCase().includes('members'));
+
+      // Check if options explicitly indicate this should be a select
+      const optionsWithSelectProps = options as
+        | {
+            factory?: string;
+            component?: string;
+            multiple?: boolean;
+            enum?: unknown;
+            options?: unknown;
+          }
+        | undefined;
+
+      const hasSelectOptions =
+        optionsWithSelectProps &&
+        (optionsWithSelectProps.factory === 'Select' ||
+          optionsWithSelectProps.component === 'Select' ||
+          optionsWithSelectProps.multiple === true ||
+          optionsWithSelectProps.enum ||
+          optionsWithSelectProps.options);
+
+      console.log('[defaultGetComponent] Selection detection:', {
+        isPrimitiveItemType,
+        looksLikeSelectionField,
+        hasSelectOptions,
+        shouldUseSelect: isPrimitiveItemType && (looksLikeSelectionField || hasSelectOptions),
+        fieldNameLower: fieldName.toLowerCase(),
+        fieldNameMatches: {
+          assigned: fieldName.toLowerCase().includes('assigned'),
+          selected: fieldName.toLowerCase().includes('selected'),
+          users: fieldName.toLowerCase().includes('users'),
+          clients: fieldName.toLowerCase().includes('clients'),
+        },
+      });
+
+      if (isPrimitiveItemType && (looksLikeSelectionField || hasSelectOptions)) {
+        console.log(
+          '[defaultGetComponent] List with primitive items detected as selection field, returning Select',
+        );
+        return Select.ReactComponent as FieldComponentType<T>;
+      }
+
+      console.log('[defaultGetComponent] Returning List component for dynamic item management');
       return List.ReactComponent as FieldComponentType<T>;
+    }
     case 'irreducible':
+      console.log('[defaultGetComponent] Processing irreducible type:', typeInfo.type.name);
       switch (typeInfo.type.name) {
         case 'Boolean':
+          console.log('[defaultGetComponent] Returning Checkbox component');
           return Checkbox.ReactComponent as FieldComponentType<T>;
         case 'Date':
-          return DatePicker.ReactComponent as FieldComponentType<T>;
+          console.log('[defaultGetComponent] Checking DatePicker component availability');
+          if (DatePicker.ReactComponent) {
+            console.log('[defaultGetComponent] Returning DatePicker component');
+            return DatePicker.ReactComponent as FieldComponentType<T>;
+          } else {
+            console.warn(
+              '[defaultGetComponent] DatePicker.ReactComponent undefined, falling back to Textbox',
+            );
+            return Textbox.ReactComponent as FieldComponentType<T>;
+          }
         case 'Number':
+          console.log('[defaultGetComponent] Returning Textbox for Number');
+          return Textbox.ReactComponent as FieldComponentType<T>;
         case 'String':
+          console.log('[defaultGetComponent] Returning Textbox for String');
+          return Textbox.ReactComponent as FieldComponentType<T>;
         default:
+          console.log(
+            '[defaultGetComponent] Returning Textbox for unknown irreducible type:',
+            typeInfo.type.name,
+          );
           return Textbox.ReactComponent as FieldComponentType<T>;
       }
     default:
+      console.log('[defaultGetComponent] Returning Textbox for unknown kind:', typeInfo.kind);
       return Textbox.ReactComponent as FieldComponentType<T>;
   }
 };
@@ -88,10 +269,27 @@ function shouldCoerceToDatePicker(args: {
 }): boolean {
   const { dispatchedType, fieldName, resolvedOptions, value } = args;
 
+  console.log('[shouldCoerceToDatePicker] Called with:', {
+    fieldName,
+    hasDispatchedType: !!dispatchedType,
+    typeName: dispatchedType?.displayName || dispatchedType?.name || 'unknown',
+    hasResolvedOptions: !!resolvedOptions,
+    valueType: typeof value,
+  });
+
   const ti = dispatchedType ? getTypeInfo(dispatchedType) : null;
   const isCoercibleType = ti?.kind === 'irreducible' || ti?.isMaybe === true;
 
-  if (!isCoercibleType) return false;
+  console.log('[shouldCoerceToDatePicker] Type analysis:', {
+    typeKind: ti?.kind,
+    isCoercibleType,
+    isMaybe: ti?.isMaybe,
+  });
+
+  if (!isCoercibleType) {
+    console.log('[shouldCoerceToDatePicker] Not coercible type, returning false');
+    return false;
+  }
 
   // Check options mode
   if (hasDateMode(resolvedOptions) && resolvedOptions.mode) {
@@ -103,15 +301,31 @@ function shouldCoerceToDatePicker(args: {
 
   // Check field name pattern
   const name = String(fieldName).toLowerCase();
-  if (/(date|datum|dob|birth|zeit|time|from|start|until|end)$/i.test(name)) {
+  const nameMatches = /(date|datum|dob|birth|zeit|time|from|start|until|end)$/i.test(name);
+  console.log('[shouldCoerceToDatePicker] Field name check:', {
+    fieldName,
+    name,
+    nameMatches,
+  });
+  if (nameMatches) {
+    console.log('[shouldCoerceToDatePicker] Field name matches date pattern, returning true');
     return true;
   }
 
   // Check value type
-  if (value instanceof Date || (typeof value === 'string' && !Number.isNaN(Date.parse(value)))) {
+  const isDateValue = value instanceof Date;
+  const isDateString = typeof value === 'string' && !Number.isNaN(Date.parse(value));
+  console.log('[shouldCoerceToDatePicker] Value check:', {
+    isDateValue,
+    isDateString,
+    valueType: typeof value,
+  });
+  if (isDateValue || isDateString) {
+    console.log('[shouldCoerceToDatePicker] Value is date-like, returning true');
     return true;
   }
 
+  console.log('[shouldCoerceToDatePicker] No coercion criteria met, returning false');
   return false;
 }
 
@@ -168,10 +382,19 @@ class FormImpl<T> extends Component<FormProps<T>, FormState> {
   }
 
   constructor(props: FormProps<T>) {
+    console.log('[FormImpl] Constructor called with props:', {
+      hasType: !!props.type,
+      hasValue: !!props.value,
+      hasOnChange: !!props.onChange,
+      hasOptions: !!props.options,
+      hasTemplates: !!props.templates,
+      hasStylesheet: !!props.stylesheet,
+    });
     super(props);
     // Initialize per-instance seed for stable UID generation
     this.__instanceSeed = this.getSeed();
     this.uidGen = new UIDGenerator(this.__instanceSeed);
+    console.log('[FormImpl] Constructor completed, instanceSeed:', this.__instanceSeed);
   }
 
   // Expose UID generator
@@ -257,6 +480,17 @@ class FormImpl<T> extends Component<FormProps<T>, FormState> {
   }
 
   render() {
+    console.log('[FormImpl] Render started with props:', {
+      hasType: !!this.props.type,
+      typeKind: this.props.type ? getTypeInfo(this.props.type as TypeWithMeta)?.kind : 'none',
+      hasValue: !!this.props.value,
+      valueType: typeof this.props.value,
+      hasOnChange: !!this.props.onChange,
+      hasOptions: !!this.props.options,
+      hasTemplates: !!this.props.templates,
+      hasStylesheet: !!this.props.stylesheet,
+    });
+
     const {
       type,
       options = {},
@@ -270,13 +504,30 @@ class FormImpl<T> extends Component<FormProps<T>, FormState> {
     } = this.props;
 
     const getComponent = options.getComponent || defaultGetComponent;
+    console.log(
+      '[FormImpl] Using getComponent:',
+      getComponent === defaultGetComponent ? 'default' : 'custom',
+    );
+
     // Allow overriding UID generator via props/options
     const providedGen = (options as { uidGenerator?: UIDGenerator } | undefined)?.uidGenerator;
     if (providedGen && this.uidGen !== providedGen) {
+      console.log('[FormImpl] Overriding UID generator');
       this.uidGen = providedGen;
     }
+
     const tType = isTypeWithMeta(type) ? type : null;
+    console.log('[FormImpl] Type analysis:', {
+      isTypeWithMeta: !!tType,
+      typeName: tType?.displayName || tType?.name || 'unknown',
+      typeKind: tType ? getTypeInfo(tType)?.kind : 'none',
+    });
+
     const Component = getComponent(tType, options);
+    console.log(
+      '[FormImpl] Selected component:',
+      Component?.displayName || Component?.name || 'anonymous',
+    );
 
     const resolvedOptions = getComponentOptions(options as unknown, value, tType);
     // Build ctx with uidGenerator and path-aware context
@@ -325,7 +576,15 @@ class FormImpl<T> extends Component<FormProps<T>, FormState> {
 
     // Prefer branching by type kind to avoid identity mismatches across module copies
     const rootTypeInfo = tType ? getTypeInfo(tType) : null;
+    console.log('[FormImpl] Root type info:', {
+      kind: rootTypeInfo?.kind,
+      isStruct: rootTypeInfo?.kind === 'struct',
+      isList: rootTypeInfo?.kind === 'list',
+      componentName: Component?.displayName || Component?.name,
+    });
+
     if (rootTypeInfo?.kind === 'struct') {
+      console.log('[FormImpl] Rendering struct type');
       // Render struct children to register per-field refs
       const structMeta = (tType?.meta as { props?: Record<string, TypeWithMeta> } | undefined)
         ?.props;
@@ -350,6 +609,7 @@ class FormImpl<T> extends Component<FormProps<T>, FormState> {
           : declFieldNames;
 
       const children = fieldNames.map(fieldName => {
+        console.log('[FormImpl] Processing struct field:', fieldName);
         const rawChildType = structMeta?.[fieldName] as TypeWithMeta | undefined;
         const dispatchedChildType =
           (
@@ -357,9 +617,24 @@ class FormImpl<T> extends Component<FormProps<T>, FormState> {
           )?.dispatch?.(structValue[fieldName]) ||
           rawChildType ||
           null;
+        console.log('[FormImpl] Field type info:', {
+          fieldName,
+          hasRawType: !!rawChildType,
+          hasDispatchedType: !!dispatchedChildType,
+          dispatchedKind: dispatchedChildType ? getTypeInfo(dispatchedChildType)?.kind : 'none',
+        });
 
         let ChildComponent = getComponent(dispatchedChildType, options);
-        if (!ChildComponent) return null;
+        console.log(
+          '[FormImpl] Child component for field',
+          fieldName,
+          ':',
+          ChildComponent?.displayName || ChildComponent?.name || 'anonymous',
+        );
+        if (!ChildComponent) {
+          console.log('[FormImpl] No child component found for field:', fieldName);
+          return null;
+        }
 
         // Resolve per-field options from options.fields[fieldName] first
         const fieldOptionsRaw = options as Record<string, unknown> | undefined as
@@ -375,7 +650,7 @@ class FormImpl<T> extends Component<FormProps<T>, FormState> {
           perFieldResolved ??
           getComponentOptions(options as unknown, structValue[fieldName], dispatchedChildType);
 
-        // Apply legacy coercion after options are resolved
+        // Apply legacy coercion after options are resolved with runtime validation
         if (
           ChildComponent === Textbox.ReactComponent &&
           shouldCoerceToDatePicker({
@@ -385,7 +660,71 @@ class FormImpl<T> extends Component<FormProps<T>, FormState> {
             value: structValue[fieldName],
           })
         ) {
-          ChildComponent = DatePicker.ReactComponent as unknown as FieldComponentType<T>;
+          console.log('[FormImpl] DatePicker coercion triggered for field:', fieldName);
+          console.log('[FormImpl] DatePicker component check:', {
+            hasDatePicker: !!DatePicker,
+            hasReactComponent: !!DatePicker.ReactComponent,
+            componentName:
+              DatePicker.ReactComponent?.displayName ||
+              DatePicker.ReactComponent?.name ||
+              'undefined',
+            datePickerKeys: Object.keys(DatePicker || {}),
+          });
+
+          // CRITICAL: Runtime validation to prevent undefined component errors
+          if (!DatePicker.ReactComponent) {
+            console.warn(
+              '[FormImpl] DatePicker.ReactComponent is undefined, falling back to Textbox for field:',
+              fieldName,
+              {
+                datePickerModule: DatePicker,
+                hasDatePicker: !!DatePicker,
+                datePickerKeys: Object.keys(DatePicker || {}),
+                datePickerPrototype: DatePicker.prototype
+                  ? Object.getOwnPropertyNames(DatePicker.prototype)
+                  : [],
+                datePickerStatic: DatePicker ? Object.getOwnPropertyNames(DatePicker) : [],
+                fallbackToTextbox: true,
+              },
+            );
+            // Try to access ReactComponent through different paths
+            const datePickerWithComponent = DatePicker as {
+              ReactComponent?: unknown;
+              default?: { ReactComponent?: unknown };
+            };
+            const prototypeWithComponent = DatePicker.prototype as {
+              constructor?: { ReactComponent?: unknown };
+            };
+
+            const reactComponent =
+              datePickerWithComponent?.ReactComponent ||
+              datePickerWithComponent?.default?.ReactComponent ||
+              prototypeWithComponent?.constructor?.ReactComponent;
+
+            if (reactComponent) {
+              console.log('[FormImpl] Found DatePicker.ReactComponent through alternative path');
+              ChildComponent = reactComponent as unknown as FieldComponentType<T>;
+            } else {
+              console.log(
+                '[FormImpl] No alternative DatePicker paths found, using Textbox fallback for field:',
+                fieldName,
+              );
+              // CRITICAL FIX: Actually set ChildComponent to Textbox as fallback
+              ChildComponent = Textbox.ReactComponent as unknown as FieldComponentType<T>;
+            }
+          } else {
+            ChildComponent = DatePicker.ReactComponent as unknown as FieldComponentType<T>;
+          }
+
+          console.log('[FormImpl] After coercion with validation, ChildComponent:', {
+            componentName:
+              (ChildComponent as React.ComponentType)?.displayName ||
+              (ChildComponent as React.ComponentType)?.name ||
+              'anonymous',
+            isUndefined: ChildComponent === undefined,
+            isTextbox: ChildComponent === Textbox.ReactComponent,
+            isDatePicker: ChildComponent === DatePicker.ReactComponent,
+          });
         }
 
         const handleFieldChange = (nextValue: unknown) => {
@@ -500,7 +839,14 @@ class FormImpl<T> extends Component<FormProps<T>, FormState> {
                 value: innerValue[innerName],
               })
             ) {
-              InnerComponent = DatePicker.ReactComponent as unknown as FieldComponentType<T>;
+              if (DatePicker.ReactComponent) {
+                InnerComponent = DatePicker.ReactComponent as unknown as FieldComponentType<T>;
+              } else {
+                console.warn(
+                  '[FormImpl] DatePicker.ReactComponent undefined for inner component, using Textbox',
+                );
+                InnerComponent = Textbox.ReactComponent as unknown as FieldComponentType<T>;
+              }
             }
 
             const handleInnerChange = (nextVal: unknown) => {
@@ -659,7 +1005,14 @@ class FormImpl<T> extends Component<FormProps<T>, FormState> {
                       value: it,
                     })
                   ) {
-                    ItemComponent = DatePicker.ReactComponent as unknown as FieldComponentType<T>;
+                    if (DatePicker.ReactComponent) {
+                      ItemComponent = DatePicker.ReactComponent as unknown as FieldComponentType<T>;
+                    } else {
+                      console.warn(
+                        '[FormImpl] DatePicker.ReactComponent undefined for list item, using Textbox',
+                      );
+                      ItemComponent = Textbox.ReactComponent as unknown as FieldComponentType<T>;
+                    }
                   }
                   const thisItemPath: Array<string | number> = [fieldName, innerName, idx];
                   const keys = this.ensureNestedListKeys([fieldName], innerItems.length);
@@ -729,7 +1082,10 @@ class FormImpl<T> extends Component<FormProps<T>, FormState> {
                 },
               } as ListTemplateProps<unknown>;
 
-              return <List.ReactComponent key={innerName} {...listProps} />;
+              const ListComp1 = List.ReactComponent as React.ComponentType<
+                ListTemplateProps<unknown>
+              >;
+              return <ListComp1 key={innerName} {...listProps} />;
             }
 
             return React.createElement(InnerComponent as React.ComponentType<AnyTemplateProps<T>>, {
@@ -868,7 +1224,8 @@ class FormImpl<T> extends Component<FormProps<T>, FormState> {
             showRequiredIndicator: true,
           };
           // List.ReactComponent consumes items via props, not children
-          return <List.ReactComponent key={fieldName} {...listBaseProps} />;
+          const ListComp2 = List.ReactComponent as React.ComponentType<ListTemplateProps<unknown>>;
+          return <ListComp2 key={fieldName} {...listBaseProps} />;
         }
 
         return React.createElement(ChildComponent as React.ComponentType<AnyTemplateProps<T>>, {
@@ -931,6 +1288,22 @@ class FormImpl<T> extends Component<FormProps<T>, FormState> {
       };
       // Filter out null children to prevent React errors
       const safeChildren = children.filter(Boolean) as React.ReactNode[];
+      console.log('[FormImpl] Struct render complete:', {
+        totalFields: fieldNames.length,
+        totalChildren: children.length,
+        renderedChildren: safeChildren.length,
+        filteredOut: children.length - safeChildren.length,
+        templateName:
+          (RootStructTemplate as React.ComponentType)?.displayName ||
+          (RootStructTemplate as React.ComponentType)?.name ||
+          'unknown',
+      });
+
+      console.log('[FormImpl] About to render RootStructTemplate with children:', {
+        childrenTypes: safeChildren.map(child => typeof child),
+        hasValidChildren: safeChildren.every(child => child != null),
+      });
+
       return <RootStructTemplate {...structTemplateProps}>{safeChildren}</RootStructTemplate>;
     }
     // Use centralized renderer for simple components
@@ -1054,8 +1427,9 @@ class FormImpl<T> extends Component<FormProps<T>, FormState> {
         }
         if (ItemComponent === List.ReactComponent) {
           // Nested lists: render recursively using the same mechanism
+          const ListComp3 = List.ReactComponent as React.ComponentType<ListTemplateProps<unknown>>;
           return (
-            <List.ReactComponent
+            <ListComp3
               key={this.listKeys[index]}
               {...(itemBaseProps as unknown as ListTemplateProps<unknown>)}
               label={String((itemBaseProps as { label?: unknown })?.label ?? '')}
@@ -1090,8 +1464,9 @@ class FormImpl<T> extends Component<FormProps<T>, FormState> {
       };
       void _omitOnChange;
 
+      const ListComp4 = List.ReactComponent as React.ComponentType<ListTemplateProps<unknown>>;
       return (
-        <List.ReactComponent
+        <ListComp4
           {...(restBase as unknown as ListTemplateProps<unknown>)}
           label={String((restBase as { label?: unknown })?.label ?? '')}
           items={items.map((it, i) => ({

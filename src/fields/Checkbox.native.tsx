@@ -2,6 +2,7 @@ import React, { useCallback } from 'react';
 import { View, Text, Switch, StyleSheet } from 'react-native';
 import HelpBlock from '../templates/shared/HelpBlock';
 import ErrorBlock from '../templates/shared/ErrorBlock';
+import { renderSafeReactNodeForPlatform } from '../utils/renderSafeReactNode';
 
 import type { CheckboxTemplateProps } from '../types/field.types';
 
@@ -19,6 +20,7 @@ const Checkbox = ({
   required,
   ...rest
 }: CheckboxTemplateProps) => {
+  const renderSafeReactNode = renderSafeReactNodeForPlatform('native');
   const handleValueChange = useCallback(
     (newValue: boolean) => {
       if (onChange) {
@@ -81,17 +83,12 @@ const Checkbox = ({
   return (
     <View testID="checkbox-container" style={formGroupStyle}>
       <View style={containerStyle}>
-        {label && (typeof label === 'string' || typeof label === 'number') ? (
-          <Text testID="checkbox-label" style={controlLabelStyle}>
-            {label}
-            {showRequiredIndicator && required ? ' *' : ''}
-          </Text>
-        ) : label && React.isValidElement(label) ? (
+        {label && (
           <View style={styles.inlineLabelRow}>
-            {label}
+            {renderSafeReactNode(label, controlLabelStyle)}
             {showRequiredIndicator && required ? <Text style={controlLabelStyle}> *</Text> : null}
           </View>
-        ) : null}
+        )}
         <Switch
           testID="checkbox-switch"
           value={value}

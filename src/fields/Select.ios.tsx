@@ -5,6 +5,7 @@ import { View, StyleSheet, Animated, TouchableOpacity, Text } from 'react-native
 import HelpBlock from '../templates/shared/HelpBlock';
 import ErrorBlock from '../templates/shared/ErrorBlock';
 import { useSelectCommon } from './hooks/useSelectCommon';
+import { renderSafeReactNodeForPlatform } from '../utils/renderSafeReactNode';
 
 import type { SelectTemplateProps } from '../types/field.types';
 
@@ -37,6 +38,7 @@ const SelectIOS = <T,>({
   required,
   ...rest
 }: SelectTemplateProps<T>) => {
+  const renderSafeReactNode = renderSafeReactNodeForPlatform('ios');
   const [isCollapsedState, setIsCollapsedState] = useState(true);
   const [selectedValue, setSelectedValue] = useState<T | null>((value ?? null) as T | null);
   const slideAnim = useRef(new Animated.Value(0)).current;
@@ -110,17 +112,12 @@ const SelectIOS = <T,>({
 
   return (
     <View style={formGroupStyle}>
-      {label && (typeof label === 'string' || typeof label === 'number') ? (
-        <Text style={controlLabelStyle}>
-          {label}
-          {showRequiredIndicator && required ? ' *' : ''}
-        </Text>
-      ) : label ? (
+      {label && (
         <View style={styles.inlineLabelRow}>
-          {label}
+          {renderSafeReactNode(label, controlLabelStyle)}
           {showRequiredIndicator && required ? <Text style={controlLabelStyle}> *</Text> : null}
         </View>
-      ) : null}
+      )}
 
       <TouchableOpacity onPress={togglePicker} disabled={disabled}>
         <View style={valueContainerStyle}>

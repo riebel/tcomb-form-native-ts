@@ -31,8 +31,6 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 
     // Log error in development
     if (__DEV__) {
-      console.error('ErrorBoundary caught an error:', error);
-      console.error('Error info:', errorInfo);
     }
   }
 

@@ -27,6 +27,59 @@ export type Transformer<I, O> = {
   parse: (value: O) => I;
 };
 
+// Minimal legacy web list template props to support external apps (e.g., Findus)
+// This matches the classic tcomb-form-native list template signature used on web.
+export type LegacyWebListTemplateProps = {
+  // Legacy required fields
+  add: LegacyActionButton & { label: string };
+  error: string;
+  hasError: boolean;
+  hidden: boolean;
+  label: string;
+  // Legacy items and stylesheet shapes
+  items: LegacyListItem[];
+  stylesheet: { [index: string]: { [index: string]: import('react-native').TextStyle } };
+};
+
+// Specific button type for Findus ListComponentTcomb (requires string labels)
+export type FindusButton = {
+  click: () => void;
+  label: string;
+  type: string;
+};
+
+// Specific item type for Findus ListComponentTcomb
+export type FindusListItem = {
+  buttons: FindusButton[];
+  key: string;
+  input: React.ReactElement | null;
+};
+
+// Additional compatibility type for user's ListComponentTcomb
+export type FindusListTemplateProps = {
+  add: FindusButton;
+  error: string;
+  hasError: boolean;
+  hidden: boolean;
+  items: FindusListItem[];
+  label: string;
+  stylesheet: { [index: string]: { [index: string]: import('react-native').TextStyle } };
+};
+
+// Accept either the internal/native list template props or legacy web props
+export type ListLikeTemplateProps =
+  | ListTemplateProps<unknown>
+  | LegacyWebListTemplateProps
+  | FindusListTemplateProps;
+// A template component can be either the native/internal list template type
+// or a legacy web list template component. Using a union of component types
+// (instead of ComponentType of a union props) makes assignment of either
+// component type valid for consumers like `Form.templates.list`.
+export type ListTemplateComponent =
+  | ComponentType<ListTemplateProps<unknown>>
+  | ComponentType<LegacyWebListTemplateProps>
+  | ComponentType<FindusListTemplateProps>;
+
 /* --------------------
  * Stylesheets
  * ------------------- */
@@ -335,7 +388,7 @@ export type ListProps<T = unknown> = FieldProps<
   T[],
   Record<string, unknown>,
   {
-    templates?: { list?: ComponentType<ListTemplateProps<unknown>> };
+    templates?: { list?: ListTemplateComponent };
     uidGenerator?: { next: () => string };
   },
   ListTypeLike & Dispatchable
@@ -502,16 +555,16 @@ export interface I18nTranslations {
 }
 
 export type I18n = I18nTranslations | Record<string, string | ReactNode>;
-export interface FormTemplates {
+export type FormTemplates = {
   textbox?: ComponentType<TextboxTemplateProps>;
   checkbox?: ComponentType<CheckboxTemplateProps>;
   select?: ComponentType<SelectTemplateProps<unknown>>;
   datePicker?: ComponentType<DatePickerTemplateProps>;
-  // Custom list templates
-  list?: ComponentType<ListTemplateProps<unknown>>;
+  // Custom list templates: accept both internal and legacy web list templates
+  list?: ListTemplateComponent;
   struct?: ComponentType<StructTemplateProps>;
   [key: string]: unknown;
-}
+};
 
 export type TypeKind =
   | 'irreducible'

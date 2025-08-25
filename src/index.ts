@@ -9,6 +9,16 @@ import i18n from './i18n/en';
 import stylesheet from './stylesheets/bootstrap';
 import templates from './templates/bootstrap';
 
+console.log('[index] Imports loaded:', {
+  hasForm: !!BaseForm,
+  hasI18n: !!i18n,
+  hasStylesheet: !!stylesheet,
+  hasTemplates: !!templates,
+  i18nKeys: Object.keys(i18n || {}),
+  stylesheetKeys: Object.keys(stylesheet || {}),
+  templateKeys: Object.keys(templates || {}),
+});
+
 // Backing singletons that can be mutated via legacy static attachments
 let __i18n = i18n;
 let __stylesheet = stylesheet;

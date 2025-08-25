@@ -4,7 +4,6 @@ import type {
   CheckboxTemplateProps,
   SelectTemplateProps,
   DatePickerTemplateProps,
-  ListTemplateProps,
   StructTemplateProps,
 } from '../types/field.types';
 import type { ComponentType } from 'react';
@@ -20,8 +19,9 @@ const templates: FormTemplates = {
   textbox: Textbox.ReactComponent as ComponentType<TextboxTemplateProps>,
   checkbox: Checkbox.ReactComponent as ComponentType<CheckboxTemplateProps>,
   select: Select.ReactComponent as ComponentType<SelectTemplateProps<unknown>>,
-  datePicker: DatePicker.ReactComponent as ComponentType<DatePickerTemplateProps>,
-  list: List.ReactComponent as ComponentType<ListTemplateProps<unknown>>,
+  datePicker: (DatePicker.ReactComponent ||
+    Textbox.ReactComponent) as ComponentType<DatePickerTemplateProps>,
+  list: List.ReactComponent,
   struct: Struct as ComponentType<StructTemplateProps>,
 };
 

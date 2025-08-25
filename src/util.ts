@@ -22,6 +22,15 @@ export class UIDGenerator {
 
 /** Derive shape flags from a tcomb-like type */
 export function getTypeInfo(type: TypeWithMeta | null): TypeInfo {
+  console.log('[getTypeInfo] Called with type:', {
+    hasType: !!type,
+    typeName: type?.name || 'unknown',
+    typeDisplayName: type?.displayName || 'unknown',
+    hasMeta: !!type?.meta,
+    metaKeys: type?.meta ? Object.keys(type.meta) : [],
+    meta: type?.meta,
+  });
+
   const info: TypeInfo = {
     kind: 'irreducible',
     type: type as TypeWithMeta,
@@ -53,6 +62,7 @@ export function getTypeInfo(type: TypeWithMeta | null): TypeInfo {
     info.isDict = kind === 'dict';
     info.isUnion = kind === 'union';
     info.isRefinement = kind === 'refinement';
+  } else {
   }
 
   info.isPrimitive =
@@ -64,7 +74,6 @@ export function getTypeInfo(type: TypeWithMeta | null): TypeInfo {
     !info.isUnion &&
     !info.isRefinement;
   info.isObject = info.isSubtype || info.isDict;
-
   return info;
 }
 

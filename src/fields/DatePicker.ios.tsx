@@ -1,5 +1,5 @@
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { useState, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   StyleSheet,
@@ -10,8 +10,9 @@ import {
   type TextStyle,
 } from 'react-native';
 import { handleDateChangeCore } from './utils/dateChangeCore';
-import HelpBlock from '../templates/shared/HelpBlock';
-import ErrorBlock from '../templates/shared/ErrorBlock';
+// import HelpBlock from '../templates/shared/HelpBlock';
+// import ErrorBlock from '../templates/shared/ErrorBlock';
+import { renderSafeReactNodeForPlatform } from '../utils/renderSafeReactNode';
 
 import type { DatePickerTemplateProps } from '../types/field.types';
 
@@ -34,6 +35,7 @@ const DatePickerIOS = ({
   required,
   ...rest
 }: DatePickerTemplateProps & { ctx?: { config?: Record<string, unknown> } }) => {
+  const renderSafeReactNode = renderSafeReactNodeForPlatform('ios');
   const [isCollapsed, setIsCollapsed] = useState(true);
   const [stage, setStage] = useState<'date' | 'time' | null>(null);
   const [date, setDate] = useState<Date>(value || new Date());
@@ -153,17 +155,12 @@ const DatePickerIOS = ({
 
   return (
     <View style={formGroupStyle}>
-      {label && (typeof label === 'string' || typeof label === 'number') ? (
-        <Text style={controlLabelStyle}>
-          {label}
-          {showRequiredIndicator && required ? ' *' : ''}
-        </Text>
-      ) : label ? (
+      {label && (
         <View style={styles.inlineLabelRow}>
-          {label}
+          {renderSafeReactNode(label, controlLabelStyle)}
           {showRequiredIndicator && required ? <Text style={controlLabelStyle}> *</Text> : null}
         </View>
-      ) : null}
+      )}
 
       <TouchableOpacity onPress={togglePicker} disabled={disabled}>
         <View style={valueContainerStyle}>
@@ -183,8 +180,10 @@ const DatePickerIOS = ({
         />
       )}
 
-      <HelpBlock help={help} hasError={hasError} style={helpBlockStyle} />
-      <ErrorBlock hasError={hasError} error={error} style={errorBlockStyle} />
+      {help && <View style={helpBlockStyle}>{renderSafeReactNode(help, helpBlockStyle)}</View>}
+      {hasError && error && (
+        <View style={errorBlockStyle}>{renderSafeReactNode(error, errorBlockStyle)}</View>
+      )}
     </View>
   );
 };
