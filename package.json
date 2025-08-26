@@ -1,6 +1,6 @@
 {
   "name": "@riebel/tcomb-form-native-ts",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "React Native forms powered by tcomb-validation. Modern TypeScript build with legacy-compatible API (drop-in replacement).",
   "main": "index.js",
   "types": "dist/index.d.ts",
@@ -16,10 +16,11 @@
     "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
     "lint:fix": "npm run lint -- --fix",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "preclean": "npm run lint:fix",
     "clean": "rimraf dist",
     "build": "tsc -p tsconfig.json",
-    "format": "prettier \"**/*.{js,jsx,ts,tsx,json,md}\" --write",
-    "format:check": "prettier \"**/*.{js,jsx,ts,tsx,json,md}\" --check",
+    "prebuild": "npm run clean",
+    "pretest": "npm run build",
     "test": "tsx test/index.js"
   },
   "repository": {
@@ -51,19 +52,20 @@
     "Hagen Sommerkorn <hagen.sommerkorn@gmail.com>"
   ],
   "dependencies": {
-    "@react-native-picker/picker": "^2.11.1",
     "tcomb-validation": "^3.4.1"
   },
   "peerDependencies": {
     "@react-native-community/datetimepicker": ">=8.0.0",
-    "react": ">=16.8 <20",
-    "react-native": ">=0.64 <0.80"
+    "@react-native-picker/picker": ">=2.9.0",
+    "react": ">=16.8",
+    "react-native": ">=0.64"
   },
   "devDependencies": {
     "@babel/core": "^7.28.3",
     "@babel/plugin-transform-runtime": "^7.28.3",
     "@babel/preset-typescript": "^7.27.1",
     "@react-native-community/datetimepicker": "^8.4.4",
+    "@react-native-picker/picker": "^2.9.0",
     "@types/react": "^19.1.10",
     "@eslint/eslintrc": "^3.1.0",
     "@typescript-eslint/eslint-plugin": "^8.8.0",
@@ -87,5 +89,6 @@
   },
   "engines": {
     "node": ">=22.0.0"
-  }
+  },
+  "packageManager": "yarn@1.22.21+sha1.1959a18351b811cdeedbd484a8f86c3cc3bbaf72"
 }

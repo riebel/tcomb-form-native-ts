@@ -1,0 +1,180 @@
+import React from 'react';
+import { View, Text, TouchableOpacity, Platform, GestureResponderEvent } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import { Component } from './Component';
+import { DatePickerLocals, DatePickerOptions, Transformer } from './types';
+
+const t = require('tcomb-validation');
+const Nil = t.Nil;
+
+export function NativeDatePickerTemplate(locals: DatePickerLocals): React.ReactElement {
+  const {
+    stylesheet,
+    hasError,
+    value,
+    onChange,
+    mode = 'date',
+    minimumDate,
+    maximumDate,
+    minuteInterval,
+    timeZoneOffsetInMinutes,
+    locale,
+    label,
+    help,
+    error,
+    hidden,
+    disabled,
+    onPress,
+  } = locals;
+
+  const [showPicker, setShowPicker] = React.useState(false);
+
+  if (hidden) {
+    return <View style={{ display: 'none' }} />;
+  }
+
+  const formGroupStyle = hasError ? stylesheet.formGroup?.error : stylesheet.formGroup?.normal;
+  const controlLabelStyle = hasError
+    ? stylesheet.controlLabel?.error
+    : stylesheet.controlLabel?.normal;
+  const datePickerStyle = hasError ? stylesheet.datepicker?.error : stylesheet.datepicker?.normal;
+  const helpBlockStyle = hasError ? stylesheet.helpBlock?.error : stylesheet.helpBlock?.normal;
+
+  const dateValue = value instanceof Date ? value : new Date();
+
+  const formatDate = (date: Date): string => {
+    if (mode === 'time') {
+      return date.toLocaleTimeString();
+    } else if (mode === 'datetime') {
+      return date.toLocaleString();
+    } else {
+      return date.toLocaleDateString();
+    }
+  };
+
+  const isAndroid = Platform.OS === 'android';
+
+  const handlePress = () => {
+    if (isAndroid) {
+      setShowPicker(true);
+    }
+  };
+
+  const handleTouchablePress = (event: GestureResponderEvent) => {
+    if (disabled) {
+      return;
+    }
+    if (onPress) {
+      (onPress as () => void)();
+    } else {
+      handlePress();
+    }
+  };
+
+  const handleDateChange = (event: unknown, selectedDate?: Date) => {
+    if (isAndroid) {
+      setShowPicker(false);
+    }
+    if (selectedDate) {
+      onChange(selectedDate);
+    }
+  };
+
+  const pickerProps = Platform.select({
+    android: {
+      display: 'default' as const,
+    },
+    ios: {
+      display: 'compact' as const,
+      style: { alignSelf: 'flex-start' as const },
+    },
+    default: {
+      display: 'default' as const,
+    },
+  });
+
+  return (
+    <View style={formGroupStyle}>
+      {label && <Text style={controlLabelStyle}>{label}</Text>}
+
+      {isAndroid ? (
+        <>
+          <TouchableOpacity
+            style={datePickerStyle}
+            onPress={handleTouchablePress}
+            disabled={Boolean(disabled)}
+          >
+            <Text>{value ? formatDate(dateValue) : 'Select date'}</Text>
+          </TouchableOpacity>
+          {showPicker && (
+            <DateTimePicker
+              value={dateValue}
+              mode={mode}
+              onChange={handleDateChange}
+              minimumDate={minimumDate}
+              maximumDate={maximumDate}
+              minuteInterval={
+                minuteInterval as 1 | 2 | 3 | 4 | 5 | 6 | 10 | 12 | 15 | 20 | 30 | undefined
+              }
+              timeZoneOffsetInMinutes={timeZoneOffsetInMinutes}
+              locale={locale}
+              {...pickerProps}
+            />
+          )}
+        </>
+      ) : (
+        <View style={datePickerStyle}>
+          <DateTimePicker
+            value={dateValue}
+            mode={mode}
+            onChange={handleDateChange}
+            minimumDate={minimumDate}
+            maximumDate={maximumDate}
+            minuteInterval={
+              minuteInterval as 1 | 2 | 3 | 4 | 5 | 6 | 10 | 12 | 15 | 20 | 30 | undefined
+            }
+            timeZoneOffsetInMinutes={timeZoneOffsetInMinutes}
+            locale={locale}
+            {...pickerProps}
+          />
+        </View>
+      )}
+
+      {help ? <Text style={helpBlockStyle}>{String(help)}</Text> : null}
+      {error ? <Text style={stylesheet.errorBlock}>{String(error)}</Text> : null}
+    </View>
+  );
+}
+
+export class DatePicker extends Component<DatePickerLocals> {
+  static transformer: Transformer;
+
+  getTemplate(): React.ComponentType<DatePickerLocals> {
+    const options = this.props.options as DatePickerOptions;
+    return options.template || this.props.ctx.templates.datepicker;
+  }
+
+  getLocals(): DatePickerLocals {
+    const locals = super.getLocals();
+    const options = this.props.options as DatePickerOptions;
+
+    const datePickerLocals: DatePickerLocals = {
+      ...locals,
+      mode: options.mode,
+      minimumDate: options.minimumDate,
+      maximumDate: options.maximumDate,
+      minuteInterval: options.minuteInterval,
+      timeZoneOffsetInMinutes: options.timeZoneOffsetInMinutes,
+      locale: options.locale,
+      disabled: 'disabled' in options ? (options.disabled as boolean | undefined) : undefined,
+      onPress: 'onPress' in options ? (options.onPress as (() => void) | undefined) : undefined,
+    } as DatePickerLocals;
+
+    return datePickerLocals;
+  }
+}
+
+DatePicker.transformer = {
+  format: (value: unknown) => (Nil.is(value) ? null : value),
+  parse: (value: unknown) => value,
+};

@@ -1,24 +1,15 @@
-// ESLint 9 Flat Config
-// Migrated from .eslintrc.js via FlatCompat, keeping behavior as close as possible
-
-// Note: ESLint will prefer this file over .eslintrc.js
-
-const { FlatCompat } = require('@eslint/eslintrc');
+// eslint.config.js
 const js = require('@eslint/js');
-const globals = require('globals');
-
-// Plugins (CommonJS require so this file runs without transpilation)
-const tsPlugin = require('@typescript-eslint/eslint-plugin');
 const tsParser = require('@typescript-eslint/parser');
+const tsPlugin = require('@typescript-eslint/eslint-plugin');
 const reactPlugin = require('eslint-plugin-react');
 const reactHooksPlugin = require('eslint-plugin-react-hooks');
 const reactNativePlugin = require('eslint-plugin-react-native');
 const prettierPlugin = require('eslint-plugin-prettier');
-
-const compat = new FlatCompat({ baseDirectory: __dirname });
+const globals = require('globals');
 
 module.exports = [
-  // Global ignores
+  // Ignorierte Ordner
   {
     ignores: [
       'node_modules/',
@@ -32,28 +23,28 @@ module.exports = [
     ],
   },
 
-  // Base JS recommended
+  // Basis-Empfehlungen für JS
   js.configs.recommended,
 
-  // Convert legacy "extends" as a baseline
-  ...compat.extends([
-    'eslint:recommended',
-    'plugin:@typescript-eslint/recommended',
-    'plugin:react/recommended',
-    'plugin:react-hooks/recommended',
-    'plugin:react-native/all',
-    'plugin:prettier/recommended',
-  ]),
-
-  // Project-specific settings, plugins and rules
+  // JS config files
   {
-    files: ['**/*.{js,jsx,ts,tsx}'],
+    files: ['**/*.js'],
     languageOptions: {
-      ecmaVersion: 2022,
-      sourceType: 'module',
+      globals: {
+        ...globals.node,
+      },
+    },
+  },
+
+  // Globale Regeln für JS/TS/React/React Native
+  {
+    files: ['**/*.{ts,tsx}'],
+    languageOptions: {
       parser: tsParser,
       parserOptions: {
         project: './tsconfig.json',
+        ecmaVersion: 2022,
+        sourceType: 'module',
         ecmaFeatures: { jsx: true },
       },
       globals: {
@@ -72,20 +63,35 @@ module.exports = [
       react: { version: 'detect' },
     },
     rules: {
+      // Prettier
       'prettier/prettier': 'error',
+
+      // TypeScript
+      // Disable base rule in TS files to avoid false positives; use the TS version instead
+      'no-unused-vars': 'off',
       '@typescript-eslint/explicit-module-boundary-types': 'off',
-      'react/react-in-jsx-scope': 'off',
-      'react/prop-types': 'off',
-      'react-native/no-color-literals': 'off',
       '@typescript-eslint/no-explicit-any': 'error',
       '@typescript-eslint/no-unused-vars': [
         'error',
-        { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
+        {
+          args: 'none', // Parameter in Funktionen & Typdefinitionen nie melden
+          vars: 'all',
+          ignoreRestSiblings: true,
+        },
       ],
+
+      // React
+      'react/react-in-jsx-scope': 'off',
+      'react/prop-types': 'off',
+      'react-hooks/rules-of-hooks': 'error',
+      'react-hooks/exhaustive-deps': 'warn',
+
+      // React Native
+      'react-native/no-color-literals': 'off',
     },
   },
 
-  // TS-specific tweaks matching previous config
+  // TS-spezifische Prettier-Regeln
   {
     files: ['**/*.ts', '**/*.tsx'],
     rules: {
@@ -93,13 +99,11 @@ module.exports = [
     },
   },
 
-  // Test files environment
+  // Test-Umgebung
   {
     files: ['**/*.test.js', '**/__tests__/*.js'],
     languageOptions: {
-      globals: {
-        ...globals.jest,
-      },
+      globals: globals.jest,
     },
   },
 ];
