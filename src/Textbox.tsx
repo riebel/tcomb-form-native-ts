@@ -17,7 +17,6 @@ export class Textbox extends Component<TextboxLocals> {
       return options.transformer;
     }
 
-    // Use number-specific transformer for numeric types
     if (this.typeInfo.innerType === t.Number) {
       if (!Textbox.numberTransformer) {
         Textbox.numberTransformer = {
@@ -84,11 +83,11 @@ export class Textbox extends Component<TextboxLocals> {
       ...locals,
       placeholder: this.getPlaceholder(),
       onChangeNative: options.onChange,
+      onBlur: this.onBlur,
       keyboardType: this.getKeyboardType(),
       underlineColorAndroid: options.underlineColorAndroid || 'transparent',
     };
 
-    // TextInput props that should be passed through from options
     const textInputProps: Array<keyof TextboxOptions> = [
       'help',
       'allowFontScaling',
@@ -130,6 +129,26 @@ export class Textbox extends Component<TextboxLocals> {
     });
 
     return textboxLocals;
+  }
+
+  hasError(): boolean {
+    if (this.props.options.hasError) {
+      return true;
+    }
+
+    const baseHasError = super.hasError();
+    if (baseHasError) {
+      return true;
+    }
+
+    const currentValue = this.state.value;
+    const isEmpty = currentValue === null || currentValue === undefined || currentValue === '';
+    const isRequired = !this.typeInfo.isMaybe;
+    const hasBeenTouched = this.hasBeenTouched();
+    const validationAttempted = this.hasValidationBeenAttempted();
+    const isCurrentlyInvalid = isEmpty && isRequired;
+
+    return isCurrentlyInvalid && (hasBeenTouched || validationAttempted);
   }
 }
 

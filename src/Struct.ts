@@ -1,6 +1,13 @@
 import React from 'react';
 import { Component } from './Component';
-import { StructLocals, StructOptions, ComponentProps, TcombType, ComponentOptions } from './types';
+import {
+  StructLocals,
+  StructOptions,
+  ComponentProps,
+  TcombType,
+  ComponentOptions,
+  ValidationError,
+} from './types';
 import {
   getTypeFromUnion,
   getComponentOptions,
@@ -38,12 +45,23 @@ export class Struct extends Component<StructLocals> {
     return [];
   }
 
-  onFieldChange = (fieldName: string, fieldValue: unknown, path?: string[]): void => {
+  onFieldChange = (
+    fieldName: string,
+    fieldValue: unknown,
+    path?: string[],
+    kind?: string,
+  ): void => {
     const value = { ...(this.state.value as Record<string, unknown>) };
     value[fieldName] = fieldValue;
     this.setState({ value }, () => {
       if (this.props.onChange) {
         this.props.onChange(value, path || this.props.ctx.path.concat(fieldName));
+      }
+
+      if (kind === 'validationStateChange') {
+        setTimeout(() => {
+          this.validate();
+        }, 0);
       }
     });
   };
@@ -67,8 +85,18 @@ export class Struct extends Component<StructLocals> {
         const type = props[prop];
         const propValue = value[prop];
         const propType = getTypeFromUnion(type as TcombType | Record<string, unknown>, propValue);
+
+        const baseFieldOptions = fieldsOptions[prop] || {};
+        let fieldLabel = baseFieldOptions.label;
+
+        if (!fieldLabel) {
+          fieldLabel = humanize(prop);
+        }
+
+        const fieldHasError = this.getFieldError(prop) !== undefined;
+
         const propOptions = getComponentOptions(
-          fieldsOptions[prop],
+          { ...baseFieldOptions, hasError: fieldHasError, label: fieldLabel },
           {},
           propValue,
           type as TcombType | Record<string, unknown>,
@@ -83,13 +111,14 @@ export class Struct extends Component<StructLocals> {
           type: propType,
           options: propOptions,
           value: propValue,
-          onChange: (value: unknown, path: string[]) => this.onFieldChange(prop, value, path),
+          onChange: (value: unknown, path: string[], kind?: string) =>
+            this.onFieldChange(prop, value, path, kind),
           ctx: {
             context: ctx.context,
             uidGenerator: ctx.uidGenerator,
             auto: this.getAuto(),
             config: this.getConfig(),
-            label: propOptions.label || humanize(prop),
+            label: propOptions.label || fieldLabel,
             i18n: this.getI18n(),
             stylesheet: this.getStylesheet(),
             templates: ctx.templates,
@@ -152,12 +181,19 @@ export class Struct extends Component<StructLocals> {
   }
 
   private readonly inputRefs: Record<string, Component | null> = {};
+  private fieldErrors: Record<string, string> = {};
+
+  getFieldError(fieldName: string): string | undefined {
+    return this.fieldErrors[fieldName];
+  }
+
   isValueNully(): boolean {
     return Object.keys(this.inputRefs).every(ref => this.inputRefs[ref]?.isValueNully?.() === true);
   }
 
   removeErrors(): void {
     this.setState({ hasError: false });
+    this.fieldErrors = {};
     Object.keys(this.inputRefs).forEach(ref => {
       this.inputRefs[ref]?.removeErrors?.();
     });
@@ -177,6 +213,8 @@ export class Struct extends Component<StructLocals> {
     let errors: unknown[] = [];
     let hasError = false;
 
+    const newFieldErrors: Record<string, string> = { ...this.fieldErrors };
+
     if (this.typeInfo.isMaybe && this.isValueNully()) {
       this.removeErrors();
       return new t.ValidationResult({ errors: [], value: null });
@@ -185,26 +223,90 @@ export class Struct extends Component<StructLocals> {
     Object.keys(this.inputRefs).forEach(ref => {
       const child = this.inputRefs[ref];
       if (child && typeof child.validate === 'function') {
-        const result = child.validate();
-        errors = errors.concat(result.errors);
-        value[ref] = result.value;
+        try {
+          const result = child.validate();
+
+          errors = errors.concat(result.errors);
+          value[ref] = result.value;
+
+          if (result.errors && result.errors.length > 0) {
+            const fieldErrors = result.errors.filter((error: ValidationError) => {
+              return !error.path || error.path.length === 0 || error.path[0] === ref;
+            });
+
+            if (fieldErrors.length > 0) {
+              const errorMessage = fieldErrors[0].message || 'Validation error';
+              if (
+                errorMessage.includes('Invalid value null') &&
+                errorMessage.includes('expected one of')
+              ) {
+                newFieldErrors[ref] = 'Please select a value';
+              } else {
+                newFieldErrors[ref] = errorMessage;
+              }
+            } else {
+              delete newFieldErrors[ref];
+            }
+          } else {
+            delete newFieldErrors[ref];
+          }
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'Validation error';
+          if (
+            errorMessage.includes('Invalid value null') &&
+            errorMessage.includes('expected one of')
+          ) {
+            newFieldErrors[ref] = 'Please select a value';
+          } else {
+            newFieldErrors[ref] = 'Validation error';
+          }
+          errors.push({
+            message: newFieldErrors[ref],
+            path: [ref],
+            actual: child.getValue?.() || null,
+            expected: 'valid value',
+          });
+        }
+      } else {
+        delete newFieldErrors[ref];
       }
     });
 
     if (errors.length === 0) {
       const InnerType = this.typeInfo.innerType;
       if (typeof InnerType === 'function') {
-        value = new (InnerType as new (v: unknown) => Record<string, unknown>)(value);
+        try {
+          value = new (InnerType as new (v: unknown) => Record<string, unknown>)(value);
+        } catch {
+          // Don't fail validation for constructor edge cases
+        }
       }
 
       if (this.typeInfo.isSubtype) {
-        const result = t.validate(value, this.props.type, this.getValidationOptions());
-        hasError = !result.isValid();
-        errors = errors.concat(result.errors);
+        try {
+          const result = t.validate(value, this.props.type, this.getValidationOptions());
+          hasError = !result.isValid();
+          errors = errors.concat(result.errors);
+
+          if (result.errors && result.errors.length > 0) {
+            result.errors.forEach((error: ValidationError) => {
+              if (error.path && error.path.length > 0) {
+                const fieldName = error.path[0];
+                if (!newFieldErrors[fieldName]) {
+                  newFieldErrors[fieldName] = error.message || 'Validation error';
+                }
+              }
+            });
+          }
+        } catch {
+          // Handle tcomb validation edge cases
+        }
       }
     }
 
+    this.fieldErrors = newFieldErrors;
     this.setState({ hasError });
+    this.forceUpdate();
     return new t.ValidationResult({ errors, value });
   }
 }

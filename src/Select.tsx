@@ -114,6 +114,31 @@ export class Select extends Component<SelectLocals> {
     const nullOption = this.getNullOption();
     return SelectClass.transformer(nullOption);
   }
+
+  hasError(): boolean {
+    if (this.props.options.hasError) {
+      return true;
+    }
+
+    const baseHasError = super.hasError();
+    if (baseHasError) {
+      return true;
+    }
+
+    const currentValue = this.state.value;
+    const nullOption = this.getNullOption();
+    const isEmpty =
+      currentValue === null ||
+      currentValue === undefined ||
+      currentValue === '' ||
+      currentValue === nullOption.value;
+    const isRequired = !this.typeInfo.isMaybe;
+    const hasBeenTouched = this.hasBeenTouched();
+    const validationAttempted = this.hasValidationBeenAttempted();
+    const isCurrentlyInvalid = isEmpty && isRequired;
+
+    return isCurrentlyInvalid && (hasBeenTouched || validationAttempted);
+  }
 }
 
 const SelectClass = Select as typeof Select & {
@@ -123,6 +148,11 @@ const SelectClass = Select as typeof Select & {
 Object.assign(SelectClass, {
   transformer: (nullOption?: { value: unknown; text: string }) => ({
     format: (value: unknown) => (Nil.is(value) && nullOption ? nullOption.value : String(value)),
-    parse: (value: unknown) => (nullOption && nullOption.value === value ? null : value),
+    parse: (value: unknown) => {
+      if (nullOption && nullOption.value === value) {
+        return null;
+      }
+      return value;
+    },
   }),
 });

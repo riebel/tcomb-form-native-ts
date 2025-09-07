@@ -48,6 +48,15 @@ export class Checkbox extends Component<CheckboxLocals> {
 
     return checkboxLocals;
   }
+
+  hasError(): boolean {
+    const baseHasError = super.hasError();
+    if (baseHasError) {
+      return true;
+    }
+
+    return false;
+  }
 }
 
 Checkbox.transformer = {

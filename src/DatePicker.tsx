@@ -172,9 +172,45 @@ export class DatePicker extends Component<DatePickerLocals> {
 
     return datePickerLocals;
   }
+
+  hasError(): boolean {
+    if (this.props.options.hasError) {
+      return true;
+    }
+
+    const baseHasError = super.hasError();
+    if (baseHasError) {
+      return true;
+    }
+
+    const currentValue = this.state.value;
+    const isEmpty = currentValue === null || currentValue === undefined;
+    const isRequired = !this.typeInfo.isMaybe;
+    const hasBeenTouched = this.hasBeenTouched();
+    const validationAttempted = this.hasValidationBeenAttempted();
+    const isCurrentlyInvalid = isEmpty && isRequired;
+
+    return isCurrentlyInvalid && (hasBeenTouched || validationAttempted);
+  }
 }
 
 DatePicker.transformer = {
-  format: (value: unknown) => (Nil.is(value) ? null : value),
-  parse: (value: unknown) => value,
+  format: (value: unknown) => {
+    if (Nil.is(value)) return null;
+    if (value instanceof Date) return value;
+    if (typeof value === 'string') {
+      const date = new Date(value);
+      return isNaN(date.getTime()) ? null : date;
+    }
+    return value;
+  },
+  parse: (value: unknown) => {
+    if (Nil.is(value)) return null;
+    if (value instanceof Date) return value;
+    if (typeof value === 'string') {
+      const date = new Date(value);
+      return isNaN(date.getTime()) ? null : date;
+    }
+    return value;
+  },
 };

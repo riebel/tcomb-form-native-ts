@@ -55,8 +55,42 @@ export class List extends Component<ListLocals> {
     );
   }
 
+  hasError(): boolean {
+    if (this.props.options.hasError) {
+      return true;
+    }
+
+    const baseHasError = super.hasError();
+    if (baseHasError) {
+      return true;
+    }
+
+    const currentValue = this.state.value as unknown[];
+    const isEmpty = !Array.isArray(currentValue) || currentValue.length === 0;
+    const isRequired = !this.typeInfo.isMaybe;
+    const hasBeenTouched = this.hasBeenTouched();
+    const validationAttempted = this.hasValidationBeenAttempted();
+
+    if (!isRequired) {
+      return false;
+    }
+
+    const isNullyValues =
+      Array.isArray(currentValue) &&
+      currentValue.every(item => item === null || item === undefined);
+    const isCurrentlyInvalid = isEmpty || isNullyValues;
+
+    return isCurrentlyInvalid && (hasBeenTouched || validationAttempted);
+  }
+
   componentDidUpdate(prevProps: ComponentProps): void {
     super.componentDidUpdate(prevProps);
+
+    if (prevProps.options.hasError !== this.props.options.hasError) {
+      if (this.props.options.hasError === false && this.state.hasError) {
+        this.setState({ hasError: false });
+      }
+    }
 
     if (this.props.value !== prevProps.value) {
       const formattedValue = this.getTransformer().format(this.props.value) as unknown[];
@@ -69,6 +103,39 @@ export class List extends Component<ListLocals> {
     this.setState({ value }, () => {
       if (this.props.onChange) {
         this.props.onChange(value, path);
+      }
+
+      const itemErrorStates: Record<number, boolean | undefined> = {};
+      Object.keys(this.itemRefs).forEach(key => {
+        const index = parseInt(key, 10);
+        const ref = this.itemRefs[index];
+        itemErrorStates[index] = ref?.state?.hasError;
+      });
+
+      if (this.state) {
+        this.validate();
+      }
+
+      Object.keys(this.itemRefs).forEach(key => {
+        const index = parseInt(key, 10);
+        const ref = this.itemRefs[index];
+        if (ref && ref.setState) {
+          const previousHasError = itemErrorStates[index];
+          if (typeof previousHasError === 'boolean') {
+            ref.setState({ hasError: previousHasError });
+          }
+        }
+      });
+
+      if (kind === 'itemChange' && Array.isArray(value)) {
+        value.forEach((itemValue, index) => {
+          const itemRef = this.itemRefs[index];
+          if (itemRef && typeof itemRef.validate === 'function') {
+            if (itemRef.state && itemRef.state.value !== itemValue) {
+              itemRef.setState({ value: itemValue });
+            }
+          }
+        });
       }
     });
   }
@@ -125,7 +192,7 @@ export class List extends Component<ListLocals> {
       const currentArray = Array.isArray(value) ? value : [];
       const newValue = [...currentArray];
       newValue[index] = itemValue;
-      this.emitChange(newValue, this.keys, this.props.ctx.path.concat(String(index)), undefined);
+      this.emitChange(newValue, this.keys, this.props.ctx.path.concat(String(index)), 'itemChange');
     };
 
   getItems(): ListItem[] {
@@ -194,7 +261,10 @@ export class List extends Component<ListLocals> {
             this.itemRefs[i] = ref as Component | null;
           },
           type: actualItemType,
-          options: itemOptions,
+          options: {
+            ...itemOptions,
+            hasError: undefined,
+          },
           value: itemValue,
           onChange: (val: unknown, path?: string[], kind?: string) => this.onItemChange(i)(val),
           ctx: {
@@ -220,7 +290,6 @@ export class List extends Component<ListLocals> {
     type: TcombType | Record<string, unknown>,
     options: ComponentOptions,
   ): React.ComponentType<ComponentProps> {
-    // Registry of available form components
     const componentRegistry: Record<string, React.ComponentType<ComponentProps>> = {
       Textbox: Textbox as React.ComponentType<ComponentProps>,
       Select: Select as React.ComponentType<ComponentProps>,
@@ -290,7 +359,13 @@ export class List extends Component<ListLocals> {
 
   getValue(): unknown[] {
     const value: unknown[] = [];
-    for (let i = 0, len = (this.state.value as unknown[]).length; i < len; i++) {
+    const stateValue = this.state.value as unknown[];
+
+    if (!stateValue || !Array.isArray(stateValue)) {
+      return this.getTransformer().parse([]) as unknown[];
+    }
+
+    for (let i = 0, len = stateValue.length; i < len; i++) {
       const ref = this.itemRefs[i];
       if (ref) {
         value.push(ref.getValue?.());
@@ -300,20 +375,61 @@ export class List extends Component<ListLocals> {
   }
 
   validate() {
-    const t = require('tcomb-validation');
-    const value: unknown[] = [];
-    let errors: unknown[] = [];
-    let hasError = false;
+    const result = this.pureValidate();
+    const isValid = result.isValid();
+    const wasInternalHasError = this.state.hasError;
 
-    // Handle optional (maybe) types with null values
-    if (this.typeInfo.isMaybe && this.isValueNully()) {
-      this.removeErrors();
+    this.setState({ hasError: !isValid });
+
+    // If validation state changed from error to valid, notify parent to re-validate
+    if (wasInternalHasError && isValid) {
+      // Trigger parent validation by emitting a change event
+      setTimeout(() => {
+        if (this.props.onChange) {
+          // Emit the current value to trigger parent validation
+          this.props.onChange(this.state.value, this.props.ctx.path, 'validationStateChange');
+        }
+      }, 0);
+    }
+
+    return result;
+  }
+
+  pureValidate() {
+    const t = require('tcomb-validation');
+    let value: unknown[] = [];
+    let errors: unknown[] = [];
+
+    const currentValue = this.getTransformer().format(this.state.value) as unknown[];
+    const isEmptyArray = !currentValue || !Array.isArray(currentValue) || currentValue.length === 0;
+    const isNullyValues =
+      Array.isArray(currentValue) &&
+      currentValue.every(item => item === null || item === undefined);
+
+    // For non-required (maybe) lists, empty arrays or arrays with all null values are valid
+    if (this.typeInfo.isMaybe && (isEmptyArray || isNullyValues)) {
       return new t.ValidationResult({ errors: [], value: null });
     }
 
-    // Handle required types with null values
-    if (!this.typeInfo.isMaybe && this.isValueNully()) {
-      this.setState({ hasError: true });
+    // For non-required lists with some values, validate individual items but don't fail the list
+    if (
+      this.typeInfo.isMaybe &&
+      currentValue &&
+      Array.isArray(currentValue) &&
+      currentValue.length > 0
+    ) {
+      for (let i = 0, len = currentValue.length; i < len; i++) {
+        const result = this.itemRefs[i]?.validate?.();
+        if (result) {
+          // For non-required lists, we collect item validation results but don't fail the list itself
+          value.push(result.value);
+        }
+      }
+      return new t.ValidationResult({ errors: [], value });
+    }
+
+    // For required lists, empty arrays or arrays with all null values are invalid
+    if (!this.typeInfo.isMaybe && (isEmptyArray || isNullyValues)) {
       const errorMessage = this.getI18n()?.required || 'This field is required';
       return new t.ValidationResult({
         errors: [
@@ -326,23 +442,26 @@ export class List extends Component<ListLocals> {
       });
     }
 
-    // Validate each list item
-    for (let i = 0, len = (this.state.value as unknown[]).length; i < len; i++) {
-      const result = this.itemRefs[i]?.validate?.();
-      if (result) {
-        errors = errors.concat(result.errors);
-        value.push(result.value);
+    // For required lists with values, validate individual items
+    if (currentValue && Array.isArray(currentValue)) {
+      for (let i = 0, len = currentValue.length; i < len; i++) {
+        const result = this.itemRefs[i]?.validate?.();
+        if (result) {
+          errors = errors.concat(result.errors);
+          value.push(result.value);
+        }
       }
     }
 
-    // Additional validation for subtype constraints
     if (this.typeInfo.isSubtype && errors.length === 0) {
-      const result = t.validate(value, this.props.type, this.getValidationOptions());
-      hasError = !result.isValid();
-      errors = errors.concat(result.errors);
+      // Only validate with tcomb if we have actual values to validate
+      // Empty arrays should not be passed to tcomb subtype validation as it causes errors
+      if (value.length > 0) {
+        const result = t.validate(value, this.props.type, this.getValidationOptions());
+        errors = errors.concat(result.errors);
+      }
     }
 
-    this.setState({ hasError });
     return new t.ValidationResult({ errors, value });
   }
 }
@@ -360,6 +479,9 @@ List.transformer = {
   parse: (value: unknown) => value,
 };
 function toSameLength(value: unknown[], keys: string[], uidGenerator: { next: () => string }) {
+  if (!value || !Array.isArray(value)) {
+    return [];
+  }
   if (value.length === keys.length) {
     return keys;
   }

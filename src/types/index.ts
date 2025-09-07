@@ -2,7 +2,7 @@ import React, { ReactNode, ComponentType } from 'react';
 import { TextInputProps, ViewStyle, TextStyle } from 'react-native';
 
 export type BivariantOnChange<T> = {
-  bivarianceHack(value: T, path?: string[]): void;
+  bivarianceHack(value: T, path?: string[], kind?: string): void;
 }['bivarianceHack'];
 export interface TcombType {
   meta: {
@@ -77,6 +77,7 @@ export interface ComponentOptions {
   help?: ReactNode;
   error?: string | ((value: unknown, path: string[], context: ValidationContext) => string);
   hasError?: boolean;
+  fieldErrors?: Record<string, string>;
   hidden?: boolean;
   auto?: 'labels' | 'placeholders' | 'none';
   i18n?: I18nConfig;
@@ -249,6 +250,7 @@ export type ListLocals = ComponentLocals & {
 export interface StructOptions extends ComponentOptions {
   order?: string[];
   fields?: Record<string, ComponentOptions>;
+  fieldErrors?: Record<string, string>;
 }
 
 export interface StructLocals extends ComponentLocals {

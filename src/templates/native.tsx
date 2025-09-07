@@ -87,7 +87,7 @@ export function NativeTextboxTemplate(locals: TextboxLocals): React.ReactElement
         selectTextOnFocus={selectTextOnFocus}
         selectionColor={selectionColor}
         textAlign={textAlign}
-        textAlignVertical="top"
+        textAlignVertical={multiline ? 'top' : 'center'}
         returnKeyType={returnKeyType}
         clearButtonMode={clearButtonMode}
         clearTextOnFocus={clearTextOnFocus}

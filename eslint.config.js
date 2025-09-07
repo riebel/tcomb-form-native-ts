@@ -1,4 +1,3 @@
-// eslint.config.js
 const js = require('@eslint/js');
 const tsParser = require('@typescript-eslint/parser');
 const tsPlugin = require('@typescript-eslint/eslint-plugin');
@@ -9,7 +8,6 @@ const prettierPlugin = require('eslint-plugin-prettier');
 const globals = require('globals');
 
 module.exports = [
-  // Ignorierte Ordner
   {
     ignores: [
       'node_modules/',

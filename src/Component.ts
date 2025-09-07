@@ -15,7 +15,10 @@ const Nil = t.Nil;
 
 export abstract class Component<
   TLocals extends ComponentLocals = ComponentLocals,
-> extends React.Component<ComponentProps, { hasError: boolean; value: unknown }> {
+> extends React.Component<
+  ComponentProps,
+  { hasError: boolean; value: unknown; hasBeenTouched: boolean; validationAttempted: boolean }
+> {
   protected typeInfo: TypeInfo;
 
   constructor(props: ComponentProps) {
@@ -25,6 +28,8 @@ export abstract class Component<
     this.state = {
       hasError: false,
       value: this.getTransformer().format(props.value),
+      hasBeenTouched: false,
+      validationAttempted: false,
     };
   }
 
@@ -36,11 +41,18 @@ export abstract class Component<
 
   shouldComponentUpdate(
     nextProps: ComponentProps,
-    nextState: { hasError: boolean; value: unknown },
+    nextState: {
+      hasError: boolean;
+      value: unknown;
+      hasBeenTouched: boolean;
+      validationAttempted: boolean;
+    },
   ): boolean {
     const should =
       nextState.value !== this.state.value ||
       nextState.hasError !== this.state.hasError ||
+      nextState.hasBeenTouched !== this.state.hasBeenTouched ||
+      nextState.validationAttempted !== this.state.validationAttempted ||
       nextProps.options !== this.props.options ||
       nextProps.type !== this.props.type ||
       nextProps.value !== this.props.value;
@@ -54,14 +66,21 @@ export abstract class Component<
     if (this.props.value !== prevProps.value) {
       this.setState({ value: this.getTransformer().format(this.props.value) });
     }
+    if (prevProps.options.hasError !== this.props.options.hasError) {
+      this.forceUpdate();
+    }
   }
 
   onChange = (value: unknown): void => {
-    this.setState({ value }, () => {
+    this.setState({ value, hasBeenTouched: true }, () => {
       if (this.props.onChange) {
         this.props.onChange(value, this.props.ctx.path);
       }
     });
+  };
+
+  onBlur = (): void => {
+    this.setState({ hasBeenTouched: true });
   };
 
   getValidationOptions(): ValidationOptions {
@@ -85,8 +104,15 @@ export abstract class Component<
     this.setState({ hasError: false });
   }
 
+  hasBeenTouched(): boolean {
+    return this.state.hasBeenTouched;
+  }
+
+  hasValidationBeenAttempted(): boolean {
+    return this.state.validationAttempted;
+  }
+
   pureValidate(): ValidationResult {
-    // Validation without side effects (no state updates)
     if (
       typeof this.props.type !== 'object' ||
       this.props.type === null ||
@@ -104,7 +130,7 @@ export abstract class Component<
 
   validate(): ValidationResult {
     const result = this.pureValidate();
-    this.setState({ hasError: !result.isValid() });
+    this.setState({ hasError: !result.isValid(), validationAttempted: true });
     return result;
   }
 
@@ -127,6 +153,7 @@ export abstract class Component<
 
   getLabel(): string | undefined {
     let label = this.props.options.label || this.props.options.legend;
+
     if (Nil.is(label) && this.getAuto() === 'placeholders') {
       label = undefined;
     } else if (Nil.is(label) && this.getAuto() === 'labels') {
@@ -139,11 +166,11 @@ export abstract class Component<
         label = label + suffix;
       }
     }
+
     return label;
   }
 
   private isListItem(): boolean {
-    // Check if this component is an item within a list (path ends with numeric index)
     const path = this.props.ctx.path;
     return path && path.length > 0 && /^\d+$/.test(path[path.length - 1]);
   }

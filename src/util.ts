@@ -65,7 +65,7 @@ export function getTypeInfo(
     }
   }
 
-  // Unwrap nested type wrappers (maybe, subtype) to get the core type
+  // Unwrap nested type wrappers to get the core type
   while (innerType && innerType.meta) {
     kind = innerType.meta.kind;
     if (t.Function.is(innerType.getValidationErrorMessage)) {
