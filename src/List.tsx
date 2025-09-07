@@ -35,12 +35,28 @@ export class List extends Component<ListLocals> {
     return (options.template || this.props.ctx.templates.list) as React.ComponentType<ListLocals>;
   }
 
-  getItemType(): TcombType | null {
-    const type = this.props.type as TcombType;
-    if (!type || !type.meta || !type.meta.type) {
-      return null;
+  getItemType(): TcombType | Record<string, unknown> | null {
+    let type = this.props.type;
+
+    // Handle Maybe types - unwrap to get the inner List type
+    if (isTcombType(type) && type.meta && type.meta.kind === 'maybe' && type.meta.type) {
+      type = type.meta.type;
     }
-    return type.meta.type;
+
+    // Handle tcomb List types
+    if (isTcombType(type) && type.meta && type.meta.type) {
+      return type.meta.type;
+    }
+
+    // Handle JSON Schema objects
+    if (typeof type === 'object' && type !== null && !Array.isArray(type)) {
+      const schema = type as Record<string, unknown>;
+      if (schema.type === 'array' && schema.items) {
+        return schema.items as Record<string, unknown>;
+      }
+    }
+
+    return null;
   }
 
   private keys: string[];
@@ -215,9 +231,53 @@ export class List extends Component<ListLocals> {
         type as TcombType | Record<string, unknown>,
         itemValue,
       );
+
+      // Extract field options from plain object schemas or tcomb types
+      let extractedFieldOptions = {};
+      if (
+        typeof actualItemType === 'object' &&
+        actualItemType !== null &&
+        !isTcombType(actualItemType)
+      ) {
+        const schema = actualItemType as Record<string, unknown>;
+
+        if (schema.properties && typeof schema.properties === 'object') {
+          const schemaProps = schema.properties as Record<string, unknown>;
+          const fieldsOptions: Record<string, unknown> = {};
+
+          for (const [fieldName, fieldDef] of Object.entries(schemaProps)) {
+            if (typeof fieldDef === 'object' && fieldDef !== null) {
+              const propDef = fieldDef as Record<string, unknown>;
+              if (propDef.options && typeof propDef.options === 'object') {
+                fieldsOptions[fieldName] = propDef.options;
+              }
+            }
+          }
+
+          if (Object.keys(fieldsOptions).length > 0) {
+            extractedFieldOptions = { fields: fieldsOptions };
+          }
+        }
+      } else if (isTcombType(actualItemType)) {
+        // For tcomb types, extract field options from List's item configuration
+        const listItemOptions = (options as ListOptions).item || {};
+        if (listItemOptions.fields && typeof listItemOptions.fields === 'object') {
+          extractedFieldOptions = { fields: listItemOptions.fields };
+        }
+      }
+
+      // Pass field options down to item components if needed
+      let listItemOptions = (options as ListOptions).item || {};
+      if ((options as ListOptions).fields && !listItemOptions.fields) {
+        listItemOptions = {
+          ...listItemOptions,
+          fields: (options as ListOptions).fields,
+        };
+      }
+
       const itemOptions = getComponentOptions(
-        (options as ListOptions).item,
-        {},
+        listItemOptions,
+        extractedFieldOptions,
         itemValue,
         type as TcombType | Record<string, unknown>,
       );
@@ -255,16 +315,18 @@ export class List extends Component<ListLocals> {
         );
       }
 
+      const finalOptions = {
+        ...itemOptions,
+        hasError: undefined,
+      };
+
       return {
         input: React.createElement(ItemComponent, {
           ref: (ref: unknown) => {
             this.itemRefs[i] = ref as Component | null;
           },
           type: actualItemType,
-          options: {
-            ...itemOptions,
-            hasError: undefined,
-          },
+          options: finalOptions,
           value: itemValue,
           onChange: (val: unknown, path?: string[], kind?: string) => this.onItemChange(i)(val),
           ctx: {
@@ -368,10 +430,14 @@ export class List extends Component<ListLocals> {
     for (let i = 0, len = stateValue.length; i < len; i++) {
       const ref = this.itemRefs[i];
       if (ref) {
-        value.push(ref.getValue?.());
+        const refValue = ref.getValue?.();
+        value.push(refValue);
       }
     }
-    return this.getTransformer().parse(value) as unknown[];
+
+    const parsedValue = this.getTransformer().parse(value) as unknown[];
+
+    return parsedValue;
   }
 
   validate() {
@@ -381,12 +447,9 @@ export class List extends Component<ListLocals> {
 
     this.setState({ hasError: !isValid });
 
-    // If validation state changed from error to valid, notify parent to re-validate
     if (wasInternalHasError && isValid) {
-      // Trigger parent validation by emitting a change event
       setTimeout(() => {
         if (this.props.onChange) {
-          // Emit the current value to trigger parent validation
           this.props.onChange(this.state.value, this.props.ctx.path, 'validationStateChange');
         }
       }, 0);
@@ -406,12 +469,10 @@ export class List extends Component<ListLocals> {
       Array.isArray(currentValue) &&
       currentValue.every(item => item === null || item === undefined);
 
-    // For non-required (maybe) lists, empty arrays or arrays with all null values are valid
     if (this.typeInfo.isMaybe && (isEmptyArray || isNullyValues)) {
       return new t.ValidationResult({ errors: [], value: null });
     }
 
-    // For non-required lists with some values, validate individual items but don't fail the list
     if (
       this.typeInfo.isMaybe &&
       currentValue &&
@@ -421,14 +482,12 @@ export class List extends Component<ListLocals> {
       for (let i = 0, len = currentValue.length; i < len; i++) {
         const result = this.itemRefs[i]?.validate?.();
         if (result) {
-          // For non-required lists, we collect item validation results but don't fail the list itself
           value.push(result.value);
         }
       }
       return new t.ValidationResult({ errors: [], value });
     }
 
-    // For required lists, empty arrays or arrays with all null values are invalid
     if (!this.typeInfo.isMaybe && (isEmptyArray || isNullyValues)) {
       const errorMessage = this.getI18n()?.required || 'This field is required';
       return new t.ValidationResult({
@@ -442,7 +501,6 @@ export class List extends Component<ListLocals> {
       });
     }
 
-    // For required lists with values, validate individual items
     if (currentValue && Array.isArray(currentValue)) {
       for (let i = 0, len = currentValue.length; i < len; i++) {
         const result = this.itemRefs[i]?.validate?.();
@@ -454,8 +512,6 @@ export class List extends Component<ListLocals> {
     }
 
     if (this.typeInfo.isSubtype && errors.length === 0) {
-      // Only validate with tcomb if we have actual values to validate
-      // Empty arrays should not be passed to tcomb subtype validation as it causes errors
       if (value.length > 0) {
         const result = t.validate(value, this.props.type, this.getValidationOptions());
         errors = errors.concat(result.errors);

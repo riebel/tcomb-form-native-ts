@@ -62,8 +62,6 @@ Object.assign(t, {
 });
 
 export default t as unknown as TcombFormNative;
-
-// Named exports for modern imports
 export {
   Form,
   Textbox,

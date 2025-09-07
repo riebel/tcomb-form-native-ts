@@ -14,6 +14,7 @@ import {
   getFormComponentName,
   isTcombType,
   humanize,
+  inferTypeFromFieldOptions,
 } from './util';
 import { Textbox } from './Textbox';
 import { Select } from './Select';
@@ -39,6 +40,28 @@ export class Struct extends Component<StructLocals> {
       return Object.keys(props);
     }
 
+    if (
+      typeof this.props.type === 'object' &&
+      this.props.type !== null &&
+      !Array.isArray(this.props.type)
+    ) {
+      const plainObject = this.props.type as Record<string, unknown>;
+      if (plainObject.properties && typeof plainObject.properties === 'object') {
+        const schemaProps = plainObject.properties as Record<string, unknown>;
+        if (options.order) {
+          return options.order;
+        }
+        return Object.keys(schemaProps);
+      }
+    }
+    const fieldsOptions = options.fields || {};
+    if (Object.keys(fieldsOptions).length > 0) {
+      if (options.order) {
+        return options.order;
+      }
+      return Object.keys(fieldsOptions);
+    }
+
     if (options.order) {
       return options.order;
     }
@@ -59,31 +82,144 @@ export class Struct extends Component<StructLocals> {
       }
 
       if (kind === 'validationStateChange') {
+        // Don't trigger full validation on all fields when one field changes
+        // This prevents untouched fields from showing validation errors
+        // Individual fields will validate themselves when touched or when form is submitted
         setTimeout(() => {
-          this.validate();
+          this.updateValidationState();
         }, 0);
       }
     });
   };
+
+  updateValidationState(): void {
+    // Update validation state without forcing validation on untouched fields
+    // This allows the struct to update its own validation state based on current field values
+    // without triggering validation on fields that haven't been touched by the user
+    let hasError = false;
+
+    // Check if any child components currently have errors
+    Object.keys(this.inputRefs).forEach(ref => {
+      const child = this.inputRefs[ref];
+      if (child && typeof child.hasError === 'function' && child.hasError()) {
+        hasError = true;
+      }
+    });
+
+    // Update our own error state based on child states, but don't force validation
+    this.setState({ hasError });
+  }
 
   getInputs(): Record<string, React.ReactElement> {
     const { ctx, options } = this.props;
     const value = (this.state.value as Record<string, unknown>) || {};
 
     let props: Record<string, unknown>;
+    const fieldsOptions = (options as StructOptions).fields || {};
+
     if (isTcombType(this.props.type) && this.props.type.meta.props) {
       props = this.props.type.meta.props;
+
+      const t = require('tcomb-validation');
+      const modifiedProps: Record<string, unknown> = {};
+      for (const [propName, propType] of Object.entries(props)) {
+        if (propType && typeof propType === 'object' && 'meta' in propType) {
+          const meta = (propType as { meta: { kind: string } }).meta;
+
+          if (meta.kind === 'struct') {
+            modifiedProps[propName] = t.maybe(propType as TcombType);
+          } else {
+            modifiedProps[propName] = propType;
+          }
+        } else {
+          modifiedProps[propName] = propType;
+        }
+      }
+      props = modifiedProps;
+    } else if (
+      typeof this.props.type === 'object' &&
+      this.props.type !== null &&
+      !Array.isArray(this.props.type)
+    ) {
+      const plainObject = this.props.type as Record<string, unknown>;
+      if (plainObject.properties && typeof plainObject.properties === 'object') {
+        const schemaProps = plainObject.properties as Record<string, unknown>;
+        props = {};
+
+        for (const [key, schemaProp] of Object.entries(schemaProps)) {
+          if (typeof schemaProp === 'object' && schemaProp !== null) {
+            const propDef = schemaProp as Record<string, unknown>;
+
+            if (propDef.options && typeof propDef.options === 'object') {
+              fieldsOptions[key] = {
+                ...fieldsOptions[key],
+                ...(propDef.options as Record<string, unknown>),
+              };
+            }
+
+            if (propDef.type === 'string') {
+              props[key] = { meta: { kind: 'irreducible' }, displayName: 'String' };
+            } else if (propDef.type === 'number') {
+              props[key] = { meta: { kind: 'irreducible' }, displayName: 'Number' };
+            } else if (propDef.type === 'boolean') {
+              props[key] = { meta: { kind: 'irreducible' }, displayName: 'Boolean' };
+            } else if (propDef.type === 'object' && propDef.properties) {
+              props[key] = propDef;
+            } else {
+              props[key] = { meta: { kind: 'irreducible' }, displayName: 'String' };
+            }
+          }
+        }
+      } else {
+        props = {};
+        for (const [fieldName, fieldOptions] of Object.entries(fieldsOptions)) {
+          if (fieldOptions && typeof fieldOptions === 'object' && 'fields' in fieldOptions) {
+            const isStructRequired = false;
+
+            const t = require('tcomb-validation');
+            let resultType: TcombType;
+            if (isStructRequired) {
+              resultType = t.struct({}, 'Struct');
+              props[fieldName] = resultType;
+            } else {
+              const baseStructType = t.struct({}, 'Struct');
+              resultType = t.maybe(baseStructType);
+              props[fieldName] = resultType;
+            }
+          } else if (fieldOptions && typeof fieldOptions === 'object') {
+            props[fieldName] = inferTypeFromFieldOptions(fieldOptions as Record<string, unknown>);
+          }
+        }
+      }
     } else {
       props = {};
+      for (const [fieldName, fieldOptions] of Object.entries(fieldsOptions)) {
+        if (fieldOptions && typeof fieldOptions === 'object' && 'fields' in fieldOptions) {
+          const isStructRequired = false;
+
+          const t = require('tcomb-validation');
+          let resultType: TcombType;
+          if (isStructRequired) {
+            resultType = t.struct({}, 'Struct');
+            props[fieldName] = resultType;
+          } else {
+            const baseStructType = t.struct({}, 'Struct');
+            resultType = t.maybe(baseStructType);
+            props[fieldName] = resultType;
+          }
+        } else if (fieldOptions && typeof fieldOptions === 'object') {
+          props[fieldName] = inferTypeFromFieldOptions(fieldOptions as Record<string, unknown>);
+        }
+      }
     }
 
     const inputs: Record<string, React.ReactElement> = {};
-    const fieldsOptions = (options as StructOptions).fields || {};
 
     for (const prop in props) {
       if (Object.prototype.hasOwnProperty.call(props, prop)) {
         const type = props[prop];
         const propValue = value[prop];
+
         const propType = getTypeFromUnion(type as TcombType | Record<string, unknown>, propValue);
 
         const baseFieldOptions = fieldsOptions[prop] || {};
@@ -95,20 +231,46 @@ export class Struct extends Component<StructLocals> {
 
         const fieldHasError = this.getFieldError(prop) !== undefined;
 
+        let finalPropType = propType;
+        let finalPropOptions = { ...baseFieldOptions, hasError: fieldHasError, label: fieldLabel };
+
+        if (
+          baseFieldOptions &&
+          typeof baseFieldOptions === 'object' &&
+          'fields' in baseFieldOptions
+        ) {
+          const isStructRequired = false;
+
+          const t = require('tcomb-validation');
+          if (isStructRequired) {
+            finalPropType = t.struct({}, 'Struct');
+          } else {
+            const baseStructType = t.struct({}, 'Struct');
+            finalPropType = t.maybe(baseStructType);
+          }
+
+          finalPropOptions = {
+            ...baseFieldOptions,
+            hasError: fieldHasError,
+            label: fieldLabel,
+          };
+        }
+
         const propOptions = getComponentOptions(
-          { ...baseFieldOptions, hasError: fieldHasError, label: fieldLabel },
+          finalPropOptions,
           {},
           propValue,
-          type as TcombType | Record<string, unknown>,
+          finalPropType as TcombType | Record<string, unknown>,
         );
 
-        const FieldComponent = this.getFieldComponent(propType, propOptions);
+        const FieldComponent = this.getFieldComponent(finalPropType, propOptions);
+
         inputs[prop] = React.createElement(FieldComponent, {
           key: prop,
           ref: (ref: unknown) => {
             this.inputRefs[prop] = ref as Component | null;
           },
-          type: propType,
+          type: finalPropType,
           options: propOptions,
           value: propValue,
           onChange: (value: unknown, path: string[], kind?: string) =>
@@ -278,7 +440,7 @@ export class Struct extends Component<StructLocals> {
         try {
           value = new (InnerType as new (v: unknown) => Record<string, unknown>)(value);
         } catch {
-          // Don't fail validation for constructor edge cases
+          // Ignore constructor errors
         }
       }
 
@@ -299,7 +461,7 @@ export class Struct extends Component<StructLocals> {
             });
           }
         } catch {
-          // Handle tcomb validation edge cases
+          // Ignore validation errors
         }
       }
     }

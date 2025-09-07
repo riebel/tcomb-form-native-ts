@@ -65,7 +65,6 @@ export function getTypeInfo(
     }
   }
 
-  // Unwrap nested type wrappers to get the core type
   while (innerType && innerType.meta) {
     kind = innerType.meta.kind;
     if (t.Function.is(innerType.getValidationErrorMessage)) {
@@ -271,11 +270,96 @@ export function getComponentOptions(
       concreteType,
     );
   }
-  return options as ComponentOptions;
+
+  const finalOptions = options as ComponentOptions;
+  const mergedOptions = {
+    ...defaultOptions,
+    ...finalOptions,
+  };
+
+  // Merge fields options instead of replacing
+  if (defaultOptions.fields && finalOptions.fields) {
+    mergedOptions.fields = {
+      ...defaultOptions.fields,
+      ...finalOptions.fields,
+    };
+  }
+
+  return mergedOptions;
 }
 
 export function isNil(value: unknown): value is null | undefined {
   return value === null || value === undefined;
+}
+
+export function inferTypeFromFieldOptions(fieldOptions: Record<string, unknown>): TcombType {
+  const isOptional = fieldOptions.required !== true;
+  let baseType: TcombType;
+
+  if (fieldOptions.factory) {
+    const factory = fieldOptions.factory as { displayName?: string };
+    if (factory.displayName === 'Textbox') {
+      baseType = t.String;
+    } else if (factory.displayName === 'Select') {
+      baseType = t.String;
+    } else if (factory.displayName === 'Checkbox') {
+      baseType = t.Boolean;
+    } else if (factory.displayName === 'DatePicker') {
+      baseType = t.Date;
+    } else {
+      baseType = t.String;
+    }
+  } else if (fieldOptions.options && Array.isArray(fieldOptions.options)) {
+    baseType = t.String;
+  } else if (
+    fieldOptions.mode === 'date' ||
+    fieldOptions.mode === 'datetime' ||
+    fieldOptions.mode === 'time'
+  ) {
+    baseType = t.Date;
+  } else if (fieldOptions.multiline) {
+    baseType = t.String;
+  } else {
+    baseType = t.String;
+  }
+
+  if (isOptional) {
+    const result = t.maybe(baseType);
+    return result;
+  }
+
+  return baseType;
+}
+
+export function convertPlainObjectToTcombStruct(
+  obj: Record<string, unknown>,
+  name?: string,
+): TcombType {
+  const props: Record<string, TcombType> = {};
+
+  for (const [key, value] of Object.entries(obj)) {
+    if (typeof value === 'object' && value !== null && 'type' in value) {
+      const schemaProp = value as Record<string, unknown>;
+
+      if (schemaProp.type === 'string') {
+        props[key] = t.maybe(t.String);
+      } else if (schemaProp.type === 'number') {
+        props[key] = t.maybe(t.Number);
+      } else if (schemaProp.type === 'boolean') {
+        props[key] = t.maybe(t.Boolean);
+      } else if (schemaProp.type === 'object' && schemaProp.properties) {
+        props[key] = t.maybe(
+          convertPlainObjectToTcombStruct(schemaProp.properties as Record<string, unknown>, key),
+        );
+      } else {
+        props[key] = t.maybe(t.String);
+      }
+    } else {
+      props[key] = t.maybe(t.String);
+    }
+  }
+
+  return t.struct(props, name);
 }
 
 export function toNull(value: unknown): unknown {
@@ -300,6 +384,13 @@ export function getFormComponentName(
   }
 
   if (!isTcombType(type)) {
+    if (typeof type === 'object' && type !== null && !Array.isArray(type)) {
+      const obj = type as Record<string, unknown>;
+      if (obj.multiline === true) {
+        return 'Textbox';
+      }
+      return 'Struct';
+    }
     return 'Struct';
   }
 
