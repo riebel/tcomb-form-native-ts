@@ -1,692 +1,446 @@
-# @riebel/tcomb-form-native-ts
+# tcomb-form-native-ts (TypeScript Edition)
 
-[![npm version](https://img.shields.io/npm/v/%40riebel%2Ftcomb-form-native-ts.svg)](https://www.npmjs.com/package/@riebel/tcomb-form-native-ts)
-[![license](https://img.shields.io/npm/l/%40riebel%2Ftcomb-form-native-ts.svg)](LICENSE)
-[![TypeScript](https://img.shields.io/badge/TypeScript-Ready-3178C6?logo=typescript&logoColor=white)](tsconfig.json)
-[![React Native](https://img.shields.io/badge/React%20Native-0.74%2B-61DAFB?logo=react)](https://reactnative.dev/)
+[![npm version](https://img.shields.io/npm/v/@riebel/tcomb-form-native-ts.svg?style=flat-square)](https://www.npmjs.com/package/@riebel/tcomb-form-native-ts)
+[![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue.svg?style=flat-square)](https://www.typescriptlang.org/)
+[![React Native](https://img.shields.io/badge/React%20Native-Compatible-green.svg?style=flat-square)](https://reactnative.dev/)
 
-> Modern TypeScript rewrite of tcomb-form-native. React 19+ compatible. Drop-in API.
+A modern TypeScript implementation of tcomb-form-native with React 18+ support, functional components, and 100% API compatibility with the original library.
 
-## Notice
+## Contents
 
-This is a modernized rewrite of `tcomb-form-native` with the following improvements while preserving the original API shape:
-
-- **React 19+ Support**: Updated to work with the latest React version
-- **TypeScript**: Full TypeScript support with type definitions
-- **Modern JavaScript**: Refactored to use modern JavaScript/TypeScript features
-- **Modular Architecture**: Components are now properly modularized and tree-shakeable
-- **Improved Developer Experience**: Better TypeScript support and modern tooling
-
-## Features
-
-- 🚀 Built for React 19 and React Native 0.74+
-
-- 🏗️ TypeScript-first development
-- 🧩 Modular component architecture
-- 🎨 Customizable theming and styling
-- 📱 Cross-platform support (iOS & Android)
-- 🔄 Form state management
-- ✅ Built-in validation
-
-# Table of Contents
-
-- [Install](#install)
-- [Supported Versions](#supported-versions)
-- [Quick Start (TypeScript)](#quick-start-typescript)
-- [Validation and Required Fields](#validation-and-required-fields)
+- [Setup](#setup)
+- [Supported React Native Versions](#supported-react-native-versions)
+- [Example](#example)
 - [API](#api)
-  - [Form props](#form-props)
-  - [Nested refs](#nested-refs)
-  - [Struct per-field options](#struct-per-field-options)
-- [TypeScript typings and helpers](#typescript-typings-and-helpers)
-- [Migration from tcomb-form-native](#migration-from-tcomb-form-native)
-- [Peer Dependencies](#peer-dependencies)
+- [Types](#types)
+- [Rendering Options](#rendering-options)
+- [Unions](#unions)
+- [Lists](#lists)
+- [Customizations](#customizations)
+- [Migration Guide](#migration-guide)
 - [Tests](#tests)
 - [License](#license)
 
-## Install
+## Setup
 
 ```bash
-# Using npm (scoped)
 npm install @riebel/tcomb-form-native-ts
-
-# Using yarn (scoped)
-yarn add @riebel/tcomb-form-native-ts
 ```
 
- 
-## Supported versions
+### For React Native projects with Expo:
 
-- React: 19.x
-- React Native: 0.74+ (tested with 0.79)
-- TypeScript: 4.9+
-
-## Legacy compatibility and behavior parity
-
-This refactor preserves legacy `tcomb-form-native` behaviors while modernizing the internals:
-
-- **Validation propagation**: `Form.validate()` delegates to the root input component when available, cascading validation and `hasError` state to nested fields (Struct/List) as in the legacy package.
-- **Path lookups**: `getComponent(path)` and `getComponentAtPath(path)` accept both arrays (e.g., `['address', 'street']`) and legacy string paths (e.g., `'address.street'`, `'phones.0'`). Numeric segments in strings are coerced to numbers.
-- **Stable UID generation**: Each `Form` instance seeds its `UIDGenerator` for deterministic, stable keys (used by lists). For full control across remounts, supply your own generator via `options.uidGenerator`.
-- **Template keys**: Both `templates.datepicker` and `templates.datePicker` are supported for compatibility.
-- **Defaults on Form**: `Form.i18n`, `Form.stylesheet`, and `Form.templates` are exposed and can be reassigned just like the legacy API.
-
-## Migration from tcomb-form-native
-
-This package is designed as a drop-in replacement. Most apps can switch imports and work unchanged. Below are mappings and pitfalls to check.
-
-### 1:1 mappings
-
-- __Default import__: `import t from '@riebel/tcomb-form-native-ts'` exposes `tcomb-validation` primitives plus `t.form` namespace.
-- __Form component__:
-  - Legacy: `t.form.Form`
-  - Modern: `import { Form } from '@riebel/tcomb-form-native-ts'`
-- __Components available on legacy namespace__: `t.form.{Textbox, Checkbox, Select, DatePicker, List, Struct}`
-- __Named exports__: `Form`, `templates`, `stylesheet`, `i18n` from the package root.
-
-### Prop and option names
-
-- __Stylesheet__: prop is `stylesheet` (singular). If you used `stylesheets`, rename to `stylesheet`.
-- __Options shape__: still supports `options.fields.<name>` overrides for labels/placeholders/etc.
-- __i18n__: can be mutated via `t.form.Form.i18n = { ... }` or modern `Form.i18n = { ... }`.
-
-### Platform differences
-
-- __Booleans__: rendered with React Native `Switch`.
-- __Dates__: use `@react-native-community/datetimepicker` on both iOS and Android.
-  - Android `config`: supports `format`, `dialogMode`, `defaultValueText`.
-
-### Common pitfalls
-
-- __Import path__: update to `@riebel/tcomb-form-native-ts`, or alias in your app's `package.json`:
-  ```json
-  {
-    "dependencies": {
-      "tcomb-form-native": "npm:@riebel/tcomb-form-native-ts@^1.0.0"
-    }
-  }
-  ```
-- __Stylesheet prop name__: use `stylesheet`, not `stylesheets`.
-- __String refs__: replace `ref="form"` with `useRef` and `ref={formRef}`.
-- __React.createClass__: migrate to function components or ES6 classes.
-- __onChange signature__: treat as `(value) => void`. Validate with `getValue()` when needed.
-- __Focus APIs__: `getComponent(['name'])` may not expose imperative methods in custom templates; prefer options (`autoFocus`) when possible.
- - __Nested refs__: Use `formRef.current?.getComponent(path)` or `getComponentAtPath(path)` with array paths, e.g. `['address', 'street']` or `['items', 0, 'title']`.
-
-## Peer Dependencies
-
-This library declares the following peer dependency:
-
-```json
-{
-  "@react-native-community/datetimepicker": ">=8.0.0"
-}
+```bash
+npx expo install @react-native-picker/picker
 ```
 
-Notes:
+### For bare React Native projects:
 
-- Your app already provides React and React Native.
-- `@react-native-picker/picker` is bundled as a dependency of this package.
-
-## TypeScript typings and helpers
-
-- __Centralized types__: All field/component template props and public prop types are exported from `src/types/template.types.ts` and re-exported at the package root for convenience.
-- __Shared Transformer__: A reusable `Transformer<I, O>` type is used by fields like Textbox, Select, and DatePicker for consistent formatting/parsing.
-- __Context-typed FormProps__: `FormProps<T, TContext = unknown>` lets you optionally type the `context` passed through to templates/validators.
-
-### Importing types
-
-```ts
-import type {
-  // Core helpers
-  Transformer,
-  FormTemplates,
-  I18n,
-  // Field component prop types (non-template)
-  TextboxProps,
-  SelectProps,
-  DatePickerProps,
-  CheckboxInternalProps,
-  StructProps,
-  ListProps,
-  // Template props & helpers
-  TextboxTemplateProps,
-  SelectTemplateProps,
-  DatePickerTemplateProps,
-  CheckboxTemplateProps,
-  StructTemplateProps,
-  ListTemplateProps,
-  SelectOption,
-} from '@riebel/tcomb-form-native-ts';
+```bash
+npm install @react-native-picker/picker
+npx react-native link @react-native-picker/picker
 ```
 
-### Using Transformer with Textbox
+## Supported React Native Versions
 
-```ts
-const numberTransformer: Transformer<number | null, string> = {
-  format: v => (v == null ? '' : String(v)),
-  parse: s => (s.trim() === '' ? null : Number(s)),
-};
+| Version | React Native Support | TypeScript | React |
+|---------|---------------------|------------|-------|
+| 1.1.x   | 0.60.0+            | 4.5+       | 18.0+ |
 
-const options = {
-  fields: {
-    age: {
-      transformer: numberTransformer,
-    },
-  },
-};
-```
+*This library uses modern React patterns including hooks and functional components.*
 
-### Typed context with FormProps
+### Domain Driven Forms
 
-```ts
-import { Form, type FormProps } from '@riebel/tcomb-form-native-ts';
+The [tcomb library](https://github.com/gcanti/tcomb) provides a concise but expressive way to define domain models in JavaScript/TypeScript.
 
-type Person = { name: string };
-type MyContext = { userId: string };
+The [tcomb-validation library](https://github.com/gcanti/tcomb-validation) builds on tcomb, providing validation functions for tcomb domain models.
 
-const props: FormProps<Person, MyContext> = {
-  type: t.struct({ name: t.String }),
-  context: { userId: 'u1' },
-};
-
-// <Form {...props} />
-```
+This library builds on those two and React Native, providing a modern TypeScript implementation with full backward compatibility.
 
 ### Benefits
 
-With **tcomb-form-native-ts** you simply call `<Form type={Model} />` to generate a form based on that domain model. What does this get you?
+With **tcomb-form-native** you simply call `<Form type={Model} />` to generate a form based on that domain model. What does this get you?
 
 1. Write a lot less code
 2. Usability and accessibility for free (automatic labels, inline validation, etc)
 3. No need to update forms when domain model changes
+4. Full TypeScript support with type safety
+5. Modern React patterns (hooks, functional components)
 
-### Example App
+### JSON Schema Support
 
-[https://github.com/bartonhammond/snowflake](https://github.com/bartonhammond/snowflake) React-Native, Tcomb, Redux, Parse.com, Jest - 88% coverage
+JSON Schemas are also supported via the [tcomb-json-schema library](https://github.com/gcanti/tcomb-json-schema).
 
-## Quick Start (TypeScript)
+**Note**: Please use tcomb-json-schema ^0.2.5.
+
+### Pluggable Look and Feel
+
+The look and feel is customizable via React Native stylesheets and *templates* (see documentation).
+
+## Example
 
 ```tsx
-import React, { useRef } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
-import t, { Form } from '@riebel/tcomb-form-native-ts';
+// App.tsx
+import React, { useRef, useState } from 'react';
+import { View, Text, TouchableHighlight, StyleSheet, Alert } from 'react-native';
+import t from 'tcomb-form-native';
 
-// 1) Define the runtime model (required by tcomb)
+const Form = t.form.Form;
+
+// Define your domain model
 const Person = t.struct({
-  name: t.String,
-  surname: t.maybe(t.String),
-  age: t.Number,
-  rememberMe: t.Boolean,
+  name: t.String,              // a required string
+  surname: t.maybe(t.String),  // an optional string
+  age: t.Number,               // a required number
+  rememberMe: t.Boolean        // a boolean
 });
 
-// 2) Optionally define a TS type for compile-time help
-type PersonValue = {
-  name: string;
-  surname?: string | null;
-  age: number;
-  rememberMe: boolean;
-};
+const options = {}; // optional rendering options (see documentation)
 
-export default function Example() {
-  const formRef = useRef<Form<PersonValue> | null>(null);
+export default function App() {
+  const formRef = useRef<t.form.Form>(null);
 
-  const onSave = () => {
+  const handlePress = () => {
+    // call getValue() to get the values of the form
     const value = formRef.current?.getValue();
-    if (value) {
-      console.log('valid value', value);
+    if (value) { // if validation fails, value will be null
+      console.log(value); // value here is an instance of Person
+      Alert.alert('Success', `Hello ${value.name}!`);
     }
   };
 
   return (
     <View style={styles.container}>
-      <Form ref={formRef} type={Person} />
-      <TouchableOpacity style={styles.button} onPress={onSave}>
+      <Form
+        ref={formRef}
+        type={Person}
+        options={options}
+      />
+      <TouchableHighlight 
+        style={styles.button} 
+        onPress={handlePress} 
+        underlayColor="#99d9f4"
+      >
         <Text style={styles.buttonText}>Save</Text>
-      </TouchableOpacity>
+      </TouchableHighlight>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', padding: 20 },
-  button: {
-    height: 44,
-    backgroundColor: '#48BBEC',
-    borderRadius: 8,
-    alignItems: 'center',
+  container: {
     justifyContent: 'center',
-    marginTop: 12,
+    marginTop: 50,
+    padding: 20,
+    backgroundColor: '#ffffff',
   },
-  buttonText: { color: 'white', fontSize: 16, fontWeight: '600' },
-});
-```
-
-<!-- Output screenshots intentionally omitted to keep README lean. Labels are generated automatically. -->
-
-## Validation and required fields
-
-All field templates receive a `required?: boolean` flag derived from the form schema and/or component props. Validation has been aligned to respect `required` consistently across fields:
-
-- Textbox: fails when required and value is empty after transformation (null/undefined/empty string).
-- Select: fails when required and the effective value is empty (null/empty string/empty array). If `nullOption` is provided, choosing it counts as empty.
-- DatePicker: fails when required and value is null/undefined.
-- Checkbox: fails when required and value is false.
-- List: fails when required and the items array is empty.
-
-### UI indicators (opt-in)
-
-Built-in templates support an optional asterisk indicator next to the label. To enable, pass `showRequiredIndicator`:
-
-```tsx
-<Form
-  type={t.struct({ name: t.String, status: t.String })}
-  options={{
-    fields: {
-      name: { required: true, showRequiredIndicator: true },
-      status: { required: true, showRequiredIndicator: true },
-    },
-  }}
-/> 
-```
-
-Notes:
-
-- The asterisk only renders when both `required` and `showRequiredIndicator` are true.
-- This is purely visual; validation still executes regardless of the indicator.
-
-### Select and `nullOption`
-
-`Select` supports an optional `nullOption` to allow an empty selection. When `required` is true:
-
-- Choosing `nullOption` is considered empty and will fail validation.
-- Omitting `nullOption` prevents selecting an empty value through the UI.
-
-
-# Documentation
-
-## Components
-
-### Form
-
-The main form component that handles form rendering and state management.
-
-#### Props
-
-| Prop | Type | Description |
-|------|------|-------------|
-| `type` | `Type` | The tcomb type definition for the form |
-| `value` | `object` | The current form values |
-| `onChange` | `<T>(value: T, path?: Array<string | number>) => void` | Callback when form values change (second arg is the changed path) |
-| `options` | `object` | Form rendering options |
-| `templates` | `object` | Custom templates for form fields |
-| `stylesheet` | `object` | Custom styles for form elements |
-| `context` | `unknown` by default; use `FormProps<T, TContext>` to type | Context passed through to templates/validators |
-| `i18n` | `object` | Strings used by built-in templates |
-
-### Field Components
-
-- `Textbox` - Text input field
-- `Checkbox` - Checkbox input field
-- `Select` - Dropdown selection field
-- `DatePicker` - Date/Time picker field
-- `List` - List/array field
-- `Struct` - Group of form fields
-
-## Nested refs
-
-Access child components (for focusing, etc.) using array paths. Prefer `getComponent(path)`:
-
-```ts
-// Path segments can be field names (strings) or list indices (numbers)
-formRef.current?.getComponent(['name']);
-formRef.current?.getComponent(['address', 'street']);
-formRef.current?.getComponent(['todos', 0, 'title']);
-```
-
-Notes:
-
-- Paths work across nested `Struct` and `List` fields.
-- Returned component shape depends on the template; prefer passing props like `autoFocus` when possible.
-- A legacy alias `getComponentAtPath(path)` exists on the underlying implementation for parity, but it's not part of the public ref type. Stick to `getComponent(path)` for typed usage.
-
-## Struct per-field options
-
-Override options for individual struct fields via `options.fields.<name>`:
-
-```tsx
-<Form
-  type={t.struct({ name: t.String, age: t.Number })}
-  options={{
-    fields: {
-      name: { label: 'Full name', placeholder: 'John Doe' },
-      age: { label: 'Age', help: 'Years' },
-    },
-  }}
-/>
-```
-
-Additionally, you can override per-field `template`, `stylesheet`, `hasError`, `error`, etc. These are resolved first from `options.fields[name]`, then fall back to form-level options.
-
-## Lists
-
-Enhancements and parity details:
-
-- i18n labels: List templates use `addLabel` and `removeLabel` from `Form.i18n` when not provided in options.
-- Per-item options: Configure child items via `options.item`. For lists inside a struct field, `options.fields.<name>.item` is also supported.
-- Removing to empty: Removing the last item is allowed. Use `required: true` to enforce at least one item at validation time.
-
-Example:
-
-```tsx
-<Form
-  type={t.struct({ tags: t.list(t.String) })}
-  options={{
-    fields: {
-      tags: {
-        addLabel: 'Add tag',
-        removeLabel: 'Remove',
-        item: { placeholder: 'Tag' },
-        required: true,
-        showRequiredIndicator: true,
-      },
-    },
-  }}
-/>
-```
-
-## Types
-
-### Built-in Types
-
-- `t.String` - Text input
-
-### Custom Types
-
-You can create custom field types by extending the base types:
-
-```typescript
-import t from '@riebel/tcomb-form-native-ts';
-
-// Create a custom email type
-const Email = t.refinement(t.String, (str) => {
-  const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return re.test(str);
-}, 'Email');
-
-// Create a custom URL type
-const URL = t.refinement(t.String, (str) => {
-  const re = /^(https?:\/\/)?([\da-z.-]+)\.([a-z.]{2,6})([\/\w .-]*)*\/?$/;
-  return re.test(str);
-}, 'URL');
-```
-
-## Styling
-
-You can customize the look and feel of the form by providing custom styles:
-
-```typescript
-const styles = {
-  formGroup: {
-    normal: {
-      marginBottom: 20
-    },
-    error: {
-      marginBottom: 20,
-      borderColor: 'red'
-    }
+  buttonText: {
+    fontSize: 18,
+    color: 'white',
+    alignSelf: 'center'
   },
-  controlLabel: {
-    normal: {
-      fontSize: 16,
-      marginBottom: 8,
-      fontWeight: '600'
-    },
-    error: {
-      color: 'red'
-    }
-  },
-  // ... other styles
-};
-
-<Form
-  type={MyForm}
-  stylesheet={styles}
-/>
-```
-
-## Validation
-
-### Built-in Validators
-
-```typescript
-const Person = t.struct({
-  name: t.String,  // Required field
-  age: t.maybe(t.Number),  // Optional field
-  email: t.String,  // Required field with email validation
-  website: t.maybe(t.String)  // Optional field
-});
-```
-
-### Custom Validators
-
-```typescript
-const Person = t.struct({
-  name: t.String,
-  age: t.refinement(t.Number, (n) => n >= 18, 'Must be 18 or older'),
-  email: t.refinement(t.String, (s) => /@/.test(s), 'Invalid email')
-});
-```
-
-## Custom Templates
-
-You can create custom templates for form fields:
-
-```typescript
-const customTemplates = {
-  textbox: (locals) => {
-    return (
-      <View>
-        <Text>{locals.label}</Text>
-        <TextInput
-          value={locals.value}
-          onChangeText={locals.onChange}
-          placeholder={locals.placeholder}
-        />
-        {locals.error && <Text style={{color: 'red'}}>{locals.error}</Text>}
-      </View>
-    );
+  button: {
+    height: 36,
+    backgroundColor: '#48BBEC',
+    borderColor: '#48BBEC',
+    borderWidth: 1,
+    borderRadius: 8,
+    marginBottom: 10,
+    alignSelf: 'stretch',
+    justifyContent: 'center'
   }
-};
-
-<Form
-  type={MyForm}
-  templates={customTemplates}
-/>
+});
 ```
 
-## Platform-Specific Code
+**Output:**
 
-This library supports platform-specific implementations. The following files are available:
+(Labels are automatically generated)
 
-- `Textbox.native.tsx` - Cross-platform text input
-- `Checkbox.native.tsx` - Cross-platform checkbox
-- `Select.ios.tsx` - iOS select component
-- `Select.android.tsx` - Android select component
-- `DatePicker.ios.tsx` - iOS date picker
-- `DatePicker.android.tsx` - Android date picker
+**Output after a validation error:**
 
-## Contributing
+The form will highlight validation errors automatically.
 
-We welcome contributions! Please read our [Contributing Guide](CONTRIBUTING.md) to get started.
+## API
 
-## Acknowledgements
-
-This project builds upon the original work by Giulio Canti in `tcomb-form-native`.
-Original repository: https://github.com/gcanti/tcomb-form-native
-
-# License
-
-MIT
-
-## `getValue()`
+### `getValue()`
 
 Returns `null` if the validation failed, an instance of your model otherwise.
 
-> **Note**. Calling `getValue` will cause the validation of all the fields of the form, including some side effects like highlighting the errors.
+> **Note**: Calling `getValue` will cause the validation of all the fields of the form, including some side effects like highlighting the errors.
 
-## `validate()`
+### `validate()`
 
-Returns a `ValidationResult` (see [tcomb-validation](https://github.com/gcanti/tcomb-validation)).
+Returns a `ValidationResult` (see [tcomb-validation](https://github.com/gcanti/tcomb-validation) for reference documentation).
 
-## Adding a default value and listening to changes
+### Adding a Default Value and Listen to Changes
 
-`Form` works great as a controlled component.
+The `Form` component behaves like a [controlled component](https://reactjs.org/docs/forms.html):
 
 ```tsx
 import React, { useRef, useState } from 'react';
-import { View, TouchableOpacity, Text } from 'react-native';
-import t, { Form } from '@riebel/tcomb-form-native-ts';
+import { View, Text, TouchableHighlight } from 'react-native';
+import t from 'tcomb-form-native';
 
-const Person = t.struct({ name: t.String, surname: t.maybe(t.String) });
-type PersonValue = { name: string; surname?: string | null };
+const Person = t.struct({
+  name: t.String,
+  surname: t.maybe(t.String)
+});
 
-export function ControlledExample() {
-  const formRef = useRef<Form<PersonValue> | null>(null);
-  const [value, setValue] = useState<PersonValue>({ name: 'Giulio', surname: 'Canti' });
+export default function App() {
+  const formRef = useRef<t.form.Form>(null);
+  const [value, setValue] = useState({
+    name: 'Giulio',
+    surname: 'Canti'
+  });
 
-  const onSave = () => {
-    const v = formRef.current?.getValue();
-    if (v) console.log(v);
+  const handleChange = (newValue: unknown) => {
+    setValue(newValue);
+  };
+
+  const handlePress = () => {
+    const formValue = formRef.current?.getValue();
+    if (formValue) {
+      console.log(formValue);
+    }
   };
 
   return (
-    <View>
-      <Form ref={formRef} type={Person} value={value} onChange={setValue} />
-      <TouchableOpacity onPress={onSave}>
-        <Text>Save</Text>
-      </TouchableOpacity>
+    <View style={styles.container}>
+      <t.form.Form
+        ref={formRef}
+        type={Person}
+        value={value}
+        onChange={handleChange}
+      />
+      <TouchableHighlight 
+        style={styles.button} 
+        onPress={handlePress} 
+        underlayColor="#99d9f4"
+      >
+        <Text style={styles.buttonText}>Save</Text>
+      </TouchableHighlight>
     </View>
   );
 }
 ```
 
-The `onChange` handler signature:
+The `onChange` handler has the following signature:
 
-```ts
-<T>(value: T, path?: Array<string | number>) => void
+```typescript
+(raw: unknown, path: Array<string | number>) => void
 ```
 
-- First argument is the next full form value of type `T`.
-- Second argument is the changed path (array). Useful to optimize updates.
+where:
+- `raw` contains the current raw value of the form (can be an invalid value for your model)
+- `path` is the path to the field triggering the change
 
-## Disable a field based on another field's value
+### Disable a Field Based on Another Field's Value
 
 ```tsx
-import React, { useMemo, useRef, useState } from 'react';
-import { View } from 'react-native';
-import t, { Form } from '@riebel/tcomb-form-native-ts';
+import React, { useRef, useState } from 'react';
+import { View, TouchableHighlight, Text } from 'react-native';
+import t from 'tcomb-form-native';
 
 const Type = t.struct({
   disable: t.Boolean, // if true, name field will be disabled
-  name: t.String,
+  name: t.String
 });
 
-export function DisableExample() {
-  const formRef = useRef<Form<{ disable: boolean; name: string }> | null>(null);
-  const [value, setValue] = useState<{ disable: boolean; name: string }>({ disable: false, name: '' });
+export default function App() {
+  const formRef = useRef<t.form.Form>(null);
+  const [value, setValue] = useState(null);
+  const [options, setOptions] = useState({
+    fields: {
+      name: {}
+    }
+  });
 
-  const options = useMemo(
-    () => ({ fields: { name: { editable: !value.disable } } }),
-    [value.disable],
-  );
+  const handleChange = (newValue: unknown) => {
+    // Update options based on form value
+    const newOptions = {
+      ...options,
+      fields: {
+        ...options.fields,
+        name: {
+          ...options.fields.name,
+          editable: !newValue?.disable
+        }
+      }
+    };
+    setOptions(newOptions);
+    setValue(newValue);
+  };
 
-  return <Form ref={formRef} type={Type} value={value} onChange={setValue} options={options} />;
-}
-```
-
-## How to get access to a field
-
-Use `getComponent(path)` to access a field component when needed (e.g., to scroll to or focus). Availability of imperative methods depends on the template.
-
-```tsx
-const Person = t.struct({ name: t.String, surname: t.maybe(t.String) });
-type PersonValue = { name: string; surname?: string | null };
-
-function FocusExample() {
-  const formRef = React.useRef<Form<PersonValue> | null>(null);
-  React.useEffect(() => {
-    const nameField = formRef.current?.getComponent(['name']);
-    // nameField may expose focus(); check before calling
-    // (Prefer using placeholders/autoFocus via options when possible)
-    // @ts-expect-error optional imperative API
-    nameField?.focus?.();
-  }, []);
-  return <Form ref={formRef} type={Person} />;
-}
-```
-
-## How to clear form after submit
-
-```tsx
-const Person = t.struct({ name: t.String, surname: t.maybe(t.String), age: t.Number, rememberMe: t.Boolean });
-type PersonValue = { name: string; surname?: string | null; age: number; rememberMe: boolean };
-
-function ClearOnSubmit() {
-  const [value, setValue] = React.useState<PersonValue | null>(null);
-  const formRef = React.useRef<Form<PersonValue> | null>(null);
-  const onSubmit = () => {
-    const v = formRef.current?.getValue();
-    if (v) {
-      console.log(v);
-      setValue(null); // clear
+  const handlePress = () => {
+    const formValue = formRef.current?.getValue();
+    if (formValue) {
+      console.log(formValue);
     }
   };
-  return <Form ref={formRef} type={Person} value={value} onChange={setValue} />;
+
+  return (
+    <View style={styles.container}>
+      <t.form.Form
+        ref={formRef}
+        type={Type}
+        options={options}
+        value={value}
+        onChange={handleChange}
+      />
+      <TouchableHighlight 
+        style={styles.button} 
+        onPress={handlePress} 
+        underlayColor="#99d9f4"
+      >
+        <Text style={styles.buttonText}>Save</Text>
+      </TouchableHighlight>
+    </View>
+  );
 }
 ```
 
-## Dynamic forms example: change the form based on selection
-
-Say I have an iOS Picker, depending on which option is selected in this picker I want the next component to either be a checkbox or a textbox:
+### How to Clear Form After Submit
 
 ```tsx
+import React, { useRef, useState } from 'react';
+import { View, TouchableHighlight, Text } from 'react-native';
+import t from 'tcomb-form-native';
+
+const Person = t.struct({
+  name: t.String,
+  surname: t.maybe(t.String),
+  age: t.Number,
+  rememberMe: t.Boolean
+});
+
+export default function App() {
+  const formRef = useRef<t.form.Form>(null);
+  const [value, setValue] = useState(null);
+
+  const handleChange = (newValue: unknown) => {
+    setValue(newValue);
+  };
+
+  const clearForm = () => {
+    // clear content from all fields
+    setValue(null);
+  };
+
+  const handlePress = () => {
+    const formValue = formRef.current?.getValue();
+    if (formValue) {
+      console.log(formValue);
+      // clear all fields after submit
+      clearForm();
+    }
+  };
+
+  return (
+    <View style={styles.container}>
+      <t.form.Form
+        ref={formRef}
+        type={Person}
+        value={value}
+        onChange={handleChange}
+      />
+      <TouchableHighlight 
+        style={styles.button} 
+        onPress={handlePress} 
+        underlayColor="#99d9f4"
+      >
+        <Text style={styles.buttonText}>Save</Text>
+      </TouchableHighlight>
+    </View>
+  );
+}
+```
+
+### Dynamic Forms: Change Form Based on Selection
+
+```tsx
+import React, { useRef, useState, useMemo } from 'react';
+import { View, TouchableHighlight, Text } from 'react-native';
+import t from 'tcomb-form-native';
+
 const Country = t.enums({
   'IT': 'Italy',
   'US': 'United States'
 }, 'Country');
 
-function DynamicForm() {
-  const [value, setValue] = React.useState<{ country: 'IT' | 'US'; name?: string; rememberMe?: boolean }>({ country: 'IT' });
-  const type = React.useMemo(() => {
-    if (value.country === 'IT') return t.struct({ country: Country, rememberMe: t.Boolean });
-    if (value.country === 'US') return t.struct({ country: Country, name: t.String });
-    return t.struct({ country: Country });
-  }, [value.country]);
+export default function App() {
+  const formRef = useRef<t.form.Form>(null);
+  const [value, setValue] = useState<Record<string, unknown>>({});
 
-  return <Form type={type} value={value} onChange={setValue} />;
+  // Returns the suitable type based on the form value
+  const getType = (formValue: Record<string, unknown>) => {
+    if (formValue.country === 'IT') {
+      return t.struct({
+        country: Country,
+        rememberMe: t.Boolean
+      });
+    } else if (formValue.country === 'US') {
+      return t.struct({
+        country: Country,
+        name: t.String
+      });
+    } else {
+      return t.struct({
+        country: Country
+      });
+    }
+  };
+
+  const type = useMemo(() => getType(value), [value]);
+
+  const handleChange = (newValue: Record<string, unknown>) => {
+    setValue(newValue);
+  };
+
+  const handlePress = () => {
+    const formValue = formRef.current?.getValue();
+    if (formValue) {
+      console.log(formValue);
+    }
+  };
+
+  return (
+    <View style={styles.container}>
+      <t.form.Form
+        ref={formRef}
+        type={type}
+        value={value}
+        onChange={handleChange}
+      />
+      <TouchableHighlight 
+        style={styles.button} 
+        onPress={handlePress} 
+        underlayColor="#99d9f4"
+      >
+        <Text style={styles.buttonText}>Save</Text>
+      </TouchableHighlight>
+    </View>
+  );
 }
 ```
 
-# Types
+## Types
 
-### Required field
+### Required Field
 
 By default fields are required:
 
 ```typescript
-var Person = t.struct({
+const Person = t.struct({
   name: t.String,    // a required string
   surname: t.String  // a required string
 });
 ```
 
-### Optional field
+### Optional Field
 
 In order to create an optional field, wrap the field type with the `t.maybe` combinator:
 
 ```typescript
-var Person = t.struct({
+const Person = t.struct({
   name: t.String,
   surname: t.String,
   email: t.maybe(t.String) // an optional string
@@ -695,20 +449,12 @@ var Person = t.struct({
 
 The postfix `" (optional)"` is automatically added to optional fields.
 
-You can customise the postfix value or set a postfix for required fields. Both legacy and modern APIs are supported:
+You can customize the postfix value or set a postfix for required fields:
 
 ```typescript
-// Legacy-compatible (CommonJS default)
 t.form.Form.i18n = {
   optional: '',
-  required: ' (required)' // inverting the behaviour: adding a postfix to the required fields
-};
-
-// Modern (ESM / named import)
-import { Form } from '@riebel/tcomb-form-native-ts';
-Form.i18n = {
-  optional: '',
-  required: ' (required)'
+  required: ' (required)' // inverting the behavior: adding a postfix to required fields
 };
 ```
 
@@ -717,7 +463,7 @@ Form.i18n = {
 In order to create a numeric field, use the `t.Number` type:
 
 ```typescript
-var Person = t.struct({
+const Person = t.struct({
   name: t.String,
   surname: t.String,
   email: t.maybe(t.String),
@@ -725,14 +471,14 @@ var Person = t.struct({
 });
 ```
 
-tcomb-form-native-ts will convert automatically numbers to / from strings.
+tcomb-form-native will convert automatically numbers to/from strings.
 
 ### Booleans
 
 In order to create a boolean field, use the `t.Boolean` type:
 
 ```typescript
-var Person = t.struct({
+const Person = t.struct({
   name: t.String,
   surname: t.String,
   email: t.maybe(t.String),
@@ -741,14 +487,14 @@ var Person = t.struct({
 });
 ```
 
-Booleans are displayed using React Native `Switch`.
+Booleans are displayed as checkboxes.
 
 ### Dates
 
 In order to create a date field, use the `t.Date` type:
 
 ```typescript
-var Person = t.struct({
+const Person = t.struct({
   name: t.String,
   surname: t.String,
   email: t.maybe(t.String),
@@ -757,55 +503,19 @@ var Person = t.struct({
 });
 ```
 
-Dates use `@react-native-community/datetimepicker` under both iOS and Android.
-
-Under Android, use the `fields` option to configure which `mode` to display the Picker:
-
-```typescript
-// see the "Rendering options" section in this guide
-var options = {
-  fields: {
-    birthDate: {
-      mode: 'date' // display the Date field as a DatePickerAndroid
-    }
-  }
-};
-```
-
-#### iOS date `config` option
-
-The bundled template will render an iOS `UIDatePicker` component, but collapsed into a touchable component in order to improve usability. A `config` object can be passed to customize it with the following parameters:
-
-| Key | Value |
-|-----|-------|
-| `animation` | The animation to collapse the date picker. Defaults to `Animated.timing`. |
-| `animationConfig` | The animation configuration object. Defaults to `{duration: 200}` for the default animation. |
-| `format` | A `(date) => String(date)` kind of function to provide a custom date format parsing to display the value. Optional, defaults to `(date) => String(date)`.
-| `defaultValueText` | An `string` to customize the default value of the `null` date value text. |
-
-For the collapsible customization, look at the `dateTouchable` and `dateValue` keys in the stylesheet file.
-
-#### Android date `config` option
-
-When using a `t.Date` type in Android, it can be configured through a `config` option that takes the following parameters:
-
-| Key | Value |
-|-----|-------|
-| `format` | A `(date) => string` function to provide a custom display value. Optional, defaults to `(date) => String(date)`.
-| `dialogMode` | Determines the type of datepicker mode for Android (`default`, `spinner` or `calendar`). |
-| `defaultValueText` | A string to customize the default text for `null` date values. |
+Dates are displayed as date pickers on both iOS and Android.
 
 ### Enums
 
 In order to create an enum field, use the `t.enums` combinator:
 
 ```typescript
-var Gender = t.enums({
+const Gender = t.enums({
   M: 'Male',
   F: 'Female'
 });
 
-var Person = t.struct({
+const Person = t.struct({
   name: t.String,
   surname: t.String,
   email: t.maybe(t.String),
@@ -815,36 +525,25 @@ var Person = t.struct({
 });
 ```
 
-Enums are displayed as `Picker`s.
-
-#### iOS select `config` option
-
-The bundled template will render an iOS `UIPickerView` component, but collapsed into a touchable component in order to improve usability. A `config` object can be passed to customize it with the following parameters:
-
-| Key | Value |
-|-----|-------|
-| `animation` | The animation to collapse the date picker. Defaults to `Animated.timing`. |
-| `animationConfig` | The animation configuration object. Defaults to `{duration: 200}` for the default animation. |
-
-For the collapsible customization, look at the `pickerContainer`, `pickerTouchable` and `pickerValue` keys in the stylesheet file.
+Enums are displayed as `Picker` components.
 
 ### Refinements
 
 A *predicate* is a function with the following signature:
 
-```
+```typescript
 (x: unknown) => boolean
 ```
 
 You can refine a type with the `t.refinement(type, predicate)` combinator:
 
-```js
+```typescript
 // a type representing positive numbers
-var Positive = t.refinement(t.Number, function (n) {
+const Positive = t.refinement(t.Number, (n: number) => {
   return n >= 0;
 });
 
-var Person = t.struct({
+const Person = t.struct({
   name: t.String,
   surname: t.String,
   email: t.maybe(t.String),
@@ -854,29 +553,28 @@ var Person = t.struct({
 });
 ```
 
-Subtypes allow you to express any custom validation with a simple predicate.
+Subtypes allow you to express custom validation with a simple predicate.
 
-# Rendering options
+## Rendering Options
 
 In order to customize the look and feel, use an `options` prop:
 
-```js
+```tsx
 <Form type={Model} options={options} />
 ```
 
-## Form component
+### Form Component
 
-### Labels and placeholders
+#### Labels and Placeholders
 
-By default labels are automatically generated. You can turn off this behaviour or override the default labels
-on field basis.
+By default labels are automatically generated. You can turn off this behavior or override the default labels on a field basis.
 
-```js
-var options = {
+```typescript
+const options = {
   label: 'My struct label' // <= form legend, displayed before the fields
 };
 
-var options = {
+const options = {
   fields: {
     name: {
       label: 'My name label' // <= label for the name field
@@ -887,40 +585,36 @@ var options = {
 
 In order to automatically generate default placeholders, use the option `auto: 'placeholders'`:
 
-```js
-var options = {
+```typescript
+const options = {
   auto: 'placeholders'
 };
-
-<Form type={Person} options={options} />
 ```
-
-![Placeholders](docs/images/placeholders.png)
 
 Set `auto: 'none'` if you don't want neither labels nor placeholders.
 
-```js
-var options = {
+```typescript
+const options = {
   auto: 'none'
 };
 ```
 
-### Fields order
+#### Fields Order
 
 You can sort the fields with the `order` option:
 
-```js
-var options = {
+```typescript
+const options = {
   order: ['name', 'surname', 'rememberMe', 'gender', 'age', 'email']
 };
 ```
 
-### Default values
+#### Default Values
 
-You can set the default values passing a `value` prop to the `Form` component:
+You can set the default values by passing a `value` prop to the `Form` component:
 
-```js
-var value = {
+```typescript
+const value = {
   name: 'Giulio',
   surname: 'Canti',
   age: 41,
@@ -930,12 +624,12 @@ var value = {
 <Form type={Model} value={value} />
 ```
 
-### Fields configuration
+#### Fields Configuration
 
 You can configure each field with the `fields` option:
 
-```js
-var options = {
+```typescript
+const options = {
   fields: {
     name: {
       // name field configuration here..
@@ -947,18 +641,16 @@ var options = {
 };
 ```
 
-## Textbox component
+### Textbox Component
 
 Implementation: `TextInput`
 
-**Tech note.** Values containing only white spaces are converted to `null`.
+**Tech note**: Values containing only white spaces are converted to `null`.
 
-### Placeholder
+#### Placeholder
 
-You can set the placeholder with the `placeholder` option:
-
-```js
-var options = {
+```typescript
+const options = {
   fields: {
     name: {
       placeholder: 'Your placeholder here'
@@ -967,12 +659,10 @@ var options = {
 };
 ```
 
-### Label
+#### Label
 
-You can set the label with the `label` option:
-
-```js
-var options = {
+```typescript
+const options = {
   fields: {
     name: {
       label: 'Insert your name'
@@ -981,12 +671,10 @@ var options = {
 };
 ```
 
-### Help message
+#### Help Message
 
-You can set a help message with the `help` option:
-
-```js
-var options = {
+```typescript
+const options = {
   fields: {
     name: {
       help: 'Your help message here'
@@ -995,118 +683,43 @@ var options = {
 };
 ```
 
-![Help](docs/images/help.png)
+#### Error Messages
 
-### Error messages
-
-You can add a custom error message with the `error` option:
-
-```js
-var options = {
+```typescript
+const options = {
   fields: {
     email: {
-      // you can use strings or JSX
       error: 'Insert a valid email'
     }
   }
 };
 ```
 
-![Help](docs/images/error.png)
+`error` can also be a function:
 
-tcomb-form-native will display the error message when the field validation fails.
-
-`error` can also be a function with the following signature:
-
-```
-(value, path, context) => ?(string | ReactElement)
+```typescript
+(value: unknown, path: string[], context: Record<string, unknown>) => string | null
 ```
 
-where
+#### Standard TextInput Options
 
-- `value` is an object containing the current form value.
-- `path` is the path of the value being validated
-- `context` is the value of the `context` prop. Also it contains a reference to the component options.
-
-The value returned by the function will be used as error message.
-
-If you want to show the error message onload, add the `hasError` option:
-
-```js
-var options = {
-  hasError: true,
-  error: <i>A custom error message</i>
-};
-```
-
-Another way is to add a:
-
-```
-getValidationErrorMessage(value, path, context)
-```
-
-static function to a type, where:
-
-- `value` is the (parsed) current value of the component.
-- `path` is the path of the value being validated
-- `context` is the value of the `context` prop. Also it contains a reference to the component options.
-
-
-```js
-var Age = t.refinement(t.Number, function (n) { return n >= 18; });
-
-// if you define a getValidationErrorMessage function, it will be called on validation errors
-Age.getValidationErrorMessage = function (value, path, context) {
-  return 'bad age, locale: ' + context.locale;
-};
-
-var Schema = t.struct({
-  age: Age
-});
-
-...
-
-<t.form.Form
-  ref="form"
-  type={Schema}
-  context={{locale: 'it-IT'}}
-/>
-```
-
-You can even define `getValidationErrorMessage` on the supertype in order to be DRY:
-
-```js
-t.Number.getValidationErrorMessage = function (value, path, context) {
-  return 'bad number';
-};
-
-Age.getValidationErrorMessage = function (value, path, context) {
-  return 'bad age, locale: ' + context.locale;
-};
-```
-
-### Other standard options
-
-The following standard options are available (see http://facebook.github.io/react-native/docs/textinput.html):
+The following standard options are available:
 
 - `allowFontScaling`
 - `autoCapitalize`
 - `autoCorrect`
 - `autoFocus`
-- `bufferDelay`
 - `clearButtonMode`
 - `editable`
 - `enablesReturnKeyAutomatically`
 - `keyboardType`
 - `maxLength`
 - `multiline`
-- `numberOfLines`
 - `onBlur`
 - `onEndEditing`
 - `onFocus`
 - `onSubmitEditing`
 - `onContentSizeChange`
-- `password`
 - `placeholderTextColor`
 - `returnKeyType`
 - `selectTextOnFocus`
@@ -1114,47 +727,15 @@ The following standard options are available (see http://facebook.github.io/reac
 - `selectionState`
 - `textAlign`
 - `textAlignVertical`
-- `textContentType`
-- ~~`underlineColorAndroid`~~
 
-`underlineColorAndroid` is not supported now on `tcomb-form-native` due to random crashes on Android, especially on ScrollView. See more on:
-https://github.com/facebook/react-native/issues/17530#issuecomment-416367184
+### Select Component
 
-## Checkbox component
+Implementation: `Picker` from `@react-native-picker/picker`
 
-Implementation: `SwitchIOS`
+#### nullOption
 
-The following options are similar to the `Textbox` component's ones:
-
-- `label`
-- `help`
-- `error`
-
-### Other standard options
-
-The following standard options are available (see http://facebook.github.io/react-native/docs/switchios.html):
-
-- `disabled`
-- `onTintColor`
-- `thumbTintColor`
-- `tintColor`
-
-## Select component
-
-Implementation: `PickerIOS`
-
-The following options are similar to the `Textbox` component's ones:
-
-- `label`
-- `help`
-- `error`
-
-### `nullOption` option
-
-You can customize the null option with the `nullOption` option:
-
-```js
-var options = {
+```typescript
+const options = {
   fields: {
     gender: {
       nullOption: {value: '', text: 'Choose your gender'}
@@ -1163,18 +744,12 @@ var options = {
 };
 ```
 
-You can remove the null option setting the `nullOption` option to `false`.
+You can remove the null option by setting `nullOption` to `false`.
 
-**Warning**: when you set `nullOption = false` you must also set the Form's `value` prop for the select field.
+#### Options Order
 
-**Tech note.** A value equal to `nullOption.value` (default `''`) is converted to `null`.
-
-### Options order
-
-You can sort the options with the `order` option:
-
-```js
-var options = {
+```typescript
+const options = {
   fields: {
     gender: {
       order: 'asc' // or 'desc'
@@ -1183,71 +758,23 @@ var options = {
 };
 ```
 
-### Options isCollapsed
+### DatePicker Component
 
-You can determinate if Select is collapsed:
+Implementation: Platform-specific date picker
 
-```js
-var options = {
-  fields: {
-    gender: {
-      isCollapsed: false // default: true
-    }
-  }
-};
-```
-
-If option not set, default is `true`
-
-### Options onCollapseChange
-
-You can set a callback, triggered, when collapse change:
-
-```js
-var options = {
-  fields: {
-    gender: {
-      onCollapseChange: () => { console.log('collapse changed'); }
-    }
-  }
-};
-```
-
-## DatePicker component
-
-Implementation: `DatePickerIOS`
-
-### Example
-
-```js
-var Person = t.struct({
+```typescript
+const Person = t.struct({
   name: t.String,
   birthDate: t.Date
 });
 ```
 
-The following options are similar to the `Textbox` component's ones:
+### Hidden Component
 
-- `label`
-- `help`
-- `error`
+For every component, you can set the field with the `hidden` option:
 
-### Other standard options
-
-The following standard options are available (see http://facebook.github.io/react-native/docs/datepickerios.html):
-
-- `maximumDate`,
-- `minimumDate`,
-- `minuteInterval`,
-- `mode`,
-- `timeZoneOffsetInMinutes`
-
-## Hidden Component
-
-For any component, you can set the field with the `hidden` option:
-
-```js
-var options = {
+```typescript
+const options = {
   fields: {
     name: {
       hidden: true
@@ -1256,90 +783,41 @@ var options = {
 };
 ```
 
-This will completely skip the rendering of the component, while the default value will be available for validation purposes.
-
-# Unions
-
-**Code Example**
-
-```js
-const AccountType = t.enums.of([
-  'type 1',
-  'type 2',
-  'other'
-], 'AccountType')
-
-const KnownAccount = t.struct({
-  type: AccountType
-}, 'KnownAccount')
-
-// UnknownAccount extends KnownAccount so it owns also the type field
-const UnknownAccount = KnownAccount.extend({
-  label: t.String,
-}, 'UnknownAccount')
-
-// the union
-const Account = t.union([KnownAccount, UnknownAccount], 'Account')
-
-// the final form type
-const Type = t.list(Account)
-
-const options = {
-  item: [ // one options object for each concrete type of the union
-    {
-      label: 'KnownAccount'
-    },
-    {
-      label: 'UnknownAccount'
-    }
-  ]
-}
-```
-
-Generally `tcomb`'s unions require a `dispatch` implementation in order to select the suitable type constructor for a given value and this would be the key in this use case:
-
-```js
-// if account type is 'other' return the UnknownAccount type
-Account.dispatch = value => value && value.type === 'other' ? UnknownAccount : KnownAccount
-```
-
-# Lists
+## Lists
 
 You can handle a list with the `t.list` combinator:
 
-```js
+```typescript
 const Person = t.struct({
   name: t.String,
   tags: t.list(t.String) // a list of strings
 });
 ```
 
-## Items configuration
+### Items Configuration
 
 To configure all the items in a list, set the `item` option:
 
-```js
+```typescript
 const Person = t.struct({
   name: t.String,
-  tags: t.list(t.String) // a list of strings
+  tags: t.list(t.String)
 });
 
 const options = {
-  fields: { // <= Person options
+  fields: {
     tags: {
-      item: { // <= options applied to each item in the list
+      item: {
         label: 'My tag'
       }
     }
   }
-});
+};
 ```
 
-## Nested structures
+### Nested Structures
 
-You can nest lists and structs at an arbitrary level:
-
-```js
+```typescript
 const Person = t.struct({
   name: t.String,
   surname: t.String
@@ -1348,73 +826,9 @@ const Person = t.struct({
 const Persons = t.list(Person);
 ```
 
-If you want to provide options for your nested structures they must be nested
-following the type structure. Here is an example:
+### Internationalization
 
-```js
-const Person = t.struct({
-  name: t.Struct,
-  position: t.Struct({
-    latitude: t.Number,
-    longitude: t.Number
-  });
-});
-
-const options = {
-  fields: { // <= Person options
-    name: {
-        label: 'name label'
-    }
-    position: {
-        fields: {
-            // Note that latitude is not directly nested in position,
-            // but in the fields property
-            latitude: {
-                label: 'My position label'
-            }
-        }
-    }
-  }
-});
-```
-
-When dealing with `t.list`, make sure to declare the `fields` property inside the `item` property, as such:
-
-```js
-const Documents = t.struct({
-  type: t.Number,
-  value: t.String
-})
-
-const Person = t.struct({
-  name: t.Struct,
-  documents: t.list(Documents)
-});
-
-const options = {
-  fields: {
-    name: { /*...*/ },
-    documents: {
-      item: {
-        fields: {
-          type: {
-            // Documents t.struct 'type' options
-          },
-          value: {
-            // Documents t.struct 'value' options
-          }
-        }
-      }
-    }
-  }
-}
-```
-
-## Internationalization
-
-You can override the default language (english) with the `i18n` option:
-
-```js
+```typescript
 const options = {
   i18n: {
     optional: ' (optional)',
@@ -1427,84 +841,79 @@ const options = {
 };
 ```
 
-## Buttons configuration
+### Buttons Configuration
 
-You can prevent operations on lists with the following options:
-
-- `disableAdd`: (default `false`) prevents adding new items
-- `disableRemove`: (default `false`) prevents removing existing items
-- `disableOrder`: (default `false`) prevents sorting existing items
-
-```js
+```typescript
 const options = {
-  disableOrder: true
+  disableAdd: false,     // prevents adding new items
+  disableRemove: false,  // prevents removing existing items
+  disableOrder: false    // prevents sorting existing items
 };
 ```
 
-## List with Dynamic Items (Different structs based on selected value)
+## Unions
 
-Lists of different types are not supported. This is because a `tcomb`'s list, by definition, contains only values of the same type. You can define a union though:
-
-```js
-const AccountType = t.enums.of([
-  'type 1',
-  'type 2',
-  'other'
-], 'AccountType')
+```typescript
+const AccountType = t.enums({
+  'type1': 'Type 1',
+  'type2': 'Type 2',
+  'other': 'Other'
+}, 'AccountType');
 
 const KnownAccount = t.struct({
   type: AccountType
-}, 'KnownAccount')
+}, 'KnownAccount');
 
-// UnknownAccount extends KnownAccount so it owns also the type field
 const UnknownAccount = KnownAccount.extend({
   label: t.String,
-}, 'UnknownAccount')
+}, 'UnknownAccount');
 
-// the union
-const Account = t.union([KnownAccount, UnknownAccount], 'Account')
+const Account = t.union([KnownAccount, UnknownAccount], 'Account');
 
-// the final form type
-const Type = t.list(Account)
+// Dispatch function to select the correct type
+Account.dispatch = (value: Record<string, unknown>) => 
+  value && value.type === 'other' ? UnknownAccount : KnownAccount;
+
+const Type = t.list(Account);
+
+const options = {
+  item: [
+    { label: 'KnownAccount' },
+    { label: 'UnknownAccount' }
+  ]
+};
 ```
 
-Generally `tcomb`'s unions require a `dispatch` implementation in order to select the suitable type constructor for a given value and this would be the key in this use case:
+## Customizations
 
-```js
-// if account type is 'other' return the UnknownAccount type
-Account.dispatch = value => value && value.type === 'other' ? UnknownAccount : KnownAccount
+### Stylesheets
+
+You can customize the look and feel by setting a custom stylesheet:
+
+```typescript
+import t from 'tcomb-form-native';
+
+// Define a custom stylesheet
+const customStylesheet = {
+  // ... your styles here
+};
+
+// Override globally
+t.form.Form.stylesheet = customStylesheet;
 ```
 
-# Customizations
+You can also override the stylesheet locally:
 
-## Stylesheets
-
-See also [Stylesheet guide](docs/STYLESHEETS.md).
-
-tcomb-form-native-ts comes with a default style. You can customize the look and feel by setting another stylesheet:
-
-```js
-var t = require('@riebel/tcomb-form-native-ts');
-var { i18n, templates, stylesheet } = require('@riebel/tcomb-form-native-ts');
-
-// define a stylesheet (see src/stylesheets/bootstrap.ts for an example)
-var myStylesheet = { /* ... */ };
-
-// override globally the default stylesheet
-t.form.Form.stylesheet = myStylesheet;
-// set defaults
-t.form.Form.templates = templates;
-t.form.Form.i18n = i18n;
+```typescript
+const options = {
+  stylesheet: myCustomStylesheet
+};
 ```
 
-You can also override the stylesheet locally for selected fields:
+Or per field:
 
-```js
-var Person = t.struct({
-  name: t.String
-});
-
-var options = {
+```typescript
+const options = {
   fields: {
     name: {
       stylesheet: myCustomStylesheet
@@ -1513,54 +922,25 @@ var options = {
 };
 ```
 
-Or per form:
+### Templates
 
-```js
-var Person = t.struct({
-  name: t.String
-});
+You can customize the layout by setting custom templates:
 
-var options = {
-  stylesheet: myCustomStylesheet
+```typescript
+import t from 'tcomb-form-native';
+
+const customTemplates = {
+  // ... your templates here
 };
-```
 
-For a complete example see this package's default stylesheet at `src/stylesheets/bootstrap.ts`.
-
-## Templates
-
-tcomb-form-native-ts comes with a default layout, i.e. a bunch of templates, one for each component.
-When changing the stylesheet is not enough, you can customize the layout by setting custom templates:
-
-```js
-// Legacy-compatible default import (CommonJS)
-var t = require('@riebel/tcomb-form-native-ts');
-// Named exports are also available if preferred
-var { i18n, stylesheet, templates } = require('@riebel/tcomb-form-native-ts');
-
-// define your own templates (see src/templates/bootstrap.ts for an example)
-var customTemplates = { /* ... */ };
-
-// override globally the default layout (both styles work)
+// Override globally
 t.form.Form.templates = customTemplates;
-// set defaults (these are already set by default, but you can override)
-t.form.Form.stylesheet = stylesheet;
-t.form.Form.i18n = i18n;
 ```
 
-You can also override the template locally:
+Local template override:
 
-```js
-var Person = t.struct({
-  name: t.String
-});
-
-function myCustomTemplate(locals) {
-
-  var containerStyle = {...};
-  var labelStyle = {...};
-  var textboxStyle = {...};
-
+```typescript
+function myCustomTemplate(locals: Record<string, unknown>) {
   return (
     <View style={containerStyle}>
       <Text style={labelStyle}>{locals.label}</Text>
@@ -1569,7 +949,7 @@ function myCustomTemplate(locals) {
   );
 }
 
-var options = {
+const options = {
   fields: {
     name: {
       template: myCustomTemplate
@@ -1578,109 +958,33 @@ var options = {
 };
 ```
 
-A template is a function with the following signature:
+### Transformers
 
-```
-(locals: Object) => ReactElement
-```
+Transformers handle serialization/deserialization of data:
 
-where `locals` is an object contaning the "recipe" for rendering the input and it's built for you by tcomb-form-native-ts.
-Let's see an example: the `locals` object passed in the `checkbox` template:
-
-```js
-type Message = string | ReactElement
-
-{
-  stylesheet: Object, // the styles to be applied
-  hasError: boolean,  // true if there is a validation error
-  error: ?Message,    // the optional error message to be displayed
-  label: Message,     // the label to be displayed
-  help: ?Message,     // the optional help message to be displayed
-  value: boolean,     // the current value of the checkbox
-  onChange: Function, // the event handler to be called when the value changes
-  config: Object,     // an optional object to pass configuration options to the new template
-
-  ...other input options here...
-
+```typescript
+interface Transformer {
+  format: (value: unknown) => unknown;  // from value to string
+  parse: (value: unknown) => unknown;   // from string to value
 }
 ```
 
-For a complete example see the default templates in this package at `src/templates/bootstrap.ts`.
+Example for a search field that accepts space-separated keywords:
 
-## i18n
-
-tcomb-form-native-ts comes with a default internationalization (English). You can change it by setting another i18n object:
-
-```js
-var t = require('@riebel/tcomb-form-native-ts');
-var { templates, stylesheet } = require('@riebel/tcomb-form-native-ts');
-
-// define an object containing your translations (see src/i18n/en.ts for an example)
-var customI18n = { /* ... */ };
-
-// override globally the default i18n
-t.form.Form.i18n = customI18n;
-// set defaults
-t.form.Form.templates = templates; // already defaulted in this package
-t.form.Form.stylesheet = stylesheet; // already defaulted in this package
-```
-
-## Transformers
-
-Say you want a search textbox which accepts a list of keywords separated by spaces:
-
-```js
-var Search = t.struct({
-  search: t.list(t.String)
-});
-```
-
-tcomb-form by default will render the `search` field as a list. In order to render a textbox you have to override the default behaviour with the factory option:
-
-```js
-var options = {
-  fields: {
-    search: {
-      factory: t.form.Textbox
-    }
-  }
-};
-```
-
-There is a problem though: a textbox handle only strings so we need a way to transform a list in a string and a string in a list: a `Transformer` deals with serialization / deserialization of data and has the following interface:
-
-```js
-var Transformer = t.struct({
-  format: t.Function, // from value to string, it must be idempotent
-  parse: t.Function   // from string to value
-});
-```
-
-A basic transformer implementation for the search textbox:
-
-```js
-var listTransformer = {
-  format: function (value) {
+```typescript
+const listTransformer = {
+  format: (value: string[]) => {
     return Array.isArray(value) ? value.join(' ') : value;
   },
-  parse: function (str) {
+  parse: (str: string) => {
     return str ? str.split(' ') : [];
   }
 };
-```
 
-Now you can handle lists using the transformer option:
-
-```js
-// example of initial value
-var value = {
-  search: ['climbing', 'yosemite']
-};
-
-var options = {
+const options = {
   fields: {
     search: {
-      factory: t.form.Textbox, // tell tcomb-react-native to use the same component for textboxes
+      factory: t.form.Textbox,
       transformer: listTransformer,
       help: 'Keywords are separated by spaces'
     }
@@ -1688,73 +992,104 @@ var options = {
 };
 ```
 
-## Custom factories
+## Migration from tcomb-form-native
 
-You can pack together style, template (and transformers) in a custom component and then you can use it with the `factory` option:
+This package is a **100% drop-in replacement** for the original `tcomb-form-native`. No code changes are required!
 
-```js
-var Component = t.form.Component;
+### Step 1: Uninstall the old package
 
-// extend the base Component
-class MyComponent extends Component {
-
-  // this is the only required method to implement
-  getTemplate() {
-    // define here your custom template
-    return function (locals) {
-
-      //return ... jsx ...
-
-    };
-  }
-
-  // you can optionally override the default getLocals method
-  // it will provide the locals param to your template
-  getLocals() {
-
-    // in locals you'll find the default locals:
-    // - path
-    // - error
-    // - hasError
-    // - label
-    // - onChange
-    // - stylesheet
-    var locals = super.getLocals();
-
-    // add here your custom locals
-
-    return locals;
-  }
-
-
-}
-
-// as example of transformer: this is the default transformer for textboxes
-MyComponent.transformer = {
-  format: value => Nil.is(value) ? null : value,
-  parse: value => (t.String.is(value) && value.trim() === '') || Nil.is(value) ? null : value
-};
-
-var Person = t.struct({
-  name: t.String
-});
-
-var options = {
-  fields: {
-    name: {
-      factory: MyComponent
-    }
-  }
-};
+```bash
+npm uninstall tcomb-form-native
+# or
+yarn remove tcomb-form-native
 ```
+
+### Step 2: Install the new TypeScript package
+
+```bash
+npm install @riebel/tcomb-form-native-ts
+# or
+yarn add @riebel/tcomb-form-native-ts
+```
+
+### Step 3: Zero-code migration via package.json (Recommended)
+
+For the smoothest migration with **absolutely no code changes**, use npm package aliasing in your `package.json`:
+
+```json
+{
+  "dependencies": {
+    "tcomb-form-native": "npm:@riebel/tcomb-form-native-ts@^1.1.0"
+  }
+}
+```
+
+That's it! Now all your existing imports work without any changes:
+
+```javascript
+// This continues to work exactly the same - no code changes needed!
+import t from 'tcomb-form-native';
+const Form = t.form.Form;
+```
+
+The `npm:` prefix tells npm/yarn to install `@riebel/tcomb-form-native-ts` but make it available as `tcomb-form-native` in your project.
+
+### Alternative: Update imports manually (optional)
+
+If you prefer not to use aliases, you can update your imports:
+
+```javascript
+// Updated import
+import t from '@riebel/tcomb-form-native-ts';
+const Form = t.form.Form;
+```
+
+### Step 4: Install peer dependencies
+
+Make sure you have the required peer dependencies:
+
+```bash
+# For Expo projects
+npx expo install @react-native-picker/picker
+
+# For bare React Native projects
+npm install @react-native-picker/picker
+npx react-native link @react-native-picker/picker
+```
+
+### That's it! 🎉
+
+Your existing code will work without any changes. The new package provides:
+
+- ✅ **100% API compatibility** - All existing code works unchanged
+- ✅ **Modern TypeScript support** - Full type safety and IntelliSense
+- ✅ **React 18+ compatibility** - Uses modern React patterns internally
+- ✅ **Functional components** - Modernized implementation under the hood
+- ✅ **Better performance** - Optimized with React.memo and hooks
+- ✅ **Active maintenance** - Regular updates and bug fixes
+
+### Optional: Modernize Your Code
+
+While not required, you can gradually modernize your existing code:
+
+- Convert class components to functional components with hooks
+- Add TypeScript type annotations
+- Use modern JavaScript syntax (`const`/`let` instead of `var`)
+- Take advantage of improved TypeScript IntelliSense
 
 ## Tests
 
 ```bash
-npm test
+npm run test
 ```
 
-This repo uses TypeScript and runs tests via `tsx` + `tape` (see `package.json`).
+## Credits
+
+This TypeScript modernization is maintained by **Hagen Sommerkorn** ([@riebel](https://github.com/riebel)).
+
+Original tcomb-form-native library created by **Giulio Canti** ([@gcanti](https://github.com/gcanti)).
+
+Special thanks to all the contributors who made the original library possible.
 
 ## License
 

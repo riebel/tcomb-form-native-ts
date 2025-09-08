@@ -1,173 +1,192 @@
-import { Platform } from 'react-native';
+import { Stylesheet } from '../types';
 
-// Colors
-const COLORS = {
-  label: '#000000',
-  input: '#000000',
-  error: '#a94442',
-  help: '#999999',
-  border: '#cccccc',
-  disabled: '#777777',
-  disabledBackground: '#eeeeee',
-};
-
-// Font
-const FONT = {
-  size: 17,
-  weight: '500' as '500' | 'normal' | 'bold',
-};
-
-// Base values
-const baseText = {
-  fontSize: FONT.size,
-  marginBottom: 5,
-};
-
-const baseInput = {
-  ...baseText,
-  borderColor: COLORS.border,
-  borderRadius: 4,
-  borderWidth: 1,
-  color: COLORS.input,
-  height: 36,
-  paddingHorizontal: 7,
-  paddingVertical: Platform.OS === 'ios' ? 7 : 0,
-};
-
-// Bootstrap-like stylesheet
-export const bootstrapStyles = {
-  // Shared
-  formGroup: {
-    normal: { marginBottom: 10 },
-    error: { marginBottom: 10 },
+export const stylesheet: Stylesheet = {
+  fieldset: {
+    marginBottom: 10,
+    padding: 10,
   },
+
   controlLabel: {
-    normal: { color: COLORS.label, fontSize: FONT.size, fontWeight: FONT.weight, marginBottom: 7 },
-    error: { color: COLORS.error, fontSize: FONT.size, fontWeight: FONT.weight, marginBottom: 7 },
-    disabled: {
-      color: COLORS.disabled,
-      fontSize: FONT.size,
-      fontWeight: FONT.weight,
-      marginBottom: 7,
-    },
-  },
-  helpBlock: {
-    normal: { color: COLORS.help, fontSize: FONT.size, marginBottom: 2 },
-    error: { color: COLORS.error, fontSize: FONT.size, marginBottom: 2 },
-  },
-  errorBlock: { color: COLORS.error, fontSize: FONT.size, marginBottom: 2 },
-  fieldset: { borderWidth: 0, marginBottom: 16, padding: 0 },
-
-  // Textbox
-  textbox: {
-    normal: { ...baseInput },
-    error: { ...baseInput, borderColor: COLORS.error },
-    notEditable: {
-      ...baseInput,
-      backgroundColor: COLORS.disabledBackground,
-      color: COLORS.disabled,
-    },
-  },
-  textboxView: {
-    normal: {},
-    error: {},
-    notEditable: {},
-  },
-
-  // Checkbox
-  container: {
     normal: {
-      alignItems: 'center',
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      paddingVertical: 8,
+      fontSize: 16,
+      fontWeight: 'bold',
+      marginBottom: 5,
+      color: '#333',
     },
     error: {
-      alignItems: 'center',
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      paddingVertical: 8,
+      fontSize: 16,
+      fontWeight: 'bold',
+      marginBottom: 5,
+      color: '#d9534f',
     },
-    disabled: { opacity: 0.6 },
-  },
-  checkbox: {
-    normal: { marginLeft: 8 },
-    error: { marginLeft: 8 },
-    disabled: { marginLeft: 8, opacity: 0.6 },
   },
 
-  // Select/DatePicker
-  valueContainer: {
+  helpBlock: {
     normal: {
-      backgroundColor: 'white',
+      fontSize: 12,
+      color: '#737373',
+      marginTop: 5,
+    },
+    error: {
+      fontSize: 12,
+      color: '#d9534f',
+      marginTop: 5,
+    },
+  },
+
+  errorBlock: {
+    fontSize: 12,
+    color: '#d9534f',
+    marginTop: 5,
+    fontWeight: 'bold',
+  },
+
+  textbox: {
+    normal: {
+      borderWidth: 1,
       borderColor: '#ccc',
       borderRadius: 4,
-      borderWidth: 1,
-      height: 40,
-      justifyContent: 'center',
       padding: 10,
+      fontSize: 16,
+      backgroundColor: '#fff',
     },
     error: {
-      backgroundColor: 'white',
-      borderColor: COLORS.error,
-      borderRadius: 4,
       borderWidth: 1,
-      height: 40,
-      justifyContent: 'center',
+      borderColor: '#d9534f',
+      borderRadius: 4,
       padding: 10,
+      fontSize: 16,
+      backgroundColor: '#fff',
     },
-    disabled: { backgroundColor: COLORS.disabledBackground },
-  },
-  valueText: {
-    normal: { color: '#333', fontSize: 16 },
-    error: { color: COLORS.error, fontSize: 16 },
-    disabled: { color: COLORS.disabled, fontSize: 16 },
   },
 
-  // List
-  itemContainer: {
+  checkbox: {
     normal: {
-      alignItems: 'center',
-      backgroundColor: '#fff',
-      borderColor: '#ddd',
-      borderRadius: 4,
-      borderWidth: 1,
       flexDirection: 'row',
-      marginBottom: 8,
-      padding: 8,
+      alignItems: 'center',
+      marginVertical: 5,
     },
     error: {
-      alignItems: 'center',
-      backgroundColor: '#fff',
-      borderColor: COLORS.error,
-      borderRadius: 4,
-      borderWidth: 1,
       flexDirection: 'row',
-      marginBottom: 8,
-      padding: 8,
+      alignItems: 'center',
+      marginVertical: 5,
     },
-    disabled: { opacity: 0.6 },
   },
-  button: {
+
+  select: {
     normal: {
-      alignItems: 'center',
-      backgroundColor: '#5cb85c',
+      borderWidth: 1,
+      borderColor: '#ccc',
       borderRadius: 4,
-      marginTop: 10,
+      backgroundColor: '#fff',
+    },
+    error: {
+      borderWidth: 1,
+      borderColor: '#d9534f',
+      borderRadius: 4,
+      backgroundColor: '#fff',
+    },
+  },
+
+  datepicker: {
+    normal: {
+      borderWidth: 1,
+      borderColor: '#ccc',
+      borderRadius: 4,
+      padding: 10,
+      backgroundColor: '#fff',
+    },
+    error: {
+      borderWidth: 1,
+      borderColor: '#d9534f',
+      borderRadius: 4,
+      padding: 10,
+      backgroundColor: '#fff',
+    },
+  },
+
+  pickerContainer: {
+    normal: {
+      borderWidth: 1,
+      borderColor: '#ccc',
+      borderRadius: 4,
+      backgroundColor: '#fff',
+    },
+    error: {
+      borderWidth: 1,
+      borderColor: '#d9534f',
+      borderRadius: 4,
+      backgroundColor: '#fff',
+    },
+    open: {
+      borderWidth: 1,
+      borderColor: '#337ab7',
+      borderRadius: 4,
+      backgroundColor: '#fff',
+    },
+  },
+
+  pickerValue: {
+    normal: {
+      fontSize: 16,
+      color: '#333',
       padding: 10,
     },
-    disabled: {
-      alignItems: 'center',
-      backgroundColor: '#d3d3d3',
-      borderRadius: 4,
-      marginTop: 10,
+    error: {
+      fontSize: 16,
+      color: '#d9534f',
       padding: 10,
     },
   },
+
+  pickerTouchable: {
+    normal: {
+      borderWidth: 1,
+      borderColor: '#ccc',
+      borderRadius: 4,
+      backgroundColor: '#fff',
+    },
+    error: {
+      borderWidth: 1,
+      borderColor: '#d9534f',
+      borderRadius: 4,
+      backgroundColor: '#fff',
+    },
+    active: {
+      borderWidth: 1,
+      borderColor: '#337ab7',
+      borderRadius: 4,
+      backgroundColor: '#f5f5f5',
+    },
+  },
+
+  list: {
+    marginBottom: 10,
+  },
+
+  formGroup: {
+    normal: {
+      marginBottom: 15,
+    },
+    error: {
+      marginBottom: 15,
+    },
+  },
+
   buttonText: {
-    normal: { color: 'white', fontSize: FONT.size, fontWeight: FONT.weight },
-    disabled: { color: COLORS.disabled, fontSize: FONT.size, fontWeight: FONT.weight },
+    color: '#337ab7',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+
+  button: {
+    padding: 10,
+    marginHorizontal: 5,
+    borderWidth: 1,
+    borderColor: '#337ab7',
+    borderRadius: 4,
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 };
-
-export default bootstrapStyles;

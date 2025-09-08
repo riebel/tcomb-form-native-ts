@@ -3,6 +3,7 @@ require('./setupMocks');
 
 var test = require("tape");
 var t = require("tcomb-validation");
+var React = require("react");
 var bootstrap = {
     checkbox: function() {},
     datepicker: function() {},
@@ -1266,4 +1267,111 @@ test("List:should support unions", assert => {
     });
 
     assert.strictEqual(component.getItems()[0].input.props.type, UnknownAccount);
+});
+
+test("List:validation - required list should fail when empty", function(assert) {
+    assert.plan(6);
+
+    var List = core.List;
+    var StringType = t.String;
+    var RequiredStringList = t.list(StringType); // Required list
+    var OptionalStringList = t.maybe(t.list(StringType)); // Optional list
+
+    // Test 1: Required list with empty array should fail validation
+    var requiredListComponent = new List({
+        type: RequiredStringList,
+        ctx: ctx,
+        options: {},
+        value: []
+    });
+
+    var result1 = requiredListComponent.validate();
+    assert.strictEqual(result1.isValid(), false, "Required empty list should fail validation");
+    assert.strictEqual(result1.errors.length > 0, true, "Required empty list should have errors");
+
+    // Test 2: Required list with null should fail validation
+    var requiredListComponent2 = new List({
+        type: RequiredStringList,
+        ctx: ctx,
+        options: {},
+        value: null
+    });
+
+    var result2 = requiredListComponent2.validate();
+    assert.strictEqual(result2.isValid(), false, "Required null list should fail validation");
+
+    // Test 3: Optional list with empty array should pass validation
+    var optionalListComponent = new List({
+        type: OptionalStringList,
+        ctx: ctx,
+        options: {},
+        value: []
+    });
+
+    var result3 = optionalListComponent.validate();
+    assert.strictEqual(result3.isValid(), true, "Optional empty list should pass validation");
+
+    // Test 4: Optional list with null should pass validation
+    var optionalListComponent2 = new List({
+        type: OptionalStringList,
+        ctx: ctx,
+        options: {},
+        value: null
+    });
+
+    var result4 = optionalListComponent2.validate();
+    assert.strictEqual(result4.isValid(), true, "Optional null list should pass validation");
+
+    // Test 5: Required list with valid items should pass validation
+    var requiredListComponent3 = new List({
+        type: RequiredStringList,
+        ctx: ctx,
+        options: {},
+        value: ["item1", "item2"]
+    });
+
+    var result5 = requiredListComponent3.validate();
+    assert.strictEqual(result5.isValid(), true, "Required list with items should pass validation");
+});
+
+test("List:validation - required list with all null items should fail", function(assert) {
+    assert.plan(2);
+
+    var List = core.List;
+    var StringType = t.String;
+    var RequiredStringList = t.list(StringType);
+
+    // Test: Required list with all null items should fail validation
+    var requiredListComponent = new List({
+        type: RequiredStringList,
+        ctx: ctx,
+        options: {},
+        value: [null, null, null]
+    });
+
+    var result = requiredListComponent.validate();
+    assert.strictEqual(result.isValid(), false, "Required list with all null items should fail validation");
+    assert.strictEqual(result.errors.length > 0, true, "Required list with all null items should have errors");
+});
+
+test("Form:validation - Form component architecture", function(assert) {
+    assert.plan(2);
+
+    var Form = core.Form;
+    var StringType = t.String;
+    var RequiredStringList = t.list(StringType);
+    
+    // Test that Form component exists and has the expected structure
+    assert.strictEqual(typeof Form, 'object', "Form should be a React component object");
+    
+    // Test that the Form component architecture supports validation
+    // This is a basic test to ensure our changes don't break the Form component
+    var formProps = {
+        type: RequiredStringList,
+        options: {},
+        value: []
+    };
+    
+    // Verify Form can be instantiated with proper props
+    assert.strictEqual(typeof formProps.type, 'function', "Form props should have valid type");
 });

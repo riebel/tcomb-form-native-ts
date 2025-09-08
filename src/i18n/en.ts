@@ -1,13 +1,10 @@
-// English translations
-import type { I18nTranslations } from '../types/field.types';
+import { I18nConfig } from '../types';
 
-const en: I18nTranslations = {
+export const i18n: I18nConfig = {
   optional: ' (optional)',
-  required: '',
+  required: ' ',
   add: 'Add',
-  remove: '✘',
-  up: '↑',
-  down: '↓',
+  remove: 'Remove',
+  up: 'Up',
+  down: 'Down',
 };
-
-export default en;

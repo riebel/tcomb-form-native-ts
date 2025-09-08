@@ -1,180 +1,429 @@
-import { TypeWithMeta, TypeInfo } from './types/field.types';
+import {
+  TcombType,
+  TypeInfo,
+  ValidationContext,
+  ComponentOptions,
+  UIDGenerator as IUIDGenerator,
+} from './types';
 
-/** Simple UID generator */
-export class UIDGenerator {
-  private readonly prefix: string;
+const t = require('tcomb-validation');
+
+export function getOptionsOfEnum(type: TcombType): Array<{ value: string; text: string }> {
+  let enumType = type;
+  if (type.meta.kind === 'maybe' && type.meta.type) {
+    enumType = type.meta.type;
+  }
+
+  const enums = enumType.meta.map;
+
+  if (!enums) {
+    return [];
+  }
+
+  const keys = Object.keys(enums);
+  const filteredKeys = keys.filter(value => typeof enums[value] !== 'undefined');
+
+  const options = filteredKeys.map(value => ({
+    value,
+    text: String(enums[value]),
+  }));
+
+  return options;
+}
+
+export function getTypeInfo(
+  type: TcombType | Record<string, unknown> | object | Function,
+): TypeInfo {
+  if (!isTcombType(type)) {
+    return {
+      type: type as TcombType,
+      isMaybe: false,
+      isSubtype: false,
+      innerType: type as TcombType,
+      getValidationErrorMessage: undefined,
+    };
+  }
+
+  let innerType = type;
+  let isMaybe = false;
+  let isSubtype = false;
+  let kind: string;
+  let innerGetValidationErrorMessage:
+    | ((_value: unknown, _path: string[], _context: ValidationContext) => string)
+    | undefined;
+
+  const tcombType = type as TcombType;
+
+  if (tcombType.meta && tcombType.meta.kind === 'maybe') {
+    isMaybe = true;
+  }
+
+  if (t.getTypeName && typeof t.getTypeName === 'function') {
+    const typeName = t.getTypeName(tcombType);
+    if (typeName && typeName.includes('?')) {
+      isMaybe = true;
+    }
+  }
+
+  while (innerType && innerType.meta) {
+    kind = innerType.meta.kind;
+    if (t.Function.is(innerType.getValidationErrorMessage)) {
+      innerGetValidationErrorMessage = innerType.getValidationErrorMessage;
+    }
+    if (kind === 'maybe') {
+      isMaybe = true;
+      innerType = innerType.meta.type!;
+      continue;
+    }
+    if (kind === 'subtype') {
+      isSubtype = true;
+      innerType = innerType.meta.type!;
+      continue;
+    }
+    break;
+  }
+
+  const getValidationErrorMessage = innerGetValidationErrorMessage
+    ? (value: unknown, path: string[], context: ValidationContext) => {
+        const result = t.validate(value, type, { path, context });
+        if (!result.isValid()) {
+          for (let i = 0, len = result.errors.length; i < len; i++) {
+            if (t.Function.is(result.errors[i].expected.getValidationErrorMessage)) {
+              return result.errors[i].message;
+            }
+          }
+          return innerGetValidationErrorMessage!(value, path, context);
+        }
+        return '';
+      }
+    : undefined;
+
+  return {
+    type,
+    isMaybe,
+    isSubtype,
+    innerType,
+    getValidationErrorMessage,
+  };
+}
+
+function underscored(s: string): string {
+  return s
+    .trim()
+    .replace(/([a-z\d])([A-Z]+)/g, '$1_$2')
+    .replace(/[-\s]+/g, '_')
+    .toLowerCase();
+}
+
+function capitalize(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+export function humanize(s: string): string {
+  return capitalize(underscored(s).replace(/_id$/, '').replace(/_/g, ' '));
+}
+
+export function merge<T extends Record<string, unknown>, U extends Record<string, unknown>>(
+  a: T,
+  b: U,
+): T & U {
+  return t.mixin(t.mixin({}, a), b, true);
+}
+
+export function move<T>(arr: T[], fromIndex: number, toIndex: number): T[] {
+  const element = arr.splice(fromIndex, 1)[0];
+  arr.splice(toIndex, 0, element);
+  return arr;
+}
+
+export class UIDGenerator implements IUIDGenerator {
+  private seed: string;
   private counter: number;
 
-  /** Format: tfid-<seed>-<n> */
-  constructor(seed: number | string = 0) {
-    const s = typeof seed === 'number' ? String(seed) : seed;
-    this.prefix = `tfid-${s}-`;
+  constructor(seed: string) {
+    this.seed = 'tfid-' + seed + '-';
     this.counter = 0;
   }
 
-  /** Next unique id */
   next(): string {
-    const id = `${this.prefix}${this.counter}`;
-    this.counter += 1;
-    return id;
+    return this.seed + this.counter++;
   }
 }
 
-/** Derive shape flags from a tcomb-like type */
-export function getTypeInfo(type: TypeWithMeta | null): TypeInfo {
-  const info: TypeInfo = {
-    kind: 'irreducible',
-    type: type as TypeWithMeta,
-    isMaybe: false,
-    isSubtype: false,
-    isEnum: false,
-    isList: false,
-    isDict: false,
-    isPrimitive: false,
-    isObject: false,
-    isUnion: false,
-    isRefinement: false,
+function containsUnion(type: TcombType): boolean {
+  if (!type || !type.meta) {
+    return false;
+  }
+  switch (type.meta.kind) {
+    case 'union':
+      return true;
+    case 'maybe':
+    case 'subtype':
+      return type.meta.type ? containsUnion(type.meta.type) : false;
+    default:
+      return false;
+  }
+}
+
+function getUnionConcreteType(type: TcombType, value: unknown): TcombType {
+  const kind = type.meta.kind;
+  if (kind === 'union') {
+    if (type.dispatch && typeof type.dispatch === 'function') {
+      const concreteType = type.dispatch(value);
+      if (process.env.NODE_ENV !== 'production') {
+        t.assert(
+          t.isType(concreteType),
+          () =>
+            'Invalid value ' +
+            t.assert.stringify(value) +
+            ' supplied to ' +
+            t.getTypeName(type) +
+            ' (no constructor returned by dispatch)',
+        );
+      }
+      return concreteType;
+    }
+    return type;
+  } else if (kind === 'maybe') {
+    if (type.meta.type) {
+      const innerType = getUnionConcreteType(type.meta.type, value);
+      if (innerType !== type.meta.type) {
+        return innerType;
+      }
+      return t.maybe(innerType, type.meta.name);
+    }
+    return type;
+  } else if (kind === 'subtype') {
+    if (type.meta.type) {
+      const innerType = getUnionConcreteType(type.meta.type, value);
+      if (innerType !== type.meta.type) {
+        return innerType;
+      }
+      return t.subtype(innerType, type.meta.predicate!, type.meta.name);
+    }
+    return type;
+  }
+  return type;
+}
+
+export function isTcombType(type: unknown): type is TcombType {
+  return (
+    (typeof type === 'object' || typeof type === 'function') &&
+    type !== null &&
+    'meta' in type &&
+    'is' in type
+  );
+}
+
+export function getTypeFromUnion(
+  type: TcombType | Record<string, unknown> | object | Function,
+  value: unknown,
+): TcombType | Record<string, unknown> | object | Function {
+  if (isTcombType(type) && containsUnion(type)) {
+    const concreteType = getUnionConcreteType(type, value);
+    return concreteType;
+  }
+  return type;
+}
+
+function getUnion(type: TcombType): TcombType {
+  if (type.meta.kind === 'union') {
+    return type;
+  }
+  return getUnion(type.meta.type!);
+}
+
+function findIndex<T>(arr: T[], element: T): number {
+  for (let i = 0, len = arr.length; i < len; i++) {
+    if (arr[i] === element) {
+      return i;
+    }
+  }
+  return -1;
+}
+
+export function getComponentOptions(
+  options:
+    | ComponentOptions
+    | ComponentOptions[]
+    | ((value: unknown) => ComponentOptions)
+    | null
+    | undefined,
+  defaultOptions: ComponentOptions,
+  value: unknown,
+  type: TcombType | Record<string, unknown> | object | Function,
+): ComponentOptions {
+  if (t.Nil.is(options)) {
+    return defaultOptions;
+  }
+  if (t.Function.is(options)) {
+    return (options as (value: unknown) => ComponentOptions)(value);
+  }
+  if (t.Array.is(options) && isTcombType(type) && containsUnion(type)) {
+    const union = getUnion(type);
+    const concreteType = union.dispatch!(value);
+    const index = findIndex(union.meta.types!, concreteType);
+    return getComponentOptions(
+      (options as ComponentOptions[])[index],
+      defaultOptions,
+      value,
+      concreteType,
+    );
+  }
+
+  const finalOptions = options as ComponentOptions;
+  const mergedOptions = {
+    ...defaultOptions,
+    ...finalOptions,
   };
 
-  if (!type) {
-    return info;
-  }
-
-  if (type.meta) {
-    const kind = (type.meta as { kind?: string }).kind;
-    if (typeof kind === 'string' && kind.length > 0) {
-      // Preserve canonical kind string from tcomb meta
-      info.kind = kind as TypeInfo['kind'];
-    }
-    info.isMaybe = kind === 'maybe';
-    info.isSubtype = kind === 'subtype';
-    info.isEnum = kind === 'enums';
-    info.isList = kind === 'list';
-    info.isDict = kind === 'dict';
-    info.isUnion = kind === 'union';
-    info.isRefinement = kind === 'refinement';
-  }
-
-  info.isPrimitive =
-    !info.isMaybe &&
-    !info.isSubtype &&
-    !info.isEnum &&
-    !info.isList &&
-    !info.isDict &&
-    !info.isUnion &&
-    !info.isRefinement;
-  info.isObject = info.isSubtype || info.isDict;
-
-  return info;
-}
-
-/* Utility helpers */
-
-/** Humanize: firstName -> First name; first_name -> First name */
-export function humanize(input: string): string {
-  const withSpaces = input
-    .replace(/[_-]+/g, ' ')
-    .replace(/([a-z])(\d)/g, '$1 $2')
-    .replace(/([a-z])([A-Z])/g, '$1 $2')
-    .trim()
-    .toLowerCase();
-  return withSpaces.charAt(0).toUpperCase() + withSpaces.slice(1);
-}
-
-/** Shallow merge returning a new object */
-export function merge<A extends object, B extends Partial<A>>(a: A, b: B): A {
-  return Object.assign({}, a, b);
-}
-
-/** Move array item from index `from` to `to` (non-mutating) */
-export function move<T>(arr: readonly T[], from: number, to: number): T[] {
-  const len = arr.length;
-  if (from < 0 || from >= len || to < 0 || to >= len || from === to) {
-    return arr.slice();
-  }
-  const next = arr.slice();
-  const [item] = next.splice(from, 1);
-  next.splice(to, 0, item);
-  return next;
-}
-
-// Type guards for meta
-function hasMeta(x: unknown): x is { meta: Record<string, unknown> } {
-  return typeof x === 'object' && x !== null && 'meta' in (x as Record<string, unknown>);
-}
-function isEnums(x: unknown): x is { meta: { kind: string; map?: Record<string, unknown> } } {
-  if (!hasMeta(x)) return false;
-  const kind = (x as { meta: Record<string, unknown> }).meta.kind;
-  return typeof kind === 'string';
-}
-
-/** Build enum options: [{ value, text }] */
-export function getOptionsOfEnum(
-  type: TypeWithMeta | null,
-): ReadonlyArray<{ value: string; text: string }> {
-  if (!type || !isEnums(type) || type.meta.kind !== 'enums') return [];
-  const map = (type.meta as { map?: Record<string, unknown> }).map;
-  if (!map) return [];
-  return Object.keys(map).map(key => ({ value: key, text: String(map[key]) }));
-}
-
-/** For union types with dispatch, get concrete type for value */
-export function getTypeFromUnion(
-  union: TypeWithMeta | null,
-  value: unknown,
-): TypeWithMeta | undefined {
-  if (!union || !hasMeta(union)) return undefined;
-  const meta = union.meta as { kind?: string; dispatch?: (v: unknown) => unknown };
-  if (meta.kind !== 'union' || typeof meta.dispatch !== 'function') return undefined;
-  const concrete = meta.dispatch(value);
-  return (concrete as TypeWithMeta) ?? undefined;
-}
-
-/** Resolve component options from static, function, array (union), or record */
-export function getComponentOptions<O>(
-  options: O | ((value: unknown) => O) | Record<string, O> | Array<O> | undefined,
-  value: unknown,
-  type?: TypeWithMeta | null,
-): O | undefined {
-  // Function form
-  if (typeof options === 'function') {
-    return (options as (v: unknown) => O)(value);
-  }
-  if (!options) return undefined;
-
-  // Array form: union variant options in declaration order
-  if (Array.isArray(options) && type && hasMeta(type)) {
-    const meta = type.meta as {
-      kind?: string;
-      types?: TypeWithMeta[];
-      dispatch?: (v: unknown) => unknown;
+  // Merge fields options instead of replacing
+  if (defaultOptions.fields && finalOptions.fields) {
+    mergedOptions.fields = {
+      ...defaultOptions.fields,
+      ...finalOptions.fields,
     };
-    if (meta.kind === 'union' && Array.isArray(meta.types) && typeof meta.dispatch === 'function') {
-      const concrete = meta.dispatch(value) as TypeWithMeta | undefined;
-      if (concrete) {
-        const idx = meta.types.findIndex(t => t === concrete);
-        if (idx >= 0 && idx < options.length) {
-          const chosen = options[idx];
-          // Recurse for nested unions
-          return getComponentOptions(chosen as unknown as O, value, concrete) ?? (chosen as O);
-        }
+  }
+
+  return mergedOptions;
+}
+
+export function isNil(value: unknown): value is null | undefined {
+  return value === null || value === undefined;
+}
+
+export function inferTypeFromFieldOptions(fieldOptions: Record<string, unknown>): TcombType {
+  const isOptional = fieldOptions.required !== true;
+  let baseType: TcombType;
+
+  if (fieldOptions.factory) {
+    const factory = fieldOptions.factory as { displayName?: string };
+    if (factory.displayName === 'Textbox') {
+      baseType = t.String;
+    } else if (factory.displayName === 'Select') {
+      baseType = t.String;
+    } else if (factory.displayName === 'Checkbox') {
+      baseType = t.Boolean;
+    } else if (factory.displayName === 'DatePicker') {
+      baseType = t.Date;
+    } else {
+      baseType = t.String;
+    }
+  } else if (fieldOptions.options && Array.isArray(fieldOptions.options)) {
+    baseType = t.String;
+  } else if (
+    fieldOptions.mode === 'date' ||
+    fieldOptions.mode === 'datetime' ||
+    fieldOptions.mode === 'time'
+  ) {
+    baseType = t.Date;
+  } else if (fieldOptions.multiline) {
+    baseType = t.String;
+  } else {
+    baseType = t.String;
+  }
+
+  if (isOptional) {
+    const result = t.maybe(baseType);
+    return result;
+  }
+
+  return baseType;
+}
+
+export function convertPlainObjectToTcombStruct(
+  obj: Record<string, unknown>,
+  name?: string,
+): TcombType {
+  const props: Record<string, TcombType> = {};
+
+  for (const [key, value] of Object.entries(obj)) {
+    if (typeof value === 'object' && value !== null && 'type' in value) {
+      const schemaProp = value as Record<string, unknown>;
+
+      if (schemaProp.type === 'string') {
+        props[key] = t.maybe(t.String);
+      } else if (schemaProp.type === 'number') {
+        props[key] = t.maybe(t.Number);
+      } else if (schemaProp.type === 'boolean') {
+        props[key] = t.maybe(t.Boolean);
+      } else if (schemaProp.type === 'object' && schemaProp.properties) {
+        props[key] = t.maybe(
+          convertPlainObjectToTcombStruct(schemaProp.properties as Record<string, unknown>, key),
+        );
+      } else {
+        props[key] = t.maybe(t.String);
       }
+    } else {
+      props[key] = t.maybe(t.String);
     }
   }
 
-  // Record form: keyed by concrete type name
-  if (typeof options === 'object' && options !== null) {
-    const asRecord = options as Record<string, O> & Partial<O>;
-    const concrete = getTypeFromUnion(type ?? null, value);
-    if (concrete && hasMeta(concrete)) {
-      const meta = concrete.meta as { name?: string };
-      const key = meta.name || (concrete as { name?: string }).name || undefined;
-      if (key && Object.prototype.hasOwnProperty.call(asRecord, key)) {
-        return asRecord[key] as O;
-      }
-    }
-    return options as O;
+  return t.struct(props, name);
+}
+
+export function toNull(value: unknown): unknown {
+  return (t.String.is(value) && (value as string).trim() === '') || isNil(value) ? null : value;
+}
+
+export function parseNumber(value: unknown): number | null {
+  if (!t.String.is(value)) {
+    return toNull(value) as number | null;
+  }
+  const n = parseFloat(value as string);
+  const isNumeric = parseFloat(value as string) - n + 1 >= 0;
+  return isNumeric ? n : (toNull(value) as number | null);
+}
+
+export function getFormComponentName(
+  type: TcombType | Record<string, unknown> | object | Function,
+  options: ComponentOptions,
+): string {
+  if (options.factory) {
+    return 'Custom';
   }
 
-  return undefined;
+  if (!isTcombType(type)) {
+    if (typeof type === 'object' && type !== null && !Array.isArray(type)) {
+      const obj = type as Record<string, unknown>;
+      if (obj.multiline === true) {
+        return 'Textbox';
+      }
+      return 'Struct';
+    }
+    return 'Struct';
+  }
+
+  if (type.getTcombFormFactory) {
+    return 'Custom';
+  }
+  const name = t.getTypeName(type);
+  switch (type.meta.kind) {
+    case 'irreducible':
+      return type === t.Boolean ? 'Checkbox' : type === t.Date ? 'DatePicker' : 'Textbox';
+    case 'struct':
+      return 'Struct';
+    case 'list':
+      return 'List';
+    case 'enums':
+      return 'Select';
+    case 'maybe':
+    case 'subtype':
+      return getFormComponentName(type.meta.type!, options);
+    default:
+      throw new Error(`[tcomb-form-native] unsupported type ${name}`);
+  }
+}
+
+function sortByText(a: { text: string }, b: { text: string }): number {
+  return a.text < b.text ? -1 : a.text > b.text ? 1 : 0;
+}
+
+export function getComparator(
+  order: 'asc' | 'desc',
+): (a: { text: string }, b: { text: string }) => number {
+  return {
+    asc: sortByText,
+    desc: (a: { text: string }, b: { text: string }) => -sortByText(a, b),
+  }[order];
 }
