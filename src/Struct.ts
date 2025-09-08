@@ -93,9 +93,6 @@ export class Struct extends Component<StructLocals> {
   };
 
   updateValidationState(): void {
-    // Update validation state without forcing validation on untouched fields
-    // This allows the struct to update its own validation state based on current field values
-    // without triggering validation on fields that haven't been touched by the user
     let hasError = false;
 
     // Check if any child components currently have errors
