@@ -53,6 +53,7 @@ export function NativeDatePickerTemplate(locals: DatePickerLocals): React.ReactE
   };
 
   const isAndroid = Platform.OS === 'android';
+  const isWeb = Platform.OS === 'web';
 
   const handlePress = () => {
     if (isAndroid) {
@@ -80,6 +81,70 @@ export function NativeDatePickerTemplate(locals: DatePickerLocals): React.ReactE
     }
   };
 
+  const handleWebDateChange = (event: { target: { value: string } }) => {
+    const inputValue = event.target.value;
+    if (inputValue) {
+      const selectedDate = new Date(inputValue);
+      if (!isNaN(selectedDate.getTime())) {
+        onChange(selectedDate);
+      }
+    } else {
+      // Handle clearing the date
+      onChange(null);
+    }
+  };
+
+  const getWebInputType = (): string => {
+    switch (mode) {
+      case 'time':
+        return 'time';
+      case 'datetime':
+        return 'datetime-local';
+      case 'date':
+      default:
+        return 'date';
+    }
+  };
+
+  const getWebInputValue = (): string => {
+    if (!value) {
+      return '';
+    }
+
+    // Convert value to Date object if it's a string
+    const dateValue = value instanceof Date ? value : new Date(String(value));
+
+    // Check if the date is valid
+    if (isNaN(dateValue.getTime())) {
+      return '';
+    }
+
+    // Format in local timezone instead of UTC to avoid timezone offset issues
+    switch (mode) {
+      case 'time':
+        // Format as HH:MM in local time
+        return dateValue.toTimeString().substring(0, 5);
+      case 'date': {
+        // Format as YYYY-MM-DD in local time
+        const year = dateValue.getFullYear();
+        const month = String(dateValue.getMonth() + 1).padStart(2, '0');
+        const day = String(dateValue.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      }
+      case 'datetime': {
+        // Format as YYYY-MM-DDTHH:MM in local time
+        const yearDT = dateValue.getFullYear();
+        const monthDT = String(dateValue.getMonth() + 1).padStart(2, '0');
+        const dayDT = String(dateValue.getDate()).padStart(2, '0');
+        const hours = String(dateValue.getHours()).padStart(2, '0');
+        const minutes = String(dateValue.getMinutes()).padStart(2, '0');
+        return `${yearDT}-${monthDT}-${dayDT}T${hours}:${minutes}`;
+      }
+      default:
+        return '';
+    }
+  };
+
   const pickerProps = Platform.select({
     android: {
       display: 'default' as const,
@@ -92,6 +157,42 @@ export function NativeDatePickerTemplate(locals: DatePickerLocals): React.ReactE
       display: 'default' as const,
     },
   });
+
+  if (isWeb) {
+    // Web version using HTML input
+    return (
+      <View style={formGroupStyle}>
+        {label && <Text style={controlLabelStyle}>{label}</Text>}
+
+        {!disabled ? (
+          <input
+            type={getWebInputType()}
+            value={getWebInputValue()}
+            onChange={handleWebDateChange}
+            min={minimumDate ? minimumDate.toISOString().substring(0, 10) : undefined}
+            max={maximumDate ? maximumDate.toISOString().substring(0, 10) : undefined}
+            style={{
+              padding: 7,
+              height: 36,
+              width: '100%',
+              borderWidth: 0,
+              backgroundColor: String(datePickerStyle?.backgroundColor || '#fff'),
+              color: String(controlLabelStyle?.color || '#000'),
+              fontFamily: controlLabelStyle?.fontFamily,
+              fontSize: controlLabelStyle?.fontSize,
+            }}
+          />
+        ) : (
+          <Text style={controlLabelStyle}>
+            {value ? formatDate(dateValue) : 'No date selected'}
+          </Text>
+        )}
+
+        {help ? <Text style={helpBlockStyle}>{String(help)}</Text> : null}
+        {error ? <Text style={stylesheet.errorBlock}>{String(error)}</Text> : null}
+      </View>
+    );
+  }
 
   return (
     <View style={formGroupStyle}>
