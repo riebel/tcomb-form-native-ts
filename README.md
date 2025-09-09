@@ -1,4 +1,4 @@
-# tcomb-form-native-ts (TypeScript Edition)
+# @riebel/tcomb-form-native-ts (TypeScript Edition)
 
 [![npm version](https://img.shields.io/npm/v/@riebel/tcomb-form-native-ts.svg?style=flat-square)](https://www.npmjs.com/package/@riebel/tcomb-form-native-ts)
 [![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue.svg?style=flat-square)](https://www.typescriptlang.org/)
@@ -82,7 +82,7 @@ The look and feel is customizable via React Native stylesheets and *templates* (
 // App.tsx
 import React, { useRef, useState } from 'react';
 import { View, Text, TouchableHighlight, StyleSheet, Alert } from 'react-native';
-import t from 'tcomb-form-native';
+import t from '@riebel/tcomb-form-native-ts';
 
 const Form = t.form.Form;
 
@@ -178,7 +178,7 @@ The `Form` component behaves like a [controlled component](https://reactjs.org/d
 ```tsx
 import React, { useRef, useState } from 'react';
 import { View, Text, TouchableHighlight } from 'react-native';
-import t from 'tcomb-form-native';
+import t from '@riebel/tcomb-form-native-ts';
 
 const Person = t.struct({
   name: t.String,
@@ -238,7 +238,7 @@ where:
 ```tsx
 import React, { useRef, useState } from 'react';
 import { View, TouchableHighlight, Text } from 'react-native';
-import t from 'tcomb-form-native';
+import t from '@riebel/tcomb-form-native-ts';
 
 const Type = t.struct({
   disable: t.Boolean, // if true, name field will be disabled
@@ -303,7 +303,7 @@ export default function App() {
 ```tsx
 import React, { useRef, useState } from 'react';
 import { View, TouchableHighlight, Text } from 'react-native';
-import t from 'tcomb-form-native';
+import t from '@riebel/tcomb-form-native-ts';
 
 const Person = t.struct({
   name: t.String,
@@ -359,7 +359,7 @@ export default function App() {
 ```tsx
 import React, { useRef, useState, useMemo } from 'react';
 import { View, TouchableHighlight, Text } from 'react-native';
-import t from 'tcomb-form-native';
+import t from '@riebel/tcomb-form-native-ts';
 
 const Country = t.enums({
   'IT': 'Italy',
@@ -891,7 +891,7 @@ const options = {
 You can customize the look and feel by setting a custom stylesheet:
 
 ```typescript
-import t from 'tcomb-form-native';
+import t from '@riebel/tcomb-form-native-ts';
 
 // Define a custom stylesheet
 const customStylesheet = {
@@ -927,7 +927,7 @@ const options = {
 You can customize the layout by setting custom templates:
 
 ```typescript
-import t from 'tcomb-form-native';
+import t from '@riebel/tcomb-form-native-ts';
 
 const customTemplates = {
   // ... your templates here
