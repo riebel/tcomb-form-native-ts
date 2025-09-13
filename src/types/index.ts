@@ -65,6 +65,7 @@ export interface ComponentContext {
   stylesheet?: Stylesheet;
   config?: Record<string, unknown>;
   context?: ValidationContext;
+  validationAttempted?: boolean;
 }
 
 export interface ComponentOptions {
@@ -373,33 +374,6 @@ export interface ComponentProps {
 
 export interface UIDGenerator {
   next(): string;
-}
-
-export interface TcombValidation {
-  validate(value: unknown, type: TcombType): ValidationResult;
-
-  String: TcombType;
-  Number: TcombType;
-  Boolean: TcombType;
-  Date: TcombType;
-  Object: TcombType;
-  Array: TcombType;
-  Function: TcombType;
-  Nil: TcombType;
-
-  maybe(type: TcombType): TcombType;
-  list(type: TcombType): TcombType;
-  struct(props: Record<string, TcombType>): TcombType;
-  enums(map: Record<string, string>): TcombType;
-  union(types: TcombType[]): TcombType;
-  subtype(type: TcombType, predicate: (value: unknown) => boolean): TcombType;
-  refinement(type: TcombType, predicate: (value: unknown) => boolean): TcombType;
-
-  is(value: unknown, type: TcombType): boolean;
-  getTypeName(type: TcombType): string;
-  getDefaultProps(type: TcombType): Record<string, unknown>;
-
-  [key: string]: unknown;
 }
 
 export interface TextboxInstance {

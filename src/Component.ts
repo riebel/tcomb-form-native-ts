@@ -1,13 +1,15 @@
 import React from 'react';
 import {
-  ComponentProps,
   ComponentLocals,
-  ValidationResult,
-  ValidationOptions,
-  TypeInfo,
+  ComponentOptions,
+  ComponentProps,
+  TcombType,
   Transformer,
+  TypeInfo,
+  ValidationOptions,
+  ValidationResult,
 } from './types';
-import { getTypeInfo, merge, isNil } from './util';
+import { getTypeInfo, isNil, merge } from './util';
 
 const t = require('tcomb-validation');
 const SOURCE = 'tcomb-form-native';
@@ -39,6 +41,57 @@ export abstract class Component<
 
   static transformer: Transformer;
 
+  static getComponentRegistry(): Record<string, React.ComponentType<ComponentProps>> {
+    // Dynamic imports to avoid circular dependencies
+    const { Textbox } = require('./Textbox');
+    const { Select } = require('./Select');
+    const { Checkbox } = require('./Checkbox');
+    const { DatePicker } = require('./DatePicker');
+    const { List } = require('./List');
+    const { Struct } = require('./Struct');
+
+    return {
+      Textbox,
+      Select,
+      Checkbox,
+      DatePicker,
+      List,
+      Struct,
+    };
+  }
+
+  static resolveComponent(
+    type: TcombType | Record<string, unknown> | object | Function,
+    options: ComponentOptions,
+    containerName: string = 'Component',
+  ): React.ComponentType<ComponentProps> {
+    const { getFormComponentName, isTcombType } = require('./util');
+
+    if (options.factory) {
+      return options.factory as React.ComponentType<ComponentProps>;
+    }
+
+    if (
+      isTcombType(type) &&
+      'getTcombFormFactory' in type &&
+      typeof type.getTcombFormFactory === 'function'
+    ) {
+      return type.getTcombFormFactory(options);
+    }
+
+    const componentName = getFormComponentName(type, options);
+    const componentRegistry = Component.getComponentRegistry();
+    const ComponentClass = componentRegistry[componentName as keyof typeof componentRegistry];
+
+    if (!ComponentClass) {
+      throw new Error(
+        `[tcomb-form-native] Component ${componentName} not found in ${containerName}`,
+      );
+    }
+
+    return ComponentClass;
+  }
+
   shouldComponentUpdate(
     nextProps: ComponentProps,
     nextState: {
@@ -48,15 +101,15 @@ export abstract class Component<
       validationAttempted: boolean;
     },
   ): boolean {
-    const should =
+    return (
       nextState.value !== this.state.value ||
       nextState.hasError !== this.state.hasError ||
       nextState.hasBeenTouched !== this.state.hasBeenTouched ||
       nextState.validationAttempted !== this.state.validationAttempted ||
       nextProps.options !== this.props.options ||
       nextProps.type !== this.props.type ||
-      nextProps.value !== this.props.value;
-    return should;
+      nextProps.value !== this.props.value
+    );
   }
 
   componentDidUpdate(prevProps: ComponentProps): void {
@@ -68,6 +121,9 @@ export abstract class Component<
     }
     if (prevProps.options.hasError !== this.props.options.hasError) {
       this.forceUpdate();
+    }
+    if (this.props.ctx.validationAttempted && !this.state.validationAttempted) {
+      this.setState({ validationAttempted: true });
     }
   }
 
@@ -108,10 +164,6 @@ export abstract class Component<
     return this.state.hasBeenTouched;
   }
 
-  hasValidationBeenAttempted(): boolean {
-    return this.state.validationAttempted;
-  }
-
   pureValidate(): ValidationResult {
     if (
       typeof this.props.type !== 'object' ||
@@ -146,7 +198,11 @@ export abstract class Component<
     const ctx = this.props.ctx;
     if (ctx.label) {
       const i18n = this.getI18n();
-      const suffix = this.typeInfo.isMaybe ? i18n?.optional || '' : i18n?.required || '';
+      const isExplicitlyRequired = this.isFieldRequired();
+      const suffix =
+        this.typeInfo.isMaybe && !isExplicitlyRequired
+          ? i18n?.optional || ''
+          : i18n?.required || '';
       return ctx.label + suffix;
     }
   }
@@ -162,7 +218,13 @@ export abstract class Component<
       const isListItem = this.isListItem();
       if (!isListItem) {
         const i18n = this.getI18n();
-        const suffix = this.typeInfo.isMaybe ? i18n?.optional || '' : i18n?.required || '';
+        const isExplicitlyRequired = this.isFieldRequired();
+
+        const suffix =
+          this.typeInfo.isMaybe && !isExplicitlyRequired
+            ? i18n?.optional || ''
+            : i18n?.required || '';
+
         label = label + suffix;
       }
     }
@@ -173,6 +235,70 @@ export abstract class Component<
   private isListItem(): boolean {
     const path = this.props.ctx.path;
     return path && path.length > 0 && /^\d+$/.test(path[path.length - 1]);
+  }
+
+  private isFieldRequired(): boolean {
+    const path = this.props.ctx.path;
+
+    if (this.props.type && typeof this.props.type === 'object' && 'meta' in this.props.type) {
+      const meta = (this.props.type as { meta: { isRequired?: boolean } }).meta;
+      if (meta && meta.isRequired === true) {
+        return true;
+      }
+    }
+
+    const context = this.props.context || this.props.ctx.context;
+    if (
+      context &&
+      typeof context === 'object' &&
+      'required' in context &&
+      Array.isArray(context.required)
+    ) {
+      const fieldName = path && path.length > 0 ? path[path.length - 1] : '';
+      const isRequired = context.required.includes(fieldName);
+
+      if (isRequired) {
+        return true;
+      }
+    }
+
+    // Navigate through original JSON schema to find required fields for nested paths
+    if (context && typeof context === 'object' && 'originalSchema' in context) {
+      const originalSchema = context.originalSchema as Record<string, unknown>;
+      if (originalSchema && typeof originalSchema === 'object') {
+        let currentSchemaLevel = originalSchema;
+
+        for (let i = 0; i < (path?.length || 0) - 1; i++) {
+          const pathSegment = path![i];
+          if (currentSchemaLevel.properties && typeof currentSchemaLevel.properties === 'object') {
+            const properties = currentSchemaLevel.properties as Record<string, unknown>;
+            if (properties[pathSegment] && typeof properties[pathSegment] === 'object') {
+              currentSchemaLevel = properties[pathSegment] as Record<string, unknown>;
+            } else {
+              break;
+            }
+          } else {
+            break;
+          }
+        }
+
+        if (
+          currentSchemaLevel.required &&
+          Array.isArray(currentSchemaLevel.required) &&
+          path &&
+          path.length > 0
+        ) {
+          const fieldName = path[path.length - 1];
+          const isRequired = currentSchemaLevel.required.includes(fieldName);
+
+          if (isRequired) {
+            return true;
+          }
+        }
+      }
+    }
+
+    return !this.typeInfo.isMaybe;
   }
 
   getError(): string | undefined {
@@ -191,7 +317,21 @@ export abstract class Component<
   }
 
   hasError(): boolean {
-    return this.props.options.hasError || this.state.hasError;
+    if (this.props.options.hasError || this.state.hasError) {
+      return true;
+    }
+
+    const isRequired = this.isFieldRequired();
+    const isEmpty = this.isValueEmpty();
+    const validationAttempted =
+      this.state.validationAttempted || this.props.ctx.validationAttempted;
+    const hasBeenTouched = this.hasBeenTouched();
+
+    return !!(isRequired && isEmpty && (hasBeenTouched || validationAttempted));
+  }
+
+  protected isValueEmpty(): boolean {
+    return this.state.value === null || this.state.value === undefined || this.state.value === '';
   }
 
   getConfig(): Record<string, unknown> {

@@ -1,23 +1,28 @@
 import React, {
   forwardRef,
-  useImperativeHandle,
-  useState,
   useCallback,
-  useMemo,
   useEffect,
+  useImperativeHandle,
+  useMemo,
   useRef,
+  useState,
 } from 'react';
 import { View } from 'react-native';
 import {
+  ComponentContext,
+  ComponentProps,
   FormProps,
   FormRef,
-  ComponentContext,
-  ValidationResult,
-  ComponentProps,
   TcombType,
+  ValidationResult,
 } from './types';
-import { getTypeInfo } from './util';
-import { UIDGenerator, getFormComponentName, getComponentOptions, isTcombType } from './util';
+import {
+  getComponentOptions,
+  getFormComponentName,
+  getTypeInfo,
+  isTcombType,
+  UIDGenerator,
+} from './util';
 import { templates } from './templates/bootstrap';
 import { stylesheet } from './stylesheets/bootstrap';
 import { i18n } from './i18n/en';
@@ -27,6 +32,46 @@ import { Checkbox } from './Checkbox';
 import { DatePicker } from './DatePicker';
 import { List } from './List';
 import { Struct } from './Struct';
+
+function extractRequiredFieldMappings(obj: unknown): Record<string, string[]> {
+  const mappings: Record<string, string[]> = {};
+
+  if (!obj || typeof obj !== 'object') {
+    return mappings;
+  }
+
+  const schema = obj as Record<string, unknown>;
+
+  if (schema.properties && typeof schema.properties === 'object') {
+    const properties = schema.properties as Record<string, unknown>;
+
+    Object.entries(properties).forEach(([fieldName, fieldSchema]) => {
+      if (fieldSchema && typeof fieldSchema === 'object' && !Array.isArray(fieldSchema)) {
+        const fieldObj = fieldSchema as Record<string, unknown>;
+
+        if (fieldObj.required && Array.isArray(fieldObj.required)) {
+          mappings[fieldName] = fieldObj.required;
+        }
+
+        if (fieldObj.type === 'object' && fieldObj.properties) {
+          const nestedMappings = extractRequiredFieldMappings(fieldObj);
+          Object.assign(mappings, nestedMappings);
+
+          if (fieldObj.required && Array.isArray(fieldObj.required)) {
+            mappings[fieldName] = fieldObj.required;
+          }
+        }
+      }
+    });
+  }
+
+  if ('_originalSchema' in schema && schema._originalSchema) {
+    const nestedMappings = extractRequiredFieldMappings(schema._originalSchema);
+    Object.assign(mappings, nestedMappings);
+  }
+
+  return mappings;
+}
 
 const t = require('tcomb-validation');
 
@@ -52,10 +97,22 @@ function InnerForm<T>(props: FormProps<T>, ref: React.Ref<FormRef>) {
   } = props;
 
   const [formValue, setFormValue] = useState(value);
+  const validationAttemptedRef = useRef(false);
 
   useEffect(() => {
     setFormValue(value);
+    validationAttemptedRef.current = false;
   }, [value]);
+
+  useEffect(() => {
+    if (type) {
+      const requiredFieldMappings = extractRequiredFieldMappings(type);
+      if (Object.keys(requiredFieldMappings).length > 0) {
+        (globalThis as Record<string, unknown>).__TCOMB_SCHEMA_REQUIRED_FIELDS__ =
+          requiredFieldMappings;
+      }
+    }
+  }, [type]);
 
   const uidGenerator = useMemo(() => new UIDGenerator('form'), []);
 
@@ -65,6 +122,141 @@ function InnerForm<T>(props: FormProps<T>, ref: React.Ref<FormRef>) {
     () => ({ ...stylesheet, ...customStylesheet }),
     [customStylesheet],
   );
+
+  const rootRequiredFields = useMemo(() => {
+    if (
+      type &&
+      typeof type === 'object' &&
+      'jsonSchema' in type &&
+      typeof type.jsonSchema === 'object' &&
+      type.jsonSchema !== null
+    ) {
+      const jsonSchema = type.jsonSchema as { required?: string[] };
+      return Array.isArray(jsonSchema.required) ? jsonSchema.required : [];
+    }
+
+    if (
+      type &&
+      typeof type === 'object' &&
+      'required' in type &&
+      Array.isArray((type as { required: string[] }).required)
+    ) {
+      return (type as { required: string[] }).required;
+    }
+
+    return [];
+  }, [type]);
+
+  const originalSchema = useMemo(() => {
+    if (type && typeof type === 'object') {
+      if ('properties' in type && typeof type.properties === 'object') {
+        return type as Record<string, unknown>;
+      }
+
+      if ('_originalSchema' in type) {
+        return (type as Record<string, unknown>)._originalSchema as Record<string, unknown>;
+      }
+
+      if ('jsonSchema' in type && typeof type.jsonSchema === 'object') {
+        return type.jsonSchema as Record<string, unknown>;
+      }
+
+      if ('schema' in type && typeof type.schema === 'object') {
+        return type.schema as Record<string, unknown>;
+      }
+    }
+
+    if (type && typeof type === 'function') {
+      const tcombType = type as unknown as { meta?: Record<string, unknown> };
+      if (tcombType.meta) {
+        if ('_originalSchema' in tcombType.meta) {
+          return tcombType.meta._originalSchema as Record<string, unknown>;
+        }
+
+        if ('jsonSchema' in tcombType.meta) {
+          return tcombType.meta.jsonSchema as Record<string, unknown>;
+        }
+
+        if ('schema' in tcombType.meta) {
+          return tcombType.meta.schema as Record<string, unknown>;
+        }
+
+        // Reconstruct schema from tcomb props when original schema is unavailable
+        if ('props' in tcombType.meta && typeof tcombType.meta.props === 'object') {
+          const props = tcombType.meta.props as Record<string, unknown>;
+
+          const reconstructedSchema: Record<string, unknown> = {
+            type: 'object',
+            properties: {},
+          };
+
+          for (const [propName, propType] of Object.entries(props)) {
+            if (typeof propType === 'function') {
+              const propTcombType = propType as unknown as { meta?: Record<string, unknown> };
+              if (propTcombType.meta) {
+                if (propTcombType.meta.kind === 'struct' && 'props' in propTcombType.meta) {
+                  const nestedProps = propTcombType.meta.props as Record<string, unknown>;
+                  const nestedSchema: Record<string, unknown> = {
+                    type: 'object',
+                    properties: {},
+                    required: [],
+                  };
+
+                  for (const [nestedPropName, nestedPropType] of Object.entries(nestedProps)) {
+                    if (typeof nestedPropType === 'function') {
+                      const nestedTcombType = nestedPropType as unknown as {
+                        meta?: Record<string, unknown>;
+                      };
+                      const isRequired = nestedTcombType.meta?.kind !== 'maybe';
+
+                      if (isRequired) {
+                        (nestedSchema.required as string[]).push(nestedPropName);
+                      }
+
+                      (nestedSchema.properties as Record<string, unknown>)[nestedPropName] = {
+                        type: 'string',
+                      };
+                    }
+                  }
+
+                  (reconstructedSchema.properties as Record<string, unknown>)[propName] =
+                    nestedSchema;
+                }
+              }
+            }
+          }
+
+          if (Object.keys(reconstructedSchema.properties as Record<string, unknown>).length > 0) {
+            return reconstructedSchema;
+          }
+        }
+      }
+    }
+
+    if (context && typeof context === 'object' && 'originalSchema' in context) {
+      return context.originalSchema as Record<string, unknown>;
+    }
+
+    if (options && typeof options === 'object' && 'originalSchema' in options) {
+      return (options as Record<string, unknown>).originalSchema as Record<string, unknown>;
+    }
+
+    if (options && typeof options === 'object' && 'context' in options) {
+      const optionsContext = (options as Record<string, unknown>).context;
+      if (
+        optionsContext &&
+        typeof optionsContext === 'object' &&
+        'originalSchema' in optionsContext
+      ) {
+        return (optionsContext as Record<string, unknown>).originalSchema as Record<
+          string,
+          unknown
+        >;
+      }
+    }
+
+    return null;
+  }, [type, context, options]);
 
   const ctx: ComponentContext = useMemo(
     () => ({
@@ -76,7 +268,12 @@ function InnerForm<T>(props: FormProps<T>, ref: React.Ref<FormRef>) {
       path: [],
       stylesheet: mergedStylesheet,
       config: options.config,
-      context,
+      context: {
+        ...context,
+        required: rootRequiredFields,
+        originalSchema: originalSchema,
+      },
+      validationAttempted: validationAttemptedRef.current,
     }),
     [
       options.auto,
@@ -87,12 +284,16 @@ function InnerForm<T>(props: FormProps<T>, ref: React.Ref<FormRef>) {
       mergedStylesheet,
       uidGenerator,
       context,
+      rootRequiredFields,
+      originalSchema,
     ],
   );
 
   const handleChange = useCallback(
     (newValue: T, _path?: string[]) => {
       setFormValue(newValue);
+
+      validationAttemptedRef.current = false;
       if (onChange) {
         onChange(newValue, _path);
       }
@@ -107,20 +308,34 @@ function InnerForm<T>(props: FormProps<T>, ref: React.Ref<FormRef>) {
       try {
         childComponentRef.current.validate();
       } catch {
-        // Continue validation
+        console.error('Validation failed');
       }
     }
 
     if (!type || !('meta' in type) || !('is' in type)) {
-      const basicResult = {
+      return {
         isValid: () => true,
         value: formValue,
         errors: [],
       };
-      return basicResult;
     }
 
     let transformedValue = formValue;
+
+    if (transformedValue && typeof transformedValue === 'object') {
+      const typeMeta = type.meta as { kind?: string; props?: Record<string, TcombType> };
+      if (typeMeta?.kind === 'struct' && typeMeta.props) {
+        transformedValue = { ...transformedValue };
+        const structValue = transformedValue as Record<string, unknown>;
+
+        for (const [fieldName, fieldType] of Object.entries(typeMeta.props)) {
+          const fieldMeta = fieldType?.meta as { kind?: string };
+          if (fieldMeta?.kind === 'struct' && !structValue[fieldName]) {
+            structValue[fieldName] = {};
+          }
+        }
+      }
+    }
     const typeMeta = type.meta as { kind?: string };
 
     if (
@@ -297,7 +512,7 @@ function InnerForm<T>(props: FormProps<T>, ref: React.Ref<FormRef>) {
 
         if (Array.isArray(transformedValue) && transformedValue.length > 0) {
           const hasValidEntries = transformedValue.some(
-            item => item !== null && item !== undefined,
+            item => item !== null && item !== undefined && item !== '',
           );
           if (!hasValidEntries) {
             return {
@@ -348,7 +563,9 @@ function InnerForm<T>(props: FormProps<T>, ref: React.Ref<FormRef>) {
             }
 
             if (Array.isArray(fieldValue) && fieldValue.length > 0) {
-              const hasValidEntries = fieldValue.some(item => item !== null && item !== undefined);
+              const hasValidEntries = fieldValue.some(
+                item => item !== null && item !== undefined && item !== '' && item !== 'null',
+              );
               if (!hasValidEntries) {
                 return {
                   isValid: () => false,
@@ -374,8 +591,16 @@ function InnerForm<T>(props: FormProps<T>, ref: React.Ref<FormRef>) {
 
   const getValue = useCallback((): unknown => {
     try {
+      validationAttemptedRef.current = true;
+
       const result = validate();
-      return result.isValid() ? result.value : null;
+      const isValid = result.isValid();
+
+      if (isValid) {
+        return result.value;
+      } else {
+        return null;
+      }
     } catch {
       return null;
     }
@@ -481,7 +706,7 @@ function InnerForm<T>(props: FormProps<T>, ref: React.Ref<FormRef>) {
     return t.validate(formValue, type, { path: [], context });
   }, [formValue, type, context]);
 
-  const getComponent = useCallback((path: string[]): React.ComponentType<unknown> | null => {
+  const getComponent = useCallback((): React.ComponentType<unknown> | null => {
     return null;
   }, []);
   useImperativeHandle(

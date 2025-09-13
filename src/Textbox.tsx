@@ -130,26 +130,6 @@ export class Textbox extends Component<TextboxLocals> {
 
     return textboxLocals;
   }
-
-  hasError(): boolean {
-    if (this.props.options.hasError) {
-      return true;
-    }
-
-    const baseHasError = super.hasError();
-    if (baseHasError) {
-      return true;
-    }
-
-    const currentValue = this.state.value;
-    const isEmpty = currentValue === null || currentValue === undefined || currentValue === '';
-    const isRequired = !this.typeInfo.isMaybe;
-    const hasBeenTouched = this.hasBeenTouched();
-    const validationAttempted = this.hasValidationBeenAttempted();
-    const isCurrentlyInvalid = isEmpty && isRequired;
-
-    return isCurrentlyInvalid && (hasBeenTouched || validationAttempted);
-  }
 }
 
 Textbox.numberTransformer = {

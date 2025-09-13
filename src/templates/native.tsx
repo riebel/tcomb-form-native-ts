@@ -15,7 +15,6 @@ export function NativeTextboxTemplate(locals: TextboxLocals): React.ReactElement
     autoCapitalize,
     autoCorrect,
     autoFocus,
-    blurOnSubmit,
     editable,
     maxLength,
     multiline,
@@ -71,7 +70,6 @@ export function NativeTextboxTemplate(locals: TextboxLocals): React.ReactElement
         autoCapitalize={autoCapitalize}
         autoCorrect={autoCorrect}
         autoFocus={autoFocus}
-        blurOnSubmit={blurOnSubmit}
         editable={editable}
         maxLength={maxLength}
         multiline={multiline}
