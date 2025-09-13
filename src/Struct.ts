@@ -1,26 +1,20 @@
 import React from 'react';
 import { Component } from './Component';
 import {
+  ComponentOptions,
+  ComponentProps,
   StructLocals,
   StructOptions,
-  ComponentProps,
   TcombType,
-  ComponentOptions,
   ValidationError,
 } from './types';
 import {
-  getTypeFromUnion,
   getComponentOptions,
-  getFormComponentName,
-  isTcombType,
+  getTypeFromUnion,
   humanize,
   inferTypeFromFieldOptions,
+  isTcombType,
 } from './util';
-import { Textbox } from './Textbox';
-import { Select } from './Select';
-import { Checkbox } from './Checkbox';
-import { DatePicker } from './DatePicker';
-import { List } from './List';
 
 export class Struct extends Component<StructLocals> {
   getTemplate(): React.ComponentType<StructLocals> {
@@ -82,9 +76,7 @@ export class Struct extends Component<StructLocals> {
       }
 
       if (kind === 'validationStateChange') {
-        // Don't trigger full validation on all fields when one field changes
-        // This prevents untouched fields from showing validation errors
-        // Individual fields will validate themselves when touched or when form is submitted
+        // Prevent untouched fields from showing validation errors
         setTimeout(() => {
           this.updateValidationState();
         }, 0);
@@ -95,7 +87,6 @@ export class Struct extends Component<StructLocals> {
   updateValidationState(): void {
     let hasError = false;
 
-    // Check if any child components currently have errors
     Object.keys(this.inputRefs).forEach(ref => {
       const child = this.inputRefs[ref];
       if (child && typeof child.hasError === 'function' && child.hasError()) {
@@ -103,7 +94,6 @@ export class Struct extends Component<StructLocals> {
       }
     });
 
-    // Update our own error state based on child states, but don't force validation
     this.setState({ hasError });
   }
 
@@ -121,9 +111,12 @@ export class Struct extends Component<StructLocals> {
       const modifiedProps: Record<string, unknown> = {};
       for (const [propName, propType] of Object.entries(props)) {
         if (propType && typeof propType === 'object' && 'meta' in propType) {
-          const meta = (propType as { meta: { kind: string } }).meta;
+          const meta = (propType as { meta: { kind: string; isRequired?: boolean } }).meta;
 
-          if (meta.kind === 'struct') {
+          // Preserve isRequired metadata for tcomb struct fields
+          if (meta.isRequired) {
+            modifiedProps[propName] = propType;
+          } else if (meta.kind === 'struct') {
             modifiedProps[propName] = t.maybe(propType as TcombType);
           } else {
             modifiedProps[propName] = propType;
@@ -143,6 +136,8 @@ export class Struct extends Component<StructLocals> {
         const schemaProps = plainObject.properties as Record<string, unknown>;
         props = {};
 
+        const requiredFields = Array.isArray(plainObject.required) ? plainObject.required : [];
+
         for (const [key, schemaProp] of Object.entries(schemaProps)) {
           if (typeof schemaProp === 'object' && schemaProp !== null) {
             const propDef = schemaProp as Record<string, unknown>;
@@ -154,60 +149,38 @@ export class Struct extends Component<StructLocals> {
               };
             }
 
+            const isFieldRequired = requiredFields.includes(key);
+
             if (propDef.type === 'string') {
-              props[key] = { meta: { kind: 'irreducible' }, displayName: 'String' };
+              props[key] = {
+                meta: { kind: 'irreducible', isRequired: isFieldRequired },
+                displayName: 'String',
+              };
             } else if (propDef.type === 'number') {
-              props[key] = { meta: { kind: 'irreducible' }, displayName: 'Number' };
+              props[key] = {
+                meta: { kind: 'irreducible', isRequired: isFieldRequired },
+                displayName: 'Number',
+              };
             } else if (propDef.type === 'boolean') {
-              props[key] = { meta: { kind: 'irreducible' }, displayName: 'Boolean' };
+              props[key] = {
+                meta: { kind: 'irreducible', isRequired: isFieldRequired },
+                displayName: 'Boolean',
+              };
             } else if (propDef.type === 'object' && propDef.properties) {
-              props[key] = propDef;
+              props[key] = { ...propDef, isRequired: isFieldRequired };
             } else {
-              props[key] = { meta: { kind: 'irreducible' }, displayName: 'String' };
+              props[key] = {
+                meta: { kind: 'irreducible', isRequired: isFieldRequired },
+                displayName: 'String',
+              };
             }
           }
         }
       } else {
-        props = {};
-        for (const [fieldName, fieldOptions] of Object.entries(fieldsOptions)) {
-          if (fieldOptions && typeof fieldOptions === 'object' && 'fields' in fieldOptions) {
-            const isStructRequired = false;
-
-            const t = require('tcomb-validation');
-            let resultType: TcombType;
-            if (isStructRequired) {
-              resultType = t.struct({}, 'Struct');
-              props[fieldName] = resultType;
-            } else {
-              const baseStructType = t.struct({}, 'Struct');
-              resultType = t.maybe(baseStructType);
-              props[fieldName] = resultType;
-            }
-          } else if (fieldOptions && typeof fieldOptions === 'object') {
-            props[fieldName] = inferTypeFromFieldOptions(fieldOptions as Record<string, unknown>);
-          }
-        }
+        props = this.processFieldsOptions(fieldsOptions);
       }
     } else {
-      props = {};
-      for (const [fieldName, fieldOptions] of Object.entries(fieldsOptions)) {
-        if (fieldOptions && typeof fieldOptions === 'object' && 'fields' in fieldOptions) {
-          const isStructRequired = false;
-
-          const t = require('tcomb-validation');
-          let resultType: TcombType;
-          if (isStructRequired) {
-            resultType = t.struct({}, 'Struct');
-            props[fieldName] = resultType;
-          } else {
-            const baseStructType = t.struct({}, 'Struct');
-            resultType = t.maybe(baseStructType);
-            props[fieldName] = resultType;
-          }
-        } else if (fieldOptions && typeof fieldOptions === 'object') {
-          props[fieldName] = inferTypeFromFieldOptions(fieldOptions as Record<string, unknown>);
-        }
-      }
+      props = this.processFieldsOptions(fieldsOptions);
     }
 
     const inputs: Record<string, React.ReactElement> = {};
@@ -262,6 +235,80 @@ export class Struct extends Component<StructLocals> {
 
         const FieldComponent = this.getFieldComponent(finalPropType, propOptions);
 
+        // Pass required field information to child components
+        let contextWithRequired = ctx.context;
+
+        // For nested objects, extract and pass their required array
+        if (finalPropType && typeof finalPropType === 'object' && 'required' in finalPropType) {
+          const nestedObject = finalPropType as Record<string, unknown>;
+          if (Array.isArray(nestedObject.required)) {
+            contextWithRequired = {
+              ...ctx.context,
+              required: nestedObject.required,
+            };
+          }
+        } else if (props[prop] && typeof props[prop] === 'object' && 'required' in props[prop]) {
+          const originalNestedObject = props[prop] as Record<string, unknown>;
+          if (Array.isArray(originalNestedObject.required)) {
+            contextWithRequired = {
+              ...ctx.context,
+              required: originalNestedObject.required,
+            };
+          }
+        } else {
+          // Look up required array from original schema attached to root type
+          const rootType = this.props.type;
+          if (rootType && typeof rootType === 'object' && '_originalSchema' in rootType) {
+            const originalSchema = (
+              rootType as Record<string, unknown> & { _originalSchema: Record<string, unknown> }
+            )._originalSchema;
+            if (
+              originalSchema &&
+              originalSchema.properties &&
+              typeof originalSchema.properties === 'object'
+            ) {
+              const properties = originalSchema.properties as Record<string, unknown>;
+              if (properties[prop] && typeof properties[prop] === 'object') {
+                const propSchema = properties[prop] as Record<string, unknown>;
+                if (propSchema && propSchema.required && Array.isArray(propSchema.required)) {
+                  contextWithRequired = {
+                    ...ctx.context,
+                    required: propSchema.required,
+                  };
+                }
+              }
+            }
+          }
+        }
+
+        if (
+          typeof this.props.type === 'object' &&
+          this.props.type !== null &&
+          !Array.isArray(this.props.type)
+        ) {
+          const plainObject = this.props.type as Record<string, unknown>;
+          if (plainObject.required && Array.isArray(plainObject.required)) {
+            contextWithRequired = {
+              ...ctx.context,
+              required: plainObject.required,
+            };
+          }
+        }
+
+        // Check for required arrays in global registry
+        const globalRegistry = (globalThis as Record<string, unknown>)
+          .__TCOMB_SCHEMA_REQUIRED_FIELDS__;
+        if (globalRegistry && typeof globalRegistry === 'object') {
+          const registryObject = globalRegistry as Record<string, unknown>;
+          const fieldRequiredArray = registryObject[prop];
+          if (Array.isArray(fieldRequiredArray)) {
+            contextWithRequired = {
+              ...ctx.context,
+              required: fieldRequiredArray,
+            };
+          }
+        }
+
         inputs[prop] = React.createElement(FieldComponent, {
           key: prop,
           ref: (ref: unknown) => {
@@ -273,7 +320,7 @@ export class Struct extends Component<StructLocals> {
           onChange: (value: unknown, path: string[], kind?: string) =>
             this.onFieldChange(prop, value, path, kind),
           ctx: {
-            context: ctx.context,
+            context: contextWithRequired,
             uidGenerator: ctx.uidGenerator,
             auto: this.getAuto(),
             config: this.getConfig(),
@@ -282,8 +329,9 @@ export class Struct extends Component<StructLocals> {
             stylesheet: this.getStylesheet(),
             templates: ctx.templates,
             path: ctx.path.concat(prop),
+            validationAttempted: ctx.validationAttempted,
           },
-          context: this.props.context,
+          context: contextWithRequired,
         } as ComponentProps);
       }
     }
@@ -291,38 +339,36 @@ export class Struct extends Component<StructLocals> {
     return inputs;
   }
 
+  private processFieldsOptions(fieldsOptions: Record<string, unknown>): Record<string, TcombType> {
+    const props: Record<string, TcombType> = {};
+
+    for (const [fieldName, fieldOptions] of Object.entries(fieldsOptions)) {
+      if (fieldOptions && typeof fieldOptions === 'object' && 'fields' in fieldOptions) {
+        const isStructRequired = false;
+
+        const t = require('tcomb-validation');
+        let resultType: TcombType;
+        if (isStructRequired) {
+          resultType = t.struct({}, 'Struct');
+          props[fieldName] = resultType;
+        } else {
+          const baseStructType = t.struct({}, 'Struct');
+          resultType = t.maybe(baseStructType);
+          props[fieldName] = resultType;
+        }
+      } else if (fieldOptions && typeof fieldOptions === 'object') {
+        props[fieldName] = inferTypeFromFieldOptions(fieldOptions as Record<string, unknown>);
+      }
+    }
+
+    return props;
+  }
+
   private getFieldComponent(
     type: TcombType | Record<string, unknown> | object | Function,
     options: ComponentOptions,
   ): React.ComponentType<ComponentProps> {
-    const componentRegistry: Record<string, React.ComponentType<ComponentProps>> = {
-      Textbox: Textbox as React.ComponentType<ComponentProps>,
-      Select: Select as React.ComponentType<ComponentProps>,
-      Checkbox: Checkbox as React.ComponentType<ComponentProps>,
-      DatePicker: DatePicker as React.ComponentType<ComponentProps>,
-      List: List as React.ComponentType<ComponentProps>,
-      Struct: Struct as React.ComponentType<ComponentProps>,
-    };
-
-    if (options.factory) {
-      return options.factory as React.ComponentType<ComponentProps>;
-    }
-    if (
-      isTcombType(type) &&
-      'getTcombFormFactory' in type &&
-      typeof type.getTcombFormFactory === 'function'
-    ) {
-      return type.getTcombFormFactory(options);
-    }
-
-    const componentName = getFormComponentName(type, options);
-    const ComponentClass = componentRegistry[componentName as keyof typeof componentRegistry];
-
-    if (!ComponentClass) {
-      throw new Error(`[tcomb-form-native] Component ${componentName} not found in Struct`);
-    }
-
-    return ComponentClass;
+    return Component.resolveComponent(type, options, 'Struct');
   }
 
   getLocals(): StructLocals {
@@ -330,13 +376,11 @@ export class Struct extends Component<StructLocals> {
     const inputs = this.getInputs();
     const order = this.getOrder();
 
-    const structLocals: StructLocals = {
+    return {
       ...locals,
       order: order,
       inputs: inputs,
     };
-
-    return structLocals;
   }
 
   private readonly inputRefs: Record<string, Component | null> = {};
@@ -453,6 +497,19 @@ export class Struct extends Component<StructLocals> {
                 const fieldName = error.path[0];
                 if (!newFieldErrors[fieldName]) {
                   newFieldErrors[fieldName] = error.message || 'Validation error';
+                }
+
+                if (error.path.length > 1) {
+                  const nestedFieldName = error.path[error.path.length - 1];
+                  const nestedFieldKey = `${fieldName}.${nestedFieldName}`;
+
+                  if (!newFieldErrors[nestedFieldKey]) {
+                    newFieldErrors[nestedFieldKey] = error.message || 'Validation error';
+                  }
+                  // Also map directly to the nested field name for child struct components
+                  if (!newFieldErrors[nestedFieldName]) {
+                    newFieldErrors[nestedFieldName] = error.message || 'Validation error';
+                  }
                 }
               }
             });

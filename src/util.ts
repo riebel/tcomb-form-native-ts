@@ -1,9 +1,9 @@
 import {
+  ComponentOptions,
   TcombType,
   TypeInfo,
-  ValidationContext,
-  ComponentOptions,
   UIDGenerator as IUIDGenerator,
+  ValidationContext,
 } from './types';
 
 const t = require('tcomb-validation');
@@ -23,12 +23,10 @@ export function getOptionsOfEnum(type: TcombType): Array<{ value: string; text: 
   const keys = Object.keys(enums);
   const filteredKeys = keys.filter(value => typeof enums[value] !== 'undefined');
 
-  const options = filteredKeys.map(value => ({
+  return filteredKeys.map(value => ({
     value,
     text: String(enums[value]),
   }));
-
-  return options;
 }
 
 export function getTypeInfo(
@@ -137,7 +135,7 @@ export function move<T>(arr: T[], fromIndex: number, toIndex: number): T[] {
 }
 
 export class UIDGenerator implements IUIDGenerator {
-  private seed: string;
+  private readonly seed: string;
   private counter: number;
 
   constructor(seed: string) {
@@ -220,8 +218,7 @@ export function getTypeFromUnion(
   value: unknown,
 ): TcombType | Record<string, unknown> | object | Function {
   if (isTcombType(type) && containsUnion(type)) {
-    const concreteType = getUnionConcreteType(type, value);
-    return concreteType;
+    return getUnionConcreteType(type, value);
   }
   return type;
 }
@@ -277,7 +274,6 @@ export function getComponentOptions(
     ...finalOptions,
   };
 
-  // Merge fields options instead of replacing
   if (defaultOptions.fields && finalOptions.fields) {
     mergedOptions.fields = {
       ...defaultOptions.fields,
@@ -324,42 +320,10 @@ export function inferTypeFromFieldOptions(fieldOptions: Record<string, unknown>)
   }
 
   if (isOptional) {
-    const result = t.maybe(baseType);
-    return result;
+    return t.maybe(baseType);
   }
 
   return baseType;
-}
-
-export function convertPlainObjectToTcombStruct(
-  obj: Record<string, unknown>,
-  name?: string,
-): TcombType {
-  const props: Record<string, TcombType> = {};
-
-  for (const [key, value] of Object.entries(obj)) {
-    if (typeof value === 'object' && value !== null && 'type' in value) {
-      const schemaProp = value as Record<string, unknown>;
-
-      if (schemaProp.type === 'string') {
-        props[key] = t.maybe(t.String);
-      } else if (schemaProp.type === 'number') {
-        props[key] = t.maybe(t.Number);
-      } else if (schemaProp.type === 'boolean') {
-        props[key] = t.maybe(t.Boolean);
-      } else if (schemaProp.type === 'object' && schemaProp.properties) {
-        props[key] = t.maybe(
-          convertPlainObjectToTcombStruct(schemaProp.properties as Record<string, unknown>, key),
-        );
-      } else {
-        props[key] = t.maybe(t.String);
-      }
-    } else {
-      props[key] = t.maybe(t.String);
-    }
-  }
-
-  return t.struct(props, name);
 }
 
 export function toNull(value: unknown): unknown {
@@ -379,6 +343,10 @@ export function getFormComponentName(
   type: TcombType | Record<string, unknown> | object | Function,
   options: ComponentOptions,
 ): string {
+  if (options.item) {
+    return 'List';
+  }
+
   if (options.factory) {
     return 'Custom';
   }
@@ -386,9 +354,27 @@ export function getFormComponentName(
   if (!isTcombType(type)) {
     if (typeof type === 'object' && type !== null && !Array.isArray(type)) {
       const obj = type as Record<string, unknown>;
+
+      if (obj.type === 'string') {
+        return 'Textbox';
+      }
+      if (obj.type === 'number') {
+        return 'Textbox';
+      }
+      if (obj.type === 'boolean') {
+        return 'Checkbox';
+      }
+      if (obj.type === 'array') {
+        return 'List';
+      }
+      if (obj.type === 'object') {
+        return 'Struct';
+      }
+
       if (obj.multiline === true) {
         return 'Textbox';
       }
+
       return 'Struct';
     }
     return 'Struct';

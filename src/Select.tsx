@@ -1,9 +1,9 @@
 import React from 'react';
-import { View, Text, Platform } from 'react-native';
+import { Platform, Text, View } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { Component } from './Component';
-import { SelectLocals, SelectOptions, SelectOption, Transformer, TcombType } from './types';
-import { getOptionsOfEnum, getComparator } from './util';
+import { SelectLocals, SelectOption, SelectOptions, TcombType, Transformer } from './types';
+import { getComparator, getOptionsOfEnum } from './util';
 
 const t = require('tcomb-validation');
 const Nil = t.Nil;
@@ -69,15 +69,13 @@ export class Select extends Component<SelectLocals> {
         text: String(opt.text ?? ''),
       }));
 
-    const selectLocals: SelectLocals = {
+    return {
       ...locals,
       options: legacyOptions,
       isCollapsed: options.isCollapsed,
       onCollapseChange: options.onCollapseChange,
       value: String(formattedValue ?? ''),
     };
-
-    return selectLocals;
   }
 
   getOptions(): SelectOption[] {
@@ -115,29 +113,14 @@ export class Select extends Component<SelectLocals> {
     return SelectClass.transformer(nullOption);
   }
 
-  hasError(): boolean {
-    if (this.props.options.hasError) {
-      return true;
-    }
-
-    const baseHasError = super.hasError();
-    if (baseHasError) {
-      return true;
-    }
-
-    const currentValue = this.state.value;
+  protected isValueEmpty(): boolean {
     const nullOption = this.getNullOption();
-    const isEmpty =
-      currentValue === null ||
-      currentValue === undefined ||
-      currentValue === '' ||
-      currentValue === nullOption.value;
-    const isRequired = !this.typeInfo.isMaybe;
-    const hasBeenTouched = this.hasBeenTouched();
-    const validationAttempted = this.hasValidationBeenAttempted();
-    const isCurrentlyInvalid = isEmpty && isRequired;
-
-    return isCurrentlyInvalid && (hasBeenTouched || validationAttempted);
+    return (
+      this.state.value === null ||
+      this.state.value === undefined ||
+      this.state.value === '' ||
+      this.state.value === nullOption.value
+    );
   }
 }
 

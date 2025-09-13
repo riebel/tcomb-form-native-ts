@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, Platform, GestureResponderEvent } from 'react-native';
+import { Platform, Text, TouchableOpacity, View } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Component } from './Component';
 import { DatePickerLocals, DatePickerOptions, Transformer } from './types';
@@ -61,7 +61,7 @@ export function NativeDatePickerTemplate(locals: DatePickerLocals): React.ReactE
     }
   };
 
-  const handleTouchablePress = (event: GestureResponderEvent) => {
+  const handleTouchablePress = () => {
     if (disabled) {
       return;
     }
@@ -89,7 +89,6 @@ export function NativeDatePickerTemplate(locals: DatePickerLocals): React.ReactE
         onChange(selectedDate);
       }
     } else {
-      // Handle clearing the date
       onChange(null);
     }
   };
@@ -111,28 +110,23 @@ export function NativeDatePickerTemplate(locals: DatePickerLocals): React.ReactE
       return '';
     }
 
-    // Convert value to Date object if it's a string
     const dateValue = value instanceof Date ? value : new Date(String(value));
 
-    // Check if the date is valid
     if (isNaN(dateValue.getTime())) {
       return '';
     }
 
-    // Format in local timezone instead of UTC to avoid timezone offset issues
+    // Format in local timezone to avoid timezone offset issues
     switch (mode) {
       case 'time':
-        // Format as HH:MM in local time
         return dateValue.toTimeString().substring(0, 5);
       case 'date': {
-        // Format as YYYY-MM-DD in local time
         const year = dateValue.getFullYear();
         const month = String(dateValue.getMonth() + 1).padStart(2, '0');
         const day = String(dateValue.getDate()).padStart(2, '0');
         return `${year}-${month}-${day}`;
       }
       case 'datetime': {
-        // Format as YYYY-MM-DDTHH:MM in local time
         const yearDT = dateValue.getFullYear();
         const monthDT = String(dateValue.getMonth() + 1).padStart(2, '0');
         const dayDT = String(dateValue.getDate()).padStart(2, '0');
@@ -159,7 +153,6 @@ export function NativeDatePickerTemplate(locals: DatePickerLocals): React.ReactE
   });
 
   if (isWeb) {
-    // Web version using HTML input
     return (
       <View style={formGroupStyle}>
         {label && <Text style={controlLabelStyle}>{label}</Text>}
@@ -259,7 +252,7 @@ export class DatePicker extends Component<DatePickerLocals> {
     const locals = super.getLocals();
     const options = this.props.options as DatePickerOptions;
 
-    const datePickerLocals: DatePickerLocals = {
+    return {
       ...locals,
       mode: options.mode,
       minimumDate: options.minimumDate,
@@ -270,28 +263,10 @@ export class DatePicker extends Component<DatePickerLocals> {
       disabled: 'disabled' in options ? (options.disabled as boolean | undefined) : undefined,
       onPress: 'onPress' in options ? (options.onPress as (() => void) | undefined) : undefined,
     } as DatePickerLocals;
-
-    return datePickerLocals;
   }
 
-  hasError(): boolean {
-    if (this.props.options.hasError) {
-      return true;
-    }
-
-    const baseHasError = super.hasError();
-    if (baseHasError) {
-      return true;
-    }
-
-    const currentValue = this.state.value;
-    const isEmpty = currentValue === null || currentValue === undefined;
-    const isRequired = !this.typeInfo.isMaybe;
-    const hasBeenTouched = this.hasBeenTouched();
-    const validationAttempted = this.hasValidationBeenAttempted();
-    const isCurrentlyInvalid = isEmpty && isRequired;
-
-    return isCurrentlyInvalid && (hasBeenTouched || validationAttempted);
+  protected isValueEmpty(): boolean {
+    return this.state.value === null || this.state.value === undefined;
   }
 }
 

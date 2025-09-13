@@ -2,27 +2,16 @@ import React from 'react';
 import { TextStyle } from 'react-native';
 import { Component } from './Component';
 import {
+  Button,
+  ComponentOptions,
+  ComponentProps,
+  ListItem,
   ListLocals,
   ListOptions,
-  ListItem,
-  Button,
-  ComponentProps,
-  Transformer,
   TcombType,
-  ComponentOptions,
+  Transformer,
 } from './types';
-import {
-  getTypeFromUnion,
-  move,
-  getFormComponentName,
-  getComponentOptions,
-  isTcombType,
-} from './util';
-import { Textbox } from './Textbox';
-import { Select } from './Select';
-import { Checkbox } from './Checkbox';
-import { DatePicker } from './DatePicker';
-import { Struct } from './Struct';
+import { getComponentOptions, getTypeFromUnion, isTcombType, move } from './util';
 
 const t = require('tcomb-validation');
 const Nil = t.Nil;
@@ -38,17 +27,25 @@ export class List extends Component<ListLocals> {
   getItemType(): TcombType | Record<string, unknown> | null {
     let type = this.props.type;
 
-    // Handle Maybe types - unwrap to get the inner List type
     if (isTcombType(type) && type.meta && type.meta.kind === 'maybe' && type.meta.type) {
       type = type.meta.type;
     }
 
-    // Handle tcomb List types
-    if (isTcombType(type) && type.meta && type.meta.type) {
+    if (isTcombType(type) && type.meta && type.meta.kind === 'list' && type.meta.type) {
       return type.meta.type;
     }
 
-    // Handle JSON Schema objects
+    // Use options.item for custom item configuration
+    const options = this.props.options as ListOptions;
+    if (options && options.item) {
+      // Create a simple string type for person selection
+      return {
+        type: 'string',
+        format: 'person',
+        ...options.item,
+      } as Record<string, unknown>;
+    }
+
     if (typeof type === 'object' && type !== null && !Array.isArray(type)) {
       const schema = type as Record<string, unknown>;
       if (schema.type === 'array' && schema.items) {
@@ -71,32 +68,12 @@ export class List extends Component<ListLocals> {
     );
   }
 
-  hasError(): boolean {
-    if (this.props.options.hasError) {
-      return true;
-    }
-
-    const baseHasError = super.hasError();
-    if (baseHasError) {
-      return true;
-    }
-
-    const currentValue = this.state.value as unknown[];
-    const isEmpty = !Array.isArray(currentValue) || currentValue.length === 0;
-    const isRequired = !this.typeInfo.isMaybe;
-    const hasBeenTouched = this.hasBeenTouched();
-    const validationAttempted = this.hasValidationBeenAttempted();
-
-    if (!isRequired) {
-      return false;
-    }
-
+  protected isValueEmpty(): boolean {
+    const arrayValue = this.state.value as unknown[];
+    const isEmpty = !Array.isArray(arrayValue) || arrayValue.length === 0;
     const isNullyValues =
-      Array.isArray(currentValue) &&
-      currentValue.every(item => item === null || item === undefined);
-    const isCurrentlyInvalid = isEmpty || isNullyValues;
-
-    return isCurrentlyInvalid && (hasBeenTouched || validationAttempted);
+      Array.isArray(arrayValue) && arrayValue.every(item => item === null || item === undefined);
+    return isEmpty || isNullyValues;
   }
 
   componentDidUpdate(prevProps: ComponentProps): void {
@@ -213,7 +190,6 @@ export class List extends Component<ListLocals> {
 
   getItems(): ListItem[] {
     const { options, ctx } = this.props;
-
     const value = this.state.value as unknown[];
 
     if (!value || !Array.isArray(value)) {
@@ -328,7 +304,7 @@ export class List extends Component<ListLocals> {
           type: actualItemType,
           options: finalOptions,
           value: itemValue,
-          onChange: (val: unknown, path?: string[], kind?: string) => this.onItemChange(i)(val),
+          onChange: (val: unknown) => this.onItemChange(i)(val),
           ctx: {
             context: ctx.context,
             uidGenerator: ctx.uidGenerator,
@@ -352,34 +328,7 @@ export class List extends Component<ListLocals> {
     type: TcombType | Record<string, unknown>,
     options: ComponentOptions,
   ): React.ComponentType<ComponentProps> {
-    const componentRegistry: Record<string, React.ComponentType<ComponentProps>> = {
-      Textbox: Textbox as React.ComponentType<ComponentProps>,
-      Select: Select as React.ComponentType<ComponentProps>,
-      Checkbox: Checkbox as React.ComponentType<ComponentProps>,
-      DatePicker: DatePicker as React.ComponentType<ComponentProps>,
-      List: List as React.ComponentType<ComponentProps>,
-      Struct: Struct as React.ComponentType<ComponentProps>,
-    };
-
-    if (options.factory) {
-      return options.factory as React.ComponentType<ComponentProps>;
-    }
-    if (
-      isTcombType(type) &&
-      'getTcombFormFactory' in type &&
-      typeof type.getTcombFormFactory === 'function'
-    ) {
-      return type.getTcombFormFactory(options);
-    }
-
-    const componentName = getFormComponentName(type, options);
-    const ComponentClass = componentRegistry[componentName as keyof typeof componentRegistry];
-
-    if (!ComponentClass) {
-      throw new Error(`[tcomb-form-native] Component ${componentName} not found in List`);
-    }
-
-    return ComponentClass;
+    return Component.resolveComponent(type, options, 'List');
   }
 
   getLocals(): ListLocals {
@@ -388,7 +337,7 @@ export class List extends Component<ListLocals> {
 
     const i18n = this.getI18n();
 
-    const listLocals: ListLocals = {
+    return {
       ...locals,
       add: {
         disabled: Boolean(options.disableAdd),
@@ -402,8 +351,6 @@ export class List extends Component<ListLocals> {
       label: String(locals.label || ''),
       stylesheet: locals.stylesheet as { [index: string]: { [index: string]: TextStyle } },
     };
-
-    return listLocals;
   }
 
   isValueNully(): boolean {
@@ -435,9 +382,7 @@ export class List extends Component<ListLocals> {
       }
     }
 
-    const parsedValue = this.getTransformer().parse(value) as unknown[];
-
-    return parsedValue;
+    return this.getTransformer().parse(value) as unknown[];
   }
 
   validate() {
@@ -469,25 +414,12 @@ export class List extends Component<ListLocals> {
       Array.isArray(currentValue) &&
       currentValue.every(item => item === null || item === undefined);
 
+    // Handle optional (Maybe) arrays
     if (this.typeInfo.isMaybe && (isEmptyArray || isNullyValues)) {
       return new t.ValidationResult({ errors: [], value: null });
     }
 
-    if (
-      this.typeInfo.isMaybe &&
-      currentValue &&
-      Array.isArray(currentValue) &&
-      currentValue.length > 0
-    ) {
-      for (let i = 0, len = currentValue.length; i < len; i++) {
-        const result = this.itemRefs[i]?.validate?.();
-        if (result) {
-          value.push(result.value);
-        }
-      }
-      return new t.ValidationResult({ errors: [], value });
-    }
-
+    // Handle required arrays that are empty or have only null/undefined values
     if (!this.typeInfo.isMaybe && (isEmptyArray || isNullyValues)) {
       const errorMessage = this.getI18n()?.required || 'This field is required';
       return new t.ValidationResult({
@@ -501,7 +433,8 @@ export class List extends Component<ListLocals> {
       });
     }
 
-    if (currentValue && Array.isArray(currentValue)) {
+    // Handle arrays with actual values (both Maybe and required)
+    if (currentValue && Array.isArray(currentValue) && currentValue.length > 0) {
       for (let i = 0, len = currentValue.length; i < len; i++) {
         const result = this.itemRefs[i]?.validate?.();
         if (result) {
@@ -509,16 +442,17 @@ export class List extends Component<ListLocals> {
           value.push(result.value);
         }
       }
-    }
 
-    if (this.typeInfo.isSubtype && errors.length === 0) {
-      if (value.length > 0) {
+      // Apply subtype validation if needed
+      if (this.typeInfo.isSubtype && errors.length === 0 && value.length > 0) {
         const result = t.validate(value, this.props.type, this.getValidationOptions());
         errors = errors.concat(result.errors);
       }
+
+      return new t.ValidationResult({ errors, value });
     }
 
-    return new t.ValidationResult({ errors, value });
+    return new t.ValidationResult({ errors: [], value: [] });
   }
 }
 
