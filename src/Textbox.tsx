@@ -18,19 +18,6 @@ export class Textbox extends Component<TextboxLocals> {
     }
 
     if (this.typeInfo.innerType === t.Number) {
-      if (!Textbox.numberTransformer) {
-        Textbox.numberTransformer = {
-          format: (value: string | number) => (Nil.is(value) ? null : String(value)),
-          parse: (value: string | null) => {
-            if (value) {
-              const normalizedValue = value.replace(/,/g, '.');
-              return parseNumber(normalizedValue);
-            }
-            return parseNumber(value);
-          },
-        };
-      }
-
       return {
         format: Textbox.numberTransformer.format as (value: unknown) => unknown,
         parse: (value: unknown) => {
@@ -39,13 +26,6 @@ export class Textbox extends Component<TextboxLocals> {
           }
           return Textbox.numberTransformer.parse(String(value));
         },
-      };
-    }
-
-    if (!Textbox.transformer) {
-      Textbox.transformer = {
-        format: (value: unknown) => (Nil.is(value) ? '' : String(value)),
-        parse: (value: unknown) => toNull(value),
       };
     }
 
@@ -133,7 +113,7 @@ export class Textbox extends Component<TextboxLocals> {
 }
 
 Textbox.numberTransformer = {
-  format: (value: string | number) => (Nil.is(value) ? null : String(value)),
+  format: (value: string | number) => (Nil.is(value) ? '' : String(value)),
   parse: (value: string | null) => {
     if (value) {
       const normalizedValue = value.replace(/,/g, '.');

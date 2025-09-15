@@ -61,7 +61,7 @@ export function NativeTextboxTemplate(locals: TextboxLocals): React.ReactElement
       {label && <Text style={controlLabelStyle}>{label}</Text>}
       <TextInput
         style={[textboxStyle, style]}
-        value={value as string}
+        value={value == null ? '' : String(value)}
         onChangeText={onChange}
         placeholder={placeholder}
         keyboardType={keyboardType}

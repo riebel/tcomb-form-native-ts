@@ -22,6 +22,7 @@ import {
   getTypeInfo,
   isTcombType,
   UIDGenerator,
+  parseNumber,
 } from './util';
 import { templates } from './templates/bootstrap';
 import { stylesheet } from './stylesheets/bootstrap';
@@ -321,40 +322,37 @@ function InnerForm<T>(props: FormProps<T>, ref: React.Ref<FormRef>) {
     }
 
     let transformedValue = formValue;
-
-    if (transformedValue && typeof transformedValue === 'object') {
-      const typeMeta = type.meta as { kind?: string; props?: Record<string, TcombType> };
-      if (typeMeta?.kind === 'struct' && typeMeta.props) {
-        transformedValue = { ...transformedValue };
-        const structValue = transformedValue as Record<string, unknown>;
-
-        for (const [fieldName, fieldType] of Object.entries(typeMeta.props)) {
-          const fieldMeta = fieldType?.meta as { kind?: string };
-          if (fieldMeta?.kind === 'struct' && !structValue[fieldName]) {
-            structValue[fieldName] = {};
-          }
-        }
-      }
-    }
     const typeMeta = type.meta as { kind?: string };
 
     if (
+      transformedValue &&
+      typeof transformedValue === 'object' &&
       typeMeta?.kind === 'struct' &&
       'props' in typeMeta &&
-      typeMeta.props &&
-      typeof formValue === 'object' &&
-      formValue !== null
+      typeMeta.props
     ) {
-      transformedValue = { ...formValue };
+      transformedValue = { ...transformedValue };
       const structValue = transformedValue as Record<string, unknown>;
       const props = typeMeta.props as Record<string, TcombType>;
 
-      for (const [fieldName, fieldValue] of Object.entries(structValue)) {
-        const fieldType = props[fieldName];
-        const fieldMeta = fieldType?.meta;
+      for (const [fieldName, fieldType] of Object.entries(props)) {
+        const fieldValue = structValue[fieldName];
+        const fieldMeta = fieldType?.meta as { kind?: string };
         const fieldTypeInfo = getTypeInfo(fieldType);
 
+        if (fieldMeta?.kind === 'struct' && !structValue[fieldName]) {
+          structValue[fieldName] = {};
+        }
+
         if (fieldValue !== null && fieldValue !== undefined) {
+          if (fieldTypeInfo.innerType === t.Number && typeof fieldValue === 'string') {
+            const normalizedValue = fieldValue.replace(/,/g, '.');
+            const parsedNumber = parseNumber(normalizedValue);
+            if (parsedNumber !== null) {
+              structValue[fieldName] = parsedNumber;
+            }
+          }
+
           if (
             typeof fieldValue === 'string' &&
             /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(fieldValue)

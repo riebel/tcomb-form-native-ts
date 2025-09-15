@@ -373,6 +373,6 @@ export abstract class Component<
 }
 
 Component.transformer = {
-  format: (value: unknown) => (isNil(value) ? null : value),
+  format: (value: unknown) => (isNil(value) ? '' : value),
   parse: (value: unknown) => value,
 };
