@@ -5,8 +5,8 @@ import {
   UIDGenerator as IUIDGenerator,
   ValidationContext,
 } from './types';
-
-const t = require('tcomb-validation');
+import { t } from './tcomb';
+import { ValidationUtils } from './validation/utils';
 
 export function getOptionsOfEnum(type: TcombType): Array<{ value: string; text: string }> {
   let enumType = type;
@@ -352,8 +352,8 @@ export function getFormComponentName(
   }
 
   if (!isTcombType(type)) {
-    if (typeof type === 'object' && type !== null && !Array.isArray(type)) {
-      const obj = type as Record<string, unknown>;
+    if (ValidationUtils.isNonNullObject(type)) {
+      const obj = type;
 
       if (obj.type === 'string') {
         return 'Textbox';

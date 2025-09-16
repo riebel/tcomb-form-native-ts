@@ -1,26 +1,22 @@
-import React from 'react';
+import React, { PureComponent } from 'react';
 import {
   ComponentLocals,
   ComponentOptions,
   ComponentProps,
+  ComponentState,
   TcombType,
   Transformer,
   TypeInfo,
   ValidationOptions,
   ValidationResult,
 } from './types';
-import { getTypeInfo, isNil, merge } from './util';
-
-const t = require('tcomb-validation');
-const SOURCE = 'tcomb-form-native';
-const Nil = t.Nil;
+import { getTypeInfo, isNil, merge, getFormComponentName, isTcombType } from './util';
+import { t, Nil, SOURCE } from './tcomb';
+import { ValidationUtils } from './validation/utils';
 
 export abstract class Component<
   TLocals extends ComponentLocals = ComponentLocals,
-> extends React.Component<
-  ComponentProps,
-  { hasError: boolean; value: unknown; hasBeenTouched: boolean; validationAttempted: boolean }
-> {
+> extends PureComponent<ComponentProps, ComponentState> {
   protected typeInfo: TypeInfo;
 
   constructor(props: ComponentProps) {
@@ -32,7 +28,7 @@ export abstract class Component<
       value: this.getTransformer().format(props.value),
       hasBeenTouched: false,
       validationAttempted: false,
-    };
+    } as const;
   }
 
   getTransformer(): Transformer {
@@ -42,7 +38,7 @@ export abstract class Component<
   static transformer: Transformer;
 
   static getComponentRegistry(): Record<string, React.ComponentType<ComponentProps>> {
-    // Dynamic imports to avoid circular dependencies
+    // Use dynamic imports to avoid circular dependencies
     const { Textbox } = require('./Textbox');
     const { Select } = require('./Select');
     const { Checkbox } = require('./Checkbox');
@@ -65,18 +61,12 @@ export abstract class Component<
     options: ComponentOptions,
     containerName: string = 'Component',
   ): React.ComponentType<ComponentProps> {
-    const { getFormComponentName, isTcombType } = require('./util');
-
     if (options.factory) {
       return options.factory as React.ComponentType<ComponentProps>;
     }
 
-    if (
-      isTcombType(type) &&
-      'getTcombFormFactory' in type &&
-      typeof type.getTcombFormFactory === 'function'
-    ) {
-      return type.getTcombFormFactory(options);
+    if (isTcombType(type) && 'getTcombFormFactory' in type) {
+      return type.getTcombFormFactory!(options);
     }
 
     const componentName = getFormComponentName(type, options);
@@ -92,46 +82,36 @@ export abstract class Component<
     return ComponentClass;
   }
 
-  shouldComponentUpdate(
-    nextProps: ComponentProps,
-    nextState: {
-      hasError: boolean;
-      value: unknown;
-      hasBeenTouched: boolean;
-      validationAttempted: boolean;
-    },
-  ): boolean {
-    return (
-      nextState.value !== this.state.value ||
-      nextState.hasError !== this.state.hasError ||
-      nextState.hasBeenTouched !== this.state.hasBeenTouched ||
-      nextState.validationAttempted !== this.state.validationAttempted ||
-      nextProps.options !== this.props.options ||
-      nextProps.type !== this.props.type ||
-      nextProps.value !== this.props.value
-    );
-  }
-
   componentDidUpdate(prevProps: ComponentProps): void {
+    const stateUpdates: Partial<ComponentState> = {};
+    let needsUpdate = false;
+
     if (this.props.type !== prevProps.type) {
       this.typeInfo = getTypeInfo(this.props.type);
     }
+
     if (this.props.value !== prevProps.value) {
-      this.setState({ value: this.getTransformer().format(this.props.value) });
+      stateUpdates.value = this.getTransformer().format(this.props.value);
+      needsUpdate = true;
     }
+
+    if (this.props.ctx.validationAttempted && !this.state.validationAttempted) {
+      stateUpdates.validationAttempted = true;
+      needsUpdate = true;
+    }
+
+    if (needsUpdate) {
+      this.setState(stateUpdates as Pick<ComponentState, keyof ComponentState>);
+    }
+
     if (prevProps.options.hasError !== this.props.options.hasError) {
       this.forceUpdate();
-    }
-    if (this.props.ctx.validationAttempted && !this.state.validationAttempted) {
-      this.setState({ validationAttempted: true });
     }
   }
 
   onChange = (value: unknown): void => {
     this.setState({ value, hasBeenTouched: true }, () => {
-      if (this.props.onChange) {
-        this.props.onChange(value, this.props.ctx.path);
-      }
+      this.props.onChange?.(value, this.props.ctx.path);
     });
   };
 
@@ -171,11 +151,7 @@ export abstract class Component<
       !('meta' in this.props.type) ||
       !('is' in this.props.type)
     ) {
-      return {
-        isValid: () => true,
-        value: this.getValue(),
-        errors: [],
-      };
+      return ValidationUtils.createSuccessResult(this.getValue());
     }
     return t.validate(this.getValue(), this.props.type, this.getValidationOptions());
   }
@@ -335,7 +311,9 @@ export abstract class Component<
   }
 
   getConfig(): Record<string, unknown> {
-    return merge(this.props.ctx.config || {}, this.props.options.config || {});
+    const ctxConfig = this.props.ctx.config ?? {};
+    const optionsConfig = this.props.options.config ?? {};
+    return merge(ctxConfig, optionsConfig);
   }
 
   getStylesheet() {
@@ -354,7 +332,7 @@ export abstract class Component<
       config: this.getConfig(),
       value: this.state.value,
       hidden: this.props.options.hidden,
-      stylesheet: stylesheet || {},
+      stylesheet: stylesheet ?? {},
     };
     return baseLocals as TLocals;
   }

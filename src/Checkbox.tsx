@@ -1,28 +1,31 @@
 import React from 'react';
 import { Component } from './Component';
 import { CheckboxLocals, CheckboxOptions, Transformer } from './types';
-
-const t = require('tcomb-validation');
-const Nil = t.Nil;
+import { Nil } from './tcomb';
+import { TransformerFactory } from './transformers/factory';
 
 export class Checkbox extends Component<CheckboxLocals> {
   static transformer: Transformer;
 
   getTransformer(): Transformer {
-    return this.props.options.transformer || Checkbox.transformer;
+    return this.props.options.transformer ?? Checkbox.transformer;
   }
 
   getTemplate(): React.ComponentType<CheckboxLocals> {
     const options = this.props.options as CheckboxOptions;
-    return options.template || this.props.ctx.templates.checkbox;
+    return options.template ?? this.props.ctx.templates.checkbox;
   }
 
   getLabel(): string | undefined {
-    let label = this.props.options.label || this.props.options.legend;
-    if (Nil.is(label) && this.getAuto() === 'none') {
-      label = undefined;
-    } else if (Nil.is(label) && this.getAuto() === 'labels') {
-      label = this.getDefaultLabel();
+    let label = this.props.options.label ?? this.props.options.legend;
+
+    if (Nil.is(label)) {
+      const autoMode = this.getAuto();
+      if (autoMode === 'none') {
+        label = undefined;
+      } else if (autoMode === 'labels') {
+        label = this.getDefaultLabel();
+      }
     }
 
     return label;
@@ -48,13 +51,6 @@ export class Checkbox extends Component<CheckboxLocals> {
 
     return checkboxLocals;
   }
-
-  hasError(): boolean {
-    return super.hasError();
-  }
 }
 
-Checkbox.transformer = {
-  format: (value: unknown) => (Nil.is(value) ? false : value),
-  parse: (value: unknown) => value,
-};
+Checkbox.transformer = TransformerFactory.createBooleanTransformer();

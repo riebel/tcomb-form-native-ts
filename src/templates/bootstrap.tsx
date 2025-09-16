@@ -4,19 +4,18 @@ import { Templates, StructLocals } from '../types';
 import { NativeTextboxTemplate, NativeCheckboxTemplate, NativeListTemplate } from './native';
 import { NativeSelectTemplate } from '../Select';
 import { NativeDatePickerTemplate } from '../DatePicker';
+import { getErrorStyles, renderHiddenComponent } from './utils';
 
 function StructTemplate(locals: StructLocals): React.ReactElement {
   const { stylesheet, hasError, order, inputs, label, help, error, hidden } = locals;
 
-  if (hidden) {
-    return <View style={{ display: 'none' }} />;
-  }
+  const hiddenComponent = renderHiddenComponent(hidden);
+  if (hiddenComponent) return hiddenComponent;
 
-  const formGroupStyle = hasError ? stylesheet.formGroup?.error : stylesheet.formGroup?.normal;
-  const controlLabelStyle = hasError
-    ? stylesheet.controlLabel?.error
-    : stylesheet.controlLabel?.normal;
-  const helpBlockStyle = hasError ? stylesheet.helpBlock?.error : stylesheet.helpBlock?.normal;
+  const { formGroupStyle, controlLabelStyle, helpBlockStyle } = getErrorStyles(
+    hasError,
+    stylesheet,
+  );
 
   return (
     <View style={[stylesheet.fieldset, formGroupStyle]}>

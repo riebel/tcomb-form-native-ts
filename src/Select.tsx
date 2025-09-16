@@ -4,23 +4,20 @@ import { Picker } from '@react-native-picker/picker';
 import { Component } from './Component';
 import { SelectLocals, SelectOption, SelectOptions, TcombType, Transformer } from './types';
 import { getComparator, getOptionsOfEnum } from './util';
-
-const t = require('tcomb-validation');
-const Nil = t.Nil;
+import { getErrorStyles, getElementErrorStyle, renderHiddenComponent } from './templates/utils';
+import { TransformerFactory } from './transformers/factory';
 
 export function NativeSelectTemplate(locals: SelectLocals): React.ReactElement {
   const { stylesheet, hasError, value, onChange, options, label, help, error, hidden } = locals;
 
-  if (hidden) {
-    return <View style={{ display: 'none' }} />;
-  }
+  const hiddenComponent = renderHiddenComponent(hidden);
+  if (hiddenComponent) return hiddenComponent;
 
-  const formGroupStyle = hasError ? stylesheet.formGroup?.error : stylesheet.formGroup?.normal;
-  const controlLabelStyle = hasError
-    ? stylesheet.controlLabel?.error
-    : stylesheet.controlLabel?.normal;
-  const selectStyle = hasError ? stylesheet.select?.error : stylesheet.select?.normal;
-  const helpBlockStyle = hasError ? stylesheet.helpBlock?.error : stylesheet.helpBlock?.normal;
+  const { formGroupStyle, controlLabelStyle, helpBlockStyle } = getErrorStyles(
+    hasError,
+    stylesheet,
+  );
+  const selectStyle = getElementErrorStyle(hasError, stylesheet, 'select');
 
   const pickerProps = Platform.select({
     android: {
@@ -63,7 +60,7 @@ export class Select extends Component<SelectLocals> {
     const formattedValue = transformer.format(this.state.value);
 
     const legacyOptions = this.getOptions()
-      .filter(opt => opt && typeof opt.text !== 'undefined')
+      .filter((opt): opt is SelectOption => opt != null && typeof opt.text !== 'undefined')
       .map(opt => ({
         value: String(opt.value ?? ''),
         text: String(opt.text ?? ''),
@@ -81,9 +78,7 @@ export class Select extends Component<SelectLocals> {
   getOptions(): SelectOption[] {
     const options = this.props.options as SelectOptions;
 
-    const items = options.options
-      ? options.options.slice()
-      : getOptionsOfEnum(this.props.type as TcombType);
+    const items = options.options?.slice() ?? getOptionsOfEnum(this.props.type as TcombType);
 
     if (options.order) {
       const comparator = getComparator(options.order);
@@ -110,7 +105,7 @@ export class Select extends Component<SelectLocals> {
       return options.transformer;
     }
     const nullOption = this.getNullOption();
-    return SelectClass.transformer(nullOption);
+    return TransformerFactory.createSelectTransformer(nullOption);
   }
 
   protected isValueEmpty(): boolean {
@@ -124,18 +119,4 @@ export class Select extends Component<SelectLocals> {
   }
 }
 
-const SelectClass = Select as typeof Select & {
-  transformer: (nullOption?: { value: unknown; text: string }) => Transformer;
-};
-
-Object.assign(SelectClass, {
-  transformer: (nullOption?: { value: unknown; text: string }) => ({
-    format: (value: unknown) => (Nil.is(value) && nullOption ? nullOption.value : String(value)),
-    parse: (value: unknown) => {
-      if (nullOption && nullOption.value === value) {
-        return null;
-      }
-      return value;
-    },
-  }),
-});
+Select.transformer = TransformerFactory.createSelectTransformer();

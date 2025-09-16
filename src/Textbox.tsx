@@ -2,10 +2,8 @@ import React from 'react';
 import { TextInputProps } from 'react-native';
 import { Component } from './Component';
 import { TextboxLocals, TextboxOptions, Transformer, NumberTransformer } from './types';
-import { toNull, parseNumber } from './util';
-
-const t = require('tcomb-validation');
-const Nil = t.Nil;
+import { t, Nil } from './tcomb';
+import { TransformerFactory } from './transformers/factory';
 
 export class Textbox extends Component<TextboxLocals> {
   static numberTransformer: NumberTransformer;
@@ -13,36 +11,31 @@ export class Textbox extends Component<TextboxLocals> {
 
   getTransformer(): Transformer {
     const options = this.props.options as TextboxOptions;
+
     if (options.transformer) {
       return options.transformer;
     }
 
     if (this.typeInfo.innerType === t.Number) {
-      return {
-        format: Textbox.numberTransformer.format as (value: unknown) => unknown,
-        parse: (value: unknown) => {
-          if (value === null || value === undefined) {
-            return null;
-          }
-          return Textbox.numberTransformer.parse(String(value));
-        },
-      };
+      return TransformerFactory.createNumberTransformer() as Transformer;
     }
 
-    return Textbox.transformer;
+    return TransformerFactory.createStringTransformer();
   }
 
   getTemplate(): React.ComponentType<TextboxLocals> {
     const options = this.props.options as TextboxOptions;
-    return options.template || this.props.ctx.templates.textbox;
+    return options.template ?? this.props.ctx.templates.textbox;
   }
 
   getPlaceholder(): string | undefined {
     const options = this.props.options as TextboxOptions;
     let placeholder = options.placeholder;
+
     if (Nil.is(placeholder) && this.getAuto() === 'placeholders') {
       placeholder = this.getDefaultLabel();
     }
+
     return placeholder;
   }
 
@@ -112,18 +105,5 @@ export class Textbox extends Component<TextboxLocals> {
   }
 }
 
-Textbox.numberTransformer = {
-  format: (value: string | number) => (Nil.is(value) ? '' : String(value)),
-  parse: (value: string | null) => {
-    if (value) {
-      const normalizedValue = value.replace(/,/g, '.');
-      return parseNumber(normalizedValue);
-    }
-    return parseNumber(value);
-  },
-};
-
-Textbox.transformer = {
-  format: (value: unknown) => (Nil.is(value) ? '' : String(value)),
-  parse: (value: unknown) => toNull(value),
-};
+Textbox.numberTransformer = TransformerFactory.createNumberTransformer() as NumberTransformer;
+Textbox.transformer = TransformerFactory.createStringTransformer();

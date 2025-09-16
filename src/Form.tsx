@@ -27,12 +27,9 @@ import {
 import { templates } from './templates/bootstrap';
 import { stylesheet } from './stylesheets/bootstrap';
 import { i18n } from './i18n/en';
-import { Textbox } from './Textbox';
-import { Select } from './Select';
-import { Checkbox } from './Checkbox';
-import { DatePicker } from './DatePicker';
-import { List } from './List';
-import { Struct } from './Struct';
+import { Component } from './Component';
+import { t } from './tcomb';
+import { ValidationUtils } from './validation/utils';
 
 function extractRequiredFieldMappings(obj: unknown): Record<string, string[]> {
   const mappings: Record<string, string[]> = {};
@@ -73,17 +70,6 @@ function extractRequiredFieldMappings(obj: unknown): Record<string, string[]> {
 
   return mappings;
 }
-
-const t = require('tcomb-validation');
-
-const componentRegistry = {
-  Textbox,
-  Select,
-  Checkbox,
-  DatePicker,
-  List,
-  Struct,
-};
 
 function InnerForm<T>(props: FormProps<T>, ref: React.Ref<FormRef>) {
   const {
@@ -314,11 +300,7 @@ function InnerForm<T>(props: FormProps<T>, ref: React.Ref<FormRef>) {
     }
 
     if (!type || !('meta' in type) || !('is' in type)) {
-      return {
-        isValid: () => true,
-        value: formValue,
-        errors: [],
-      };
+      return ValidationUtils.createSuccessResult(formValue);
     }
 
     let transformedValue = formValue;
@@ -397,23 +379,18 @@ function InnerForm<T>(props: FormProps<T>, ref: React.Ref<FormRef>) {
       isValid = result.isValid();
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Validation error';
+      const finalMessage =
+        errorMessage.includes('Invalid value null') && errorMessage.includes('expected one of')
+          ? 'Please select a value'
+          : 'Validation error';
 
-      result = {
-        isValid: () => false,
-        value: transformedValue,
-        errors: [
-          {
-            message:
-              errorMessage.includes('Invalid value null') &&
-              errorMessage.includes('expected one of')
-                ? 'Please select a value'
-                : 'Validation error',
-            path: [],
-            actual: transformedValue,
-            expected: type,
-          },
-        ],
-      } as ValidationResult;
+      result = ValidationUtils.createErrorResult(
+        transformedValue,
+        finalMessage,
+        [],
+        transformedValue,
+        type,
+      );
       isValid = false;
     }
 
@@ -437,94 +414,64 @@ function InnerForm<T>(props: FormProps<T>, ref: React.Ref<FormRef>) {
 
           if (fieldMeta?.kind === 'irreducible' && !fieldTypeInfo.isMaybe) {
             const fieldTypeName = (fieldType as { displayName?: string }).displayName;
-            let isInvalid = false;
-            let errorMessage = 'This field is required';
-
-            if (fieldTypeName === 'String') {
-              isInvalid = fieldValue === '' || fieldValue === null || fieldValue === undefined;
-            } else if (fieldTypeName === 'Number') {
-              isInvalid =
-                fieldValue === null ||
-                fieldValue === undefined ||
-                fieldValue === '' ||
-                (typeof fieldValue === 'number' && isNaN(fieldValue));
-            } else if (fieldTypeName === 'Boolean') {
-              isInvalid = fieldValue === null || fieldValue === undefined;
-            } else if (fieldTypeName === 'Date') {
-              isInvalid = fieldValue === null || fieldValue === undefined || fieldValue === '';
-            } else {
-              isInvalid = fieldValue === null || fieldValue === undefined;
-            }
+            const typeForValidation =
+              fieldTypeName?.toLowerCase() === 'number'
+                ? 'any'
+                : (fieldTypeName?.toLowerCase() as
+                    | 'string'
+                    | 'array'
+                    | 'object'
+                    | 'any'
+                    | undefined) || 'any';
+            const isInvalid = ValidationUtils.isEmptyValue(fieldValue, typeForValidation);
 
             if (isInvalid) {
-              return {
-                isValid: () => false,
-                value: transformedValue,
-                errors: [
-                  {
-                    message: errorMessage,
-                    path: [fieldName],
-                    actual: fieldValue,
-                    expected: fieldType,
-                  },
-                ],
-              } as ValidationResult;
+              return ValidationUtils.createErrorResult(
+                transformedValue,
+                'This field is required',
+                [fieldName],
+                fieldValue,
+                fieldType,
+              );
             }
           }
 
           if (fieldMeta?.kind === 'enums' && !fieldTypeInfo.isMaybe) {
-            const isInvalid = fieldValue === '' || fieldValue === null || fieldValue === undefined;
+            const isInvalid = ValidationUtils.isEmptyValue(fieldValue);
             if (isInvalid) {
-              return {
-                isValid: () => false,
-                value: transformedValue,
-                errors: [
-                  {
-                    message: 'Please select a value',
-                    path: [fieldName],
-                    actual: fieldValue,
-                    expected: fieldType,
-                  },
-                ],
-              } as ValidationResult;
+              return ValidationUtils.createErrorResult(
+                transformedValue,
+                'Please select a value',
+                [fieldName],
+                fieldValue,
+                fieldType,
+              );
             }
           }
         }
       }
 
       if (typeMeta?.kind === 'list' && !typeInfo.isMaybe) {
-        if (Array.isArray(transformedValue) && transformedValue.length === 0) {
-          return {
-            isValid: () => false,
-            value: transformedValue,
-            errors: [
-              {
-                message: 'This field is required',
-                path: [],
-                actual: transformedValue,
-                expected: type,
-              },
-            ],
-          } as ValidationResult;
+        if (ValidationUtils.isEmptyValue(transformedValue, 'array')) {
+          return ValidationUtils.createErrorResult(
+            transformedValue,
+            'This field is required',
+            [],
+            transformedValue,
+            type,
+          );
         }
 
         if (Array.isArray(transformedValue) && transformedValue.length > 0) {
-          const hasValidEntries = transformedValue.some(
-            item => item !== null && item !== undefined && item !== '',
-          );
+          const hasValidEntries = !ValidationUtils.hasOnlyNullValues(transformedValue);
           if (!hasValidEntries) {
-            return {
-              isValid: () => false,
-              value: transformedValue,
-              errors: [
-                {
-                  message: 'This field is required',
-                  path: [],
-                  actual: transformedValue,
-                  expected: type,
-                },
-              ],
-            } as ValidationResult;
+            return ValidationUtils.createErrorResult(
+              transformedValue,
+              'This field is required',
+              [],
+              transformedValue,
+              type,
+            );
           }
         }
       }
@@ -541,44 +488,15 @@ function InnerForm<T>(props: FormProps<T>, ref: React.Ref<FormRef>) {
 
         for (const [fieldName, fieldType] of Object.entries(props)) {
           const fieldValue = structValue[fieldName];
-          const fieldMeta = fieldType.meta;
-          const fieldTypeInfo = getTypeInfo(fieldType);
 
-          if (fieldMeta?.kind === 'list' && !fieldTypeInfo.isMaybe) {
-            if (Array.isArray(fieldValue) && fieldValue.length === 0) {
-              return {
-                isValid: () => false,
-                value: transformedValue,
-                errors: [
-                  {
-                    message: 'This field is required',
-                    path: [fieldName],
-                    actual: fieldValue,
-                    expected: fieldType,
-                  },
-                ],
-              } as ValidationResult;
-            }
-
-            if (Array.isArray(fieldValue) && fieldValue.length > 0) {
-              const hasValidEntries = fieldValue.some(
-                item => item !== null && item !== undefined && item !== '' && item !== 'null',
-              );
-              if (!hasValidEntries) {
-                return {
-                  isValid: () => false,
-                  value: transformedValue,
-                  errors: [
-                    {
-                      message: 'This field is required',
-                      path: [fieldName],
-                      actual: fieldValue,
-                      expected: fieldType,
-                    },
-                  ],
-                } as ValidationResult;
-              }
-            }
+          const listValidationResult = ValidationUtils.validateRequiredListField(
+            fieldValue,
+            fieldType,
+            fieldName,
+            transformedValue,
+          );
+          if (listValidationResult) {
+            return listValidationResult;
           }
         }
       }
@@ -616,21 +534,14 @@ function InnerForm<T>(props: FormProps<T>, ref: React.Ref<FormRef>) {
     const typeInfo = getTypeInfo(type);
     const typeMeta = type.meta as { kind?: string };
 
-    if (typeMeta?.kind === 'list' && !typeInfo.isMaybe) {
-      if (Array.isArray(formValue) && formValue.length === 0) {
-        return {
-          isValid: () => false,
-          value: formValue,
-          errors: [
-            {
-              message: 'This field is required',
-              path: [],
-              actual: formValue,
-              expected: type,
-            },
-          ],
-        } as ValidationResult;
-      }
+    const listValidationResult = ValidationUtils.validateRequiredListField(
+      formValue,
+      type,
+      '',
+      formValue,
+    );
+    if (listValidationResult) {
+      return listValidationResult;
     }
 
     if (typeMeta?.kind === 'enums' && !typeInfo.isMaybe) {
@@ -662,26 +573,19 @@ function InnerForm<T>(props: FormProps<T>, ref: React.Ref<FormRef>) {
 
       for (const [fieldName, fieldType] of Object.entries(props)) {
         const fieldValue = structValue[fieldName];
-        const fieldMeta = fieldType.meta;
-        const fieldTypeInfo = getTypeInfo(fieldType);
 
-        if (fieldMeta?.kind === 'list' && !fieldTypeInfo.isMaybe) {
-          if (Array.isArray(fieldValue) && fieldValue.length === 0) {
-            return {
-              isValid: () => false,
-              value: formValue,
-              errors: [
-                {
-                  message: 'This field is required',
-                  path: [fieldName],
-                  actual: fieldValue,
-                  expected: fieldType,
-                },
-              ],
-            } as ValidationResult;
-          }
+        const listValidationResult = ValidationUtils.validateRequiredListField(
+          fieldValue,
+          fieldType,
+          fieldName,
+          formValue,
+        );
+        if (listValidationResult) {
+          return listValidationResult;
         }
 
+        const fieldMeta = fieldType.meta;
+        const fieldTypeInfo = getTypeInfo(fieldType);
         if (fieldMeta?.kind === 'enums' && !fieldTypeInfo.isMaybe) {
           if (fieldValue === '' || fieldValue === null || fieldValue === undefined) {
             return {
@@ -728,17 +632,10 @@ function InnerForm<T>(props: FormProps<T>, ref: React.Ref<FormRef>) {
   let ComponentClass: React.ComponentType<ComponentProps>;
   if (componentOptions.factory) {
     ComponentClass = componentOptions.factory;
-  } else if (
-    isTcombType(actualType) &&
-    'getTcombFormFactory' in actualType &&
-    typeof actualType.getTcombFormFactory === 'function'
-  ) {
-    ComponentClass = actualType.getTcombFormFactory(componentOptions);
+  } else if (isTcombType(actualType) && 'getTcombFormFactory' in actualType) {
+    ComponentClass = actualType.getTcombFormFactory!(componentOptions);
   } else {
-    const componentName = getFormComponentName(actualType, componentOptions);
-    ComponentClass = componentRegistry[
-      componentName as keyof typeof componentRegistry
-    ] as React.ComponentType<ComponentProps>;
+    ComponentClass = Component.resolveComponent(actualType, componentOptions, 'Form');
   }
 
   if (!ComponentClass) {

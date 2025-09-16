@@ -3,9 +3,8 @@ import { Platform, Text, TouchableOpacity, View } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Component } from './Component';
 import { DatePickerLocals, DatePickerOptions, Transformer } from './types';
-
-const t = require('tcomb-validation');
-const Nil = t.Nil;
+import { getErrorStyles, getElementErrorStyle, renderHiddenComponent } from './templates/utils';
+import { TransformerFactory } from './transformers/factory';
 
 export function NativeDatePickerTemplate(locals: DatePickerLocals): React.ReactElement {
   const {
@@ -29,16 +28,14 @@ export function NativeDatePickerTemplate(locals: DatePickerLocals): React.ReactE
 
   const [showPicker, setShowPicker] = React.useState(false);
 
-  if (hidden) {
-    return <View style={{ display: 'none' }} />;
-  }
+  const hiddenComponent = renderHiddenComponent(hidden);
+  if (hiddenComponent) return hiddenComponent;
 
-  const formGroupStyle = hasError ? stylesheet.formGroup?.error : stylesheet.formGroup?.normal;
-  const controlLabelStyle = hasError
-    ? stylesheet.controlLabel?.error
-    : stylesheet.controlLabel?.normal;
-  const datePickerStyle = hasError ? stylesheet.datepicker?.error : stylesheet.datepicker?.normal;
-  const helpBlockStyle = hasError ? stylesheet.helpBlock?.error : stylesheet.helpBlock?.normal;
+  const { formGroupStyle, controlLabelStyle, helpBlockStyle } = getErrorStyles(
+    hasError,
+    stylesheet,
+  );
+  const datePickerStyle = getElementErrorStyle(hasError, stylesheet, 'datepicker');
 
   const dateValue = value instanceof Date ? value : new Date();
 
@@ -245,7 +242,7 @@ export class DatePicker extends Component<DatePickerLocals> {
 
   getTemplate(): React.ComponentType<DatePickerLocals> {
     const options = this.props.options as DatePickerOptions;
-    return options.template || this.props.ctx.templates.datepicker;
+    return options.template ?? this.props.ctx.templates.datepicker;
   }
 
   getLocals(): DatePickerLocals {
@@ -260,8 +257,8 @@ export class DatePicker extends Component<DatePickerLocals> {
       minuteInterval: options.minuteInterval,
       timeZoneOffsetInMinutes: options.timeZoneOffsetInMinutes,
       locale: options.locale,
-      disabled: 'disabled' in options ? (options.disabled as boolean | undefined) : undefined,
-      onPress: 'onPress' in options ? (options.onPress as (() => void) | undefined) : undefined,
+      disabled: options.disabled,
+      onPress: options.onPress,
     } as DatePickerLocals;
   }
 
@@ -270,23 +267,4 @@ export class DatePicker extends Component<DatePickerLocals> {
   }
 }
 
-DatePicker.transformer = {
-  format: (value: unknown) => {
-    if (Nil.is(value)) return null;
-    if (value instanceof Date) return value;
-    if (typeof value === 'string') {
-      const date = new Date(value);
-      return isNaN(date.getTime()) ? null : date;
-    }
-    return value;
-  },
-  parse: (value: unknown) => {
-    if (Nil.is(value)) return null;
-    if (value instanceof Date) return value;
-    if (typeof value === 'string') {
-      const date = new Date(value);
-      return isNaN(date.getTime()) ? null : date;
-    }
-    return value;
-  },
-};
+DatePicker.transformer = TransformerFactory.createDateTransformer();

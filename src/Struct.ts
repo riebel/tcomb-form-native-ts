@@ -15,51 +15,38 @@ import {
   inferTypeFromFieldOptions,
   isTcombType,
 } from './util';
+import { t } from './tcomb';
+import { ValidationUtils } from './validation/utils';
 
 export class Struct extends Component<StructLocals> {
   getTemplate(): React.ComponentType<StructLocals> {
     const options = this.props.options as StructOptions;
-    return (options.template ||
+    return (options.template ??
       this.props.ctx.templates.struct) as React.ComponentType<StructLocals>;
   }
 
   getOrder(): string[] {
     const options = this.props.options as StructOptions;
 
-    if (isTcombType(this.props.type) && this.props.type.meta.props) {
+    if (isTcombType(this.props.type) && this.props.type.meta?.props) {
       const props = this.props.type.meta.props;
-      if (options.order) {
-        return options.order;
-      }
-      return Object.keys(props);
+      return options.order ?? Object.keys(props);
     }
 
-    if (
-      typeof this.props.type === 'object' &&
-      this.props.type !== null &&
-      !Array.isArray(this.props.type)
-    ) {
+    if (ValidationUtils.isNonNullObject(this.props.type)) {
       const plainObject = this.props.type as Record<string, unknown>;
       if (plainObject.properties && typeof plainObject.properties === 'object') {
         const schemaProps = plainObject.properties as Record<string, unknown>;
-        if (options.order) {
-          return options.order;
-        }
-        return Object.keys(schemaProps);
+        return options.order ?? Object.keys(schemaProps);
       }
-    }
-    const fieldsOptions = options.fields || {};
-    if (Object.keys(fieldsOptions).length > 0) {
-      if (options.order) {
-        return options.order;
-      }
-      return Object.keys(fieldsOptions);
     }
 
-    if (options.order) {
-      return options.order;
+    const fieldsOptions = options.fields ?? {};
+    if (Object.keys(fieldsOptions).length > 0) {
+      return options.order ?? Object.keys(fieldsOptions);
     }
-    return [];
+
+    return options.order ?? [];
   }
 
   onFieldChange = (
@@ -89,7 +76,7 @@ export class Struct extends Component<StructLocals> {
 
     Object.keys(this.inputRefs).forEach(ref => {
       const child = this.inputRefs[ref];
-      if (child && typeof child.hasError === 'function' && child.hasError()) {
+      if (child && child.hasError()) {
         hasError = true;
       }
     });
@@ -99,15 +86,14 @@ export class Struct extends Component<StructLocals> {
 
   getInputs(): Record<string, React.ReactElement> {
     const { ctx, options } = this.props;
-    const value = (this.state.value as Record<string, unknown>) || {};
+    const value = (this.state.value as Record<string, unknown>) ?? {};
 
     let props: Record<string, unknown>;
-    const fieldsOptions = (options as StructOptions).fields || {};
+    const fieldsOptions = (options as StructOptions).fields ?? {};
 
     if (isTcombType(this.props.type) && this.props.type.meta.props) {
       props = this.props.type.meta.props;
 
-      const t = require('tcomb-validation');
       const modifiedProps: Record<string, unknown> = {};
       for (const [propName, propType] of Object.entries(props)) {
         if (propType && typeof propType === 'object' && 'meta' in propType) {
@@ -139,8 +125,8 @@ export class Struct extends Component<StructLocals> {
         const requiredFields = Array.isArray(plainObject.required) ? plainObject.required : [];
 
         for (const [key, schemaProp] of Object.entries(schemaProps)) {
-          if (typeof schemaProp === 'object' && schemaProp !== null) {
-            const propDef = schemaProp as Record<string, unknown>;
+          if (ValidationUtils.isNonNullObject(schemaProp)) {
+            const propDef = schemaProp;
 
             if (propDef.options && typeof propDef.options === 'object') {
               fieldsOptions[key] = {
@@ -192,7 +178,7 @@ export class Struct extends Component<StructLocals> {
 
         const propType = getTypeFromUnion(type as TcombType | Record<string, unknown>, propValue);
 
-        const baseFieldOptions = fieldsOptions[prop] || {};
+        const baseFieldOptions = fieldsOptions[prop] ?? {};
         let fieldLabel = baseFieldOptions.label;
 
         if (!fieldLabel) {
@@ -211,7 +197,6 @@ export class Struct extends Component<StructLocals> {
         ) {
           const isStructRequired = false;
 
-          const t = require('tcomb-validation');
           if (isStructRequired) {
             finalPropType = t.struct({}, 'Struct');
           } else {
@@ -295,20 +280,6 @@ export class Struct extends Component<StructLocals> {
           }
         }
 
-        // Check for required arrays in global registry
-        const globalRegistry = (globalThis as Record<string, unknown>)
-          .__TCOMB_SCHEMA_REQUIRED_FIELDS__;
-        if (globalRegistry && typeof globalRegistry === 'object') {
-          const registryObject = globalRegistry as Record<string, unknown>;
-          const fieldRequiredArray = registryObject[prop];
-          if (Array.isArray(fieldRequiredArray)) {
-            contextWithRequired = {
-              ...ctx.context,
-              required: fieldRequiredArray,
-            };
-          }
-        }
-
         inputs[prop] = React.createElement(FieldComponent, {
           key: prop,
           ref: (ref: unknown) => {
@@ -346,7 +317,6 @@ export class Struct extends Component<StructLocals> {
       if (fieldOptions && typeof fieldOptions === 'object' && 'fields' in fieldOptions) {
         const isStructRequired = false;
 
-        const t = require('tcomb-validation');
         let resultType: TcombType;
         if (isStructRequired) {
           resultType = t.struct({}, 'Struct');
@@ -411,7 +381,6 @@ export class Struct extends Component<StructLocals> {
   }
 
   validate() {
-    const t = require('tcomb-validation');
     let value: Record<string, unknown> = {};
     let errors: unknown[] = [];
     let hasError = false;
@@ -420,7 +389,7 @@ export class Struct extends Component<StructLocals> {
 
     if (this.typeInfo.isMaybe && this.isValueNully()) {
       this.removeErrors();
-      return new t.ValidationResult({ errors: [], value: null });
+      return ValidationUtils.createSuccessResult(null);
     }
 
     Object.keys(this.inputRefs).forEach(ref => {
@@ -438,15 +407,10 @@ export class Struct extends Component<StructLocals> {
             });
 
             if (fieldErrors.length > 0) {
-              const errorMessage = fieldErrors[0].message || 'Validation error';
-              if (
-                errorMessage.includes('Invalid value null') &&
-                errorMessage.includes('expected one of')
-              ) {
-                newFieldErrors[ref] = 'Please select a value';
-              } else {
-                newFieldErrors[ref] = errorMessage;
-              }
+              const errorMessage = ValidationUtils.normalizeErrorMessage(
+                fieldErrors[0].message || 'Validation error',
+              );
+              newFieldErrors[ref] = errorMessage;
             } else {
               delete newFieldErrors[ref];
             }
@@ -455,20 +419,17 @@ export class Struct extends Component<StructLocals> {
           }
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : 'Validation error';
-          if (
-            errorMessage.includes('Invalid value null') &&
-            errorMessage.includes('expected one of')
-          ) {
-            newFieldErrors[ref] = 'Please select a value';
-          } else {
-            newFieldErrors[ref] = 'Validation error';
-          }
-          errors.push({
-            message: newFieldErrors[ref],
-            path: [ref],
-            actual: child.getValue?.() || null,
-            expected: 'valid value',
-          });
+          const normalizedMessage = ValidationUtils.normalizeErrorMessage(errorMessage);
+          newFieldErrors[ref] = normalizedMessage;
+
+          errors.push(
+            ValidationUtils.createValidationError(
+              normalizedMessage,
+              [ref],
+              child.getValue?.() || null,
+              'valid value',
+            ),
+          );
         }
       } else {
         delete newFieldErrors[ref];
@@ -495,8 +456,12 @@ export class Struct extends Component<StructLocals> {
             result.errors.forEach((error: ValidationError) => {
               if (error.path && error.path.length > 0) {
                 const fieldName = error.path[0];
+                const normalizedMessage = ValidationUtils.normalizeErrorMessage(
+                  error.message || 'Validation error',
+                );
+
                 if (!newFieldErrors[fieldName]) {
-                  newFieldErrors[fieldName] = error.message || 'Validation error';
+                  newFieldErrors[fieldName] = normalizedMessage;
                 }
 
                 if (error.path.length > 1) {
@@ -504,11 +469,11 @@ export class Struct extends Component<StructLocals> {
                   const nestedFieldKey = `${fieldName}.${nestedFieldName}`;
 
                   if (!newFieldErrors[nestedFieldKey]) {
-                    newFieldErrors[nestedFieldKey] = error.message || 'Validation error';
+                    newFieldErrors[nestedFieldKey] = normalizedMessage;
                   }
                   // Also map directly to the nested field name for child struct components
                   if (!newFieldErrors[nestedFieldName]) {
-                    newFieldErrors[nestedFieldName] = error.message || 'Validation error';
+                    newFieldErrors[nestedFieldName] = normalizedMessage;
                   }
                 }
               }
@@ -523,6 +488,10 @@ export class Struct extends Component<StructLocals> {
     this.fieldErrors = newFieldErrors;
     this.setState({ hasError });
     this.forceUpdate();
-    return new t.ValidationResult({ errors, value });
+    return ValidationUtils.createValidationResult(
+      errors.length === 0,
+      value,
+      errors as ValidationError[],
+    );
   }
 }

@@ -206,6 +206,8 @@ export interface DatePickerOptions extends ComponentOptions {
   minuteInterval?: number;
   timeZoneOffsetInMinutes?: number;
   locale?: string;
+  disabled?: boolean;
+  onPress?: () => void;
 }
 
 export interface DatePickerLocals extends ComponentLocals {
@@ -370,6 +372,14 @@ export interface ComponentProps {
   ctx: ComponentContext;
   onChange?: BivariantOnChange<unknown>;
   context?: ValidationContext;
+}
+
+// Component state interface for class-based components
+export interface ComponentState {
+  hasError: boolean;
+  value: unknown;
+  hasBeenTouched: boolean;
+  validationAttempted: boolean;
 }
 
 export interface UIDGenerator {

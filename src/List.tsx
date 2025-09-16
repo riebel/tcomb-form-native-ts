@@ -10,35 +10,34 @@ import {
   ListOptions,
   TcombType,
   Transformer,
+  ValidationError,
 } from './types';
 import { getComponentOptions, getTypeFromUnion, isTcombType, move } from './util';
-
-const t = require('tcomb-validation');
-const Nil = t.Nil;
+import { ValidationUtils } from './validation/utils';
+import { t } from './tcomb';
+import { TransformerFactory } from './transformers/factory';
 
 export class List extends Component<ListLocals> {
   static transformer: Transformer;
 
   getTemplate(): React.ComponentType<ListLocals> {
     const options = this.props.options as ListOptions;
-    return (options.template || this.props.ctx.templates.list) as React.ComponentType<ListLocals>;
+    return (options.template ?? this.props.ctx.templates.list) as React.ComponentType<ListLocals>;
   }
 
   getItemType(): TcombType | Record<string, unknown> | null {
     let type = this.props.type;
 
-    if (isTcombType(type) && type.meta && type.meta.kind === 'maybe' && type.meta.type) {
+    if (isTcombType(type) && type.meta?.kind === 'maybe' && type.meta.type) {
       type = type.meta.type;
     }
 
-    if (isTcombType(type) && type.meta && type.meta.kind === 'list' && type.meta.type) {
+    if (isTcombType(type) && type.meta?.kind === 'list' && type.meta.type) {
       return type.meta.type;
     }
 
-    // Use options.item for custom item configuration
     const options = this.props.options as ListOptions;
-    if (options && options.item) {
-      // Create a simple string type for person selection
+    if (options?.item) {
       return {
         type: 'string',
         format: 'person',
@@ -46,8 +45,8 @@ export class List extends Component<ListLocals> {
       } as Record<string, unknown>;
     }
 
-    if (typeof type === 'object' && type !== null && !Array.isArray(type)) {
-      const schema = type as Record<string, unknown>;
+    if (ValidationUtils.isNonNullObject(type)) {
+      const schema = type;
       if (schema.type === 'array' && schema.items) {
         return schema.items as Record<string, unknown>;
       }
@@ -222,8 +221,8 @@ export class List extends Component<ListLocals> {
           const fieldsOptions: Record<string, unknown> = {};
 
           for (const [fieldName, fieldDef] of Object.entries(schemaProps)) {
-            if (typeof fieldDef === 'object' && fieldDef !== null) {
-              const propDef = fieldDef as Record<string, unknown>;
+            if (ValidationUtils.isNonNullObject(fieldDef)) {
+              const propDef = fieldDef;
               if (propDef.options && typeof propDef.options === 'object') {
                 fieldsOptions[fieldName] = propDef.options;
               }
@@ -236,14 +235,14 @@ export class List extends Component<ListLocals> {
         }
       } else if (isTcombType(actualItemType)) {
         // For tcomb types, extract field options from List's item configuration
-        const listItemOptions = (options as ListOptions).item || {};
+        const listItemOptions = (options as ListOptions).item ?? {};
         if (listItemOptions.fields && typeof listItemOptions.fields === 'object') {
           extractedFieldOptions = { fields: listItemOptions.fields };
         }
       }
 
       // Pass field options down to item components if needed
-      let listItemOptions = (options as ListOptions).item || {};
+      let listItemOptions = (options as ListOptions).item ?? {};
       if ((options as ListOptions).fields && !listItemOptions.fields) {
         listItemOptions = {
           ...listItemOptions,
@@ -404,33 +403,25 @@ export class List extends Component<ListLocals> {
   }
 
   pureValidate() {
-    const t = require('tcomb-validation');
     let value: unknown[] = [];
     let errors: unknown[] = [];
 
+    // Check both the original props value and the current state value
+    const originalValue = this.props.value;
     const currentValue = this.getTransformer().format(this.state.value) as unknown[];
-    const isEmptyArray = !currentValue || !Array.isArray(currentValue) || currentValue.length === 0;
-    const isNullyValues =
-      Array.isArray(currentValue) &&
-      currentValue.every(item => item === null || item === undefined);
+    const isEmptyArray = ValidationUtils.isEmptyValue(currentValue, 'array');
+    const isNullyValues = ValidationUtils.hasOnlyNullValues(currentValue);
+    const isOriginalValueNull = originalValue === null || originalValue === undefined;
 
     // Handle optional (Maybe) arrays
-    if (this.typeInfo.isMaybe && (isEmptyArray || isNullyValues)) {
-      return new t.ValidationResult({ errors: [], value: null });
+    if (this.typeInfo.isMaybe && (isEmptyArray || isNullyValues || isOriginalValueNull)) {
+      return ValidationUtils.createSuccessResult(null);
     }
 
     // Handle required arrays that are empty or have only null/undefined values
-    if (!this.typeInfo.isMaybe && (isEmptyArray || isNullyValues)) {
+    if (!this.typeInfo.isMaybe && (isEmptyArray || isNullyValues || isOriginalValueNull)) {
       const errorMessage = this.getI18n()?.required || 'This field is required';
-      return new t.ValidationResult({
-        errors: [
-          {
-            message: errorMessage,
-            path: this.props.ctx.path,
-          },
-        ],
-        value: [],
-      });
+      return ValidationUtils.createErrorResult([], errorMessage, this.props.ctx.path);
     }
 
     // Handle arrays with actual values (both Maybe and required)
@@ -449,25 +440,18 @@ export class List extends Component<ListLocals> {
         errors = errors.concat(result.errors);
       }
 
-      return new t.ValidationResult({ errors, value });
+      return ValidationUtils.createValidationResult(
+        errors.length === 0,
+        value,
+        errors as ValidationError[],
+      );
     }
 
-    return new t.ValidationResult({ errors: [], value: [] });
+    return ValidationUtils.createSuccessResult([]);
   }
 }
 
-List.transformer = {
-  format: (value: unknown) => {
-    if (Nil.is(value)) {
-      return [];
-    }
-    if (!Array.isArray(value)) {
-      return [value];
-    }
-    return value;
-  },
-  parse: (value: unknown) => value,
-};
+List.transformer = TransformerFactory.createArrayTransformer();
 function toSameLength(value: unknown[], keys: string[], uidGenerator: { next: () => string }) {
   if (!value || !Array.isArray(value)) {
     return [];

@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, TextInput } from 'react-native';
 import { TextboxLocals, CheckboxLocals, ListLocals } from '../types';
+import { getErrorStyles, getElementErrorStyle, renderHiddenComponent } from './utils';
 
 export function NativeTextboxTemplate(locals: TextboxLocals): React.ReactElement {
   const {
@@ -45,16 +46,14 @@ export function NativeTextboxTemplate(locals: TextboxLocals): React.ReactElement
     hidden,
   } = locals;
 
-  if (hidden) {
-    return <View style={{ display: 'none' }} />;
-  }
+  const hiddenComponent = renderHiddenComponent(hidden);
+  if (hiddenComponent) return hiddenComponent;
 
-  const formGroupStyle = hasError ? stylesheet.formGroup?.error : stylesheet.formGroup?.normal;
-  const controlLabelStyle = hasError
-    ? stylesheet.controlLabel?.error
-    : stylesheet.controlLabel?.normal;
-  const textboxStyle = hasError ? stylesheet.textbox?.error : stylesheet.textbox?.normal;
-  const helpBlockStyle = hasError ? stylesheet.helpBlock?.error : stylesheet.helpBlock?.normal;
+  const { formGroupStyle, controlLabelStyle, helpBlockStyle } = getErrorStyles(
+    hasError,
+    stylesheet,
+  );
+  const textboxStyle = getElementErrorStyle(hasError, stylesheet, 'textbox');
 
   return (
     <View style={formGroupStyle}>
@@ -104,16 +103,14 @@ export function NativeTextboxTemplate(locals: TextboxLocals): React.ReactElement
 export function NativeCheckboxTemplate(locals: CheckboxLocals): React.ReactElement {
   const { stylesheet, hasError, value, onChange, label, help, error, hidden } = locals;
 
-  if (hidden) {
-    return <View style={{ display: 'none' }} />;
-  }
+  const hiddenComponent = renderHiddenComponent(hidden);
+  if (hiddenComponent) return hiddenComponent;
 
-  const formGroupStyle = hasError ? stylesheet.formGroup?.error : stylesheet.formGroup?.normal;
-  const controlLabelStyle = hasError
-    ? stylesheet.controlLabel?.error
-    : stylesheet.controlLabel?.normal;
-  const checkboxStyle = hasError ? stylesheet.checkbox?.error : stylesheet.checkbox?.normal;
-  const helpBlockStyle = hasError ? stylesheet.helpBlock?.error : stylesheet.helpBlock?.normal;
+  const { formGroupStyle, controlLabelStyle, helpBlockStyle } = getErrorStyles(
+    hasError,
+    stylesheet,
+  );
+  const checkboxStyle = getElementErrorStyle(hasError, stylesheet, 'checkbox');
 
   return (
     <View style={formGroupStyle}>
@@ -131,15 +128,13 @@ export function NativeCheckboxTemplate(locals: CheckboxLocals): React.ReactEleme
 export function NativeListTemplate(locals: ListLocals): React.ReactElement {
   const { stylesheet, hasError, items, add, label, help, error, hidden } = locals;
 
-  if (hidden) {
-    return <View style={{ display: 'none' }} />;
-  }
+  const hiddenComponent = renderHiddenComponent(hidden);
+  if (hiddenComponent) return hiddenComponent;
 
-  const formGroupStyle = hasError ? stylesheet.formGroup?.error : stylesheet.formGroup?.normal;
-  const controlLabelStyle = hasError
-    ? stylesheet.controlLabel?.error
-    : stylesheet.controlLabel?.normal;
-  const helpBlockStyle = hasError ? stylesheet.helpBlock?.error : stylesheet.helpBlock?.normal;
+  const { formGroupStyle, controlLabelStyle, helpBlockStyle } = getErrorStyles(
+    hasError,
+    stylesheet,
+  );
 
   return (
     <View style={[stylesheet.fieldset, formGroupStyle]}>
