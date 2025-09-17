@@ -1019,7 +1019,7 @@ For the smoothest migration with **absolutely no code changes**, use npm package
 ```json
 {
   "dependencies": {
-    "tcomb-form-native": "npm:@riebel/tcomb-form-native-ts@^1.1.4"
+    "tcomb-form-native": "npm:@riebel/tcomb-form-native-ts@^1.1.5"
   }
 }
 ```
