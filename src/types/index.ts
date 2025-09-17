@@ -311,6 +311,7 @@ export interface Stylesheet {
   textbox?: {
     normal?: TextInputProps['style'];
     error?: TextInputProps['style'];
+    notEditable?: TextInputProps['style'];
   };
   checkbox?: {
     normal?: ViewStyle;
@@ -337,6 +338,7 @@ export interface Stylesheet {
     normal?: ViewStyle;
     error?: ViewStyle;
     active?: ViewStyle;
+    notEditable?: ViewStyle;
   };
   list?: ViewStyle;
   formGroup?: {

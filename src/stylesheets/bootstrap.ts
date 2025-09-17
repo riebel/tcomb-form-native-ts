@@ -1,192 +1,220 @@
-import { Stylesheet } from '../types';
+import { Platform, TextStyle, ViewStyle, FlexAlignType } from 'react-native';
 
-export const stylesheet: Stylesheet = {
-  fieldset: {
-    marginBottom: 10,
-    padding: 10,
-  },
+const LABEL_COLOR = '#000000';
+const INPUT_COLOR = '#000000';
+const ERROR_COLOR = '#a94442';
+const HELP_COLOR = '#999999';
+const BORDER_COLOR = '#cccccc';
+const DISABLED_COLOR = '#777777';
+const DISABLED_BACKGROUND_COLOR = '#eeeeee';
+const FONT_SIZE = 17;
+const FONT_WEIGHT = '500';
 
-  controlLabel: {
-    normal: {
-      fontSize: 16,
-      fontWeight: 'bold',
-      marginBottom: 5,
-      color: '#333',
-    },
-    error: {
-      fontSize: 16,
-      fontWeight: 'bold',
-      marginBottom: 5,
-      color: '#d9534f',
-    },
-  },
-
-  helpBlock: {
-    normal: {
-      fontSize: 12,
-      color: '#737373',
-      marginTop: 5,
-    },
-    error: {
-      fontSize: 12,
-      color: '#d9534f',
-      marginTop: 5,
-    },
-  },
-
-  errorBlock: {
-    fontSize: 12,
-    color: '#d9534f',
-    marginTop: 5,
-    fontWeight: 'bold',
-  },
-
-  textbox: {
-    normal: {
-      borderWidth: 1,
-      borderColor: '#ccc',
-      borderRadius: 4,
-      padding: 10,
-      fontSize: 16,
-      backgroundColor: '#fff',
-    },
-    error: {
-      borderWidth: 1,
-      borderColor: '#d9534f',
-      borderRadius: 4,
-      padding: 10,
-      fontSize: 16,
-      backgroundColor: '#fff',
-    },
-  },
-
-  checkbox: {
-    normal: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginVertical: 5,
-    },
-    error: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginVertical: 5,
-    },
-  },
-
-  select: {
-    normal: {
-      borderWidth: 1,
-      borderColor: '#ccc',
-      borderRadius: 4,
-      backgroundColor: '#fff',
-    },
-    error: {
-      borderWidth: 1,
-      borderColor: '#d9534f',
-      borderRadius: 4,
-      backgroundColor: '#fff',
-    },
-  },
-
-  datepicker: {
-    normal: {
-      borderWidth: 1,
-      borderColor: '#ccc',
-      borderRadius: 4,
-      padding: 10,
-      backgroundColor: '#fff',
-    },
-    error: {
-      borderWidth: 1,
-      borderColor: '#d9534f',
-      borderRadius: 4,
-      padding: 10,
-      backgroundColor: '#fff',
-    },
-  },
-
-  pickerContainer: {
-    normal: {
-      borderWidth: 1,
-      borderColor: '#ccc',
-      borderRadius: 4,
-      backgroundColor: '#fff',
-    },
-    error: {
-      borderWidth: 1,
-      borderColor: '#d9534f',
-      borderRadius: 4,
-      backgroundColor: '#fff',
-    },
-    open: {
-      borderWidth: 1,
-      borderColor: '#337ab7',
-      borderRadius: 4,
-      backgroundColor: '#fff',
-    },
-  },
-
-  pickerValue: {
-    normal: {
-      fontSize: 16,
-      color: '#333',
-      padding: 10,
-    },
-    error: {
-      fontSize: 16,
-      color: '#d9534f',
-      padding: 10,
-    },
-  },
-
-  pickerTouchable: {
-    normal: {
-      borderWidth: 1,
-      borderColor: '#ccc',
-      borderRadius: 4,
-      backgroundColor: '#fff',
-    },
-    error: {
-      borderWidth: 1,
-      borderColor: '#d9534f',
-      borderRadius: 4,
-      backgroundColor: '#fff',
-    },
-    active: {
-      borderWidth: 1,
-      borderColor: '#337ab7',
-      borderRadius: 4,
-      backgroundColor: '#f5f5f5',
-    },
-  },
-
-  list: {
-    marginBottom: 10,
-  },
-
+export const stylesheet = Object.freeze({
+  fieldset: {},
+  // the style applied to the container of all inputs
   formGroup: {
     normal: {
-      marginBottom: 15,
+      marginBottom: 10,
     },
     error: {
-      marginBottom: 15,
+      marginBottom: 10,
     },
   },
-
+  controlLabel: {
+    normal: {
+      color: LABEL_COLOR,
+      fontSize: FONT_SIZE,
+      marginBottom: 7,
+      fontWeight: FONT_WEIGHT as TextStyle['fontWeight'],
+    },
+    // the style applied when a validation error occours
+    error: {
+      color: ERROR_COLOR,
+      fontSize: FONT_SIZE,
+      marginBottom: 7,
+      fontWeight: FONT_WEIGHT as TextStyle['fontWeight'],
+    },
+  },
+  helpBlock: {
+    normal: {
+      color: HELP_COLOR,
+      fontSize: FONT_SIZE,
+      marginBottom: 2,
+    },
+    // the style applied when a validation error occours
+    error: {
+      color: HELP_COLOR,
+      fontSize: FONT_SIZE,
+      marginBottom: 2,
+    },
+  },
+  errorBlock: {
+    fontSize: FONT_SIZE,
+    marginBottom: 2,
+    color: ERROR_COLOR,
+  },
+  textboxView: {
+    normal: {},
+    error: {},
+    notEditable: {},
+  },
+  textbox: {
+    normal: {
+      color: INPUT_COLOR,
+      fontSize: FONT_SIZE,
+      height: 36,
+      paddingVertical: Platform.OS === 'ios' ? 7 : 0,
+      paddingHorizontal: 7,
+      borderRadius: 4,
+      borderColor: BORDER_COLOR,
+      borderWidth: 1,
+      marginBottom: 5,
+    },
+    // the style applied when a validation error occours
+    error: {
+      color: INPUT_COLOR,
+      fontSize: FONT_SIZE,
+      height: 36,
+      paddingVertical: Platform.OS === 'ios' ? 7 : 0,
+      paddingHorizontal: 7,
+      borderRadius: 4,
+      borderColor: ERROR_COLOR,
+      borderWidth: 1,
+      marginBottom: 5,
+    },
+    // the style applied when the textbox is not editable
+    notEditable: {
+      fontSize: FONT_SIZE,
+      height: 36,
+      paddingVertical: Platform.OS === 'ios' ? 7 : 0,
+      paddingHorizontal: 7,
+      borderRadius: 4,
+      borderColor: BORDER_COLOR,
+      borderWidth: 1,
+      marginBottom: 5,
+      color: DISABLED_COLOR,
+      backgroundColor: DISABLED_BACKGROUND_COLOR,
+    },
+  },
+  checkbox: {
+    normal: {
+      marginBottom: 4,
+    },
+    // the style applied when a validation error occours
+    error: {
+      marginBottom: 4,
+    },
+  },
+  pickerContainer: {
+    normal: {
+      marginBottom: 4,
+      borderRadius: 4,
+      borderColor: BORDER_COLOR,
+      borderWidth: 1,
+    },
+    error: {
+      marginBottom: 4,
+      borderRadius: 4,
+      borderColor: ERROR_COLOR,
+      borderWidth: 1,
+    },
+    open: {
+      // Alter styles when select container is open
+    },
+  },
+  select: {
+    normal: Platform.select({
+      android: {
+        paddingLeft: 7,
+        color: INPUT_COLOR,
+      },
+      ios: {},
+    }),
+    // the style applied when a validation error occours
+    error: Platform.select({
+      android: {
+        paddingLeft: 7,
+        color: ERROR_COLOR,
+      },
+      ios: {},
+    }),
+  },
+  pickerTouchable: {
+    normal: {
+      height: 44,
+      flexDirection: 'row' as ViewStyle['flexDirection'],
+      alignItems: 'center' as FlexAlignType,
+    },
+    error: {
+      height: 44,
+      flexDirection: 'row' as ViewStyle['flexDirection'],
+      alignItems: 'center' as FlexAlignType,
+    },
+    active: {
+      borderBottomWidth: 1,
+      borderColor: BORDER_COLOR,
+    },
+    notEditable: {
+      height: 44,
+      flexDirection: 'row' as ViewStyle['flexDirection'],
+      alignItems: 'center' as FlexAlignType,
+      backgroundColor: DISABLED_BACKGROUND_COLOR,
+    },
+  },
+  pickerValue: {
+    normal: {
+      fontSize: FONT_SIZE,
+      paddingLeft: 7,
+    },
+    error: {
+      fontSize: FONT_SIZE,
+      paddingLeft: 7,
+    },
+  },
+  datepicker: {
+    normal: {
+      marginBottom: 4,
+    },
+    // the style applied when a validation error occours
+    error: {
+      marginBottom: 4,
+    },
+  },
+  dateTouchable: {
+    normal: {},
+    error: {},
+    notEditable: {
+      backgroundColor: DISABLED_BACKGROUND_COLOR,
+    },
+  },
+  dateValue: {
+    normal: {
+      color: INPUT_COLOR,
+      fontSize: FONT_SIZE,
+      padding: 7,
+      marginBottom: 5,
+    },
+    error: {
+      color: ERROR_COLOR,
+      fontSize: FONT_SIZE,
+      padding: 7,
+      marginBottom: 5,
+    },
+  },
   buttonText: {
-    color: '#337ab7',
-    fontSize: 16,
-    fontWeight: 'bold',
+    fontSize: 18,
+    color: 'white',
+    alignSelf: 'center' as TextStyle['alignSelf'],
   },
-
   button: {
-    padding: 10,
-    marginHorizontal: 5,
+    height: 36,
+    backgroundColor: '#48BBEC',
+    borderColor: '#48BBEC',
     borderWidth: 1,
-    borderColor: '#337ab7',
-    borderRadius: 4,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderRadius: 8,
+    marginBottom: 10,
+    alignSelf: 'stretch' as ViewStyle['alignSelf'],
+    justifyContent: 'center' as ViewStyle['justifyContent'],
   },
-};
+});

@@ -54,12 +54,13 @@ export function NativeTextboxTemplate(locals: TextboxLocals): React.ReactElement
     stylesheet,
   );
   const textboxStyle = getElementErrorStyle(hasError, stylesheet, 'textbox');
+  const notEditableStyle = editable ? {} : stylesheet.notEditable;
 
   return (
     <View style={formGroupStyle}>
       {label && <Text style={controlLabelStyle}>{label}</Text>}
       <TextInput
-        style={[textboxStyle, style]}
+        style={[textboxStyle, notEditableStyle, style]}
         value={value == null ? '' : String(value)}
         onChangeText={onChange}
         placeholder={placeholder}
