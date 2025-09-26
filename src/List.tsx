@@ -207,7 +207,6 @@ export class List extends Component<ListLocals> {
         itemValue,
       );
 
-      // Extract field options from plain object schemas or tcomb types
       let extractedFieldOptions = {};
       if (
         typeof actualItemType === 'object' &&
@@ -234,14 +233,12 @@ export class List extends Component<ListLocals> {
           }
         }
       } else if (isTcombType(actualItemType)) {
-        // For tcomb types, extract field options from List's item configuration
         const listItemOptions = (options as ListOptions).item ?? {};
         if (listItemOptions.fields && typeof listItemOptions.fields === 'object') {
           extractedFieldOptions = { fields: listItemOptions.fields };
         }
       }
 
-      // Pass field options down to item components if needed
       let listItemOptions = (options as ListOptions).item ?? {};
       if ((options as ListOptions).fields && !listItemOptions.fields) {
         listItemOptions = {
@@ -406,25 +403,21 @@ export class List extends Component<ListLocals> {
     let value: unknown[] = [];
     let errors: unknown[] = [];
 
-    // Check both the original props value and the current state value
     const originalValue = this.props.value;
     const currentValue = this.getTransformer().format(this.state.value) as unknown[];
     const isEmptyArray = ValidationUtils.isEmptyValue(currentValue, 'array');
     const isNullyValues = ValidationUtils.hasOnlyNullValues(currentValue);
     const isOriginalValueNull = originalValue === null || originalValue === undefined;
 
-    // Handle optional (Maybe) arrays
     if (this.typeInfo.isMaybe && (isEmptyArray || isNullyValues || isOriginalValueNull)) {
       return ValidationUtils.createSuccessResult(null);
     }
 
-    // Handle required arrays that are empty or have only null/undefined values
     if (!this.typeInfo.isMaybe && (isEmptyArray || isNullyValues || isOriginalValueNull)) {
       const errorMessage = this.getI18n()?.required || 'This field is required';
       return ValidationUtils.createErrorResult([], errorMessage, this.props.ctx.path);
     }
 
-    // Handle arrays with actual values (both Maybe and required)
     if (currentValue && Array.isArray(currentValue) && currentValue.length > 0) {
       for (let i = 0, len = currentValue.length; i < len; i++) {
         const result = this.itemRefs[i]?.validate?.();
@@ -434,7 +427,6 @@ export class List extends Component<ListLocals> {
         }
       }
 
-      // Apply subtype validation if needed
       if (this.typeInfo.isSubtype && errors.length === 0 && value.length > 0) {
         const result = t.validate(value, this.props.type, this.getValidationOptions());
         errors = errors.concat(result.errors);

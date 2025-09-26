@@ -38,7 +38,6 @@ export abstract class Component<
   static transformer: Transformer;
 
   static getComponentRegistry(): Record<string, React.ComponentType<ComponentProps>> {
-    // Use dynamic imports to avoid circular dependencies
     const { Textbox } = require('./Textbox');
     const { Select } = require('./Select');
     const { Checkbox } = require('./Checkbox');
@@ -238,7 +237,6 @@ export abstract class Component<
       }
     }
 
-    // Navigate through original JSON schema to find required fields for nested paths
     if (context && typeof context === 'object' && 'originalSchema' in context) {
       const originalSchema = context.originalSchema as Record<string, unknown>;
       if (originalSchema && typeof originalSchema === 'object') {

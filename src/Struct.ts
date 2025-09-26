@@ -63,7 +63,6 @@ export class Struct extends Component<StructLocals> {
       }
 
       if (kind === 'validationStateChange') {
-        // Prevent untouched fields from showing validation errors
         setTimeout(() => {
           this.updateValidationState();
         }, 0);
@@ -99,7 +98,6 @@ export class Struct extends Component<StructLocals> {
         if (propType && typeof propType === 'object' && 'meta' in propType) {
           const meta = (propType as { meta: { kind: string; isRequired?: boolean } }).meta;
 
-          // Preserve isRequired metadata for tcomb struct fields
           if (meta.isRequired) {
             modifiedProps[propName] = propType;
           } else if (meta.kind === 'struct') {
@@ -220,10 +218,8 @@ export class Struct extends Component<StructLocals> {
 
         const FieldComponent = this.getFieldComponent(finalPropType, propOptions);
 
-        // Pass required field information to child components
         let contextWithRequired = ctx.context;
 
-        // For nested objects, extract and pass their required array
         if (finalPropType && typeof finalPropType === 'object' && 'required' in finalPropType) {
           const nestedObject = finalPropType as Record<string, unknown>;
           if (Array.isArray(nestedObject.required)) {
@@ -241,7 +237,6 @@ export class Struct extends Component<StructLocals> {
             };
           }
         } else {
-          // Look up required array from original schema attached to root type
           const rootType = this.props.type;
           if (rootType && typeof rootType === 'object' && '_originalSchema' in rootType) {
             const originalSchema = (
@@ -442,7 +437,7 @@ export class Struct extends Component<StructLocals> {
         try {
           value = new (InnerType as new (v: unknown) => Record<string, unknown>)(value);
         } catch {
-          // Ignore constructor errors
+          // Constructor failed, continue with original value
         }
       }
 
@@ -471,7 +466,6 @@ export class Struct extends Component<StructLocals> {
                   if (!newFieldErrors[nestedFieldKey]) {
                     newFieldErrors[nestedFieldKey] = normalizedMessage;
                   }
-                  // Also map directly to the nested field name for child struct components
                   if (!newFieldErrors[nestedFieldName]) {
                     newFieldErrors[nestedFieldName] = normalizedMessage;
                   }
@@ -480,7 +474,7 @@ export class Struct extends Component<StructLocals> {
             });
           }
         } catch {
-          // Ignore validation errors
+          // Intentionally ignore constructor errors - continue with original value
         }
       }
     }

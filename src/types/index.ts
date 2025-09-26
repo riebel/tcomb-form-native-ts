@@ -376,7 +376,6 @@ export interface ComponentProps {
   context?: ValidationContext;
 }
 
-// Component state interface for class-based components
 export interface ComponentState {
   hasError: boolean;
   value: unknown;

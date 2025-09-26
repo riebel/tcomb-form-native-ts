@@ -113,7 +113,6 @@ export function NativeDatePickerTemplate(locals: DatePickerLocals): React.ReactE
       return '';
     }
 
-    // Format in local timezone to avoid timezone offset issues
     switch (mode) {
       case 'time':
         return dateValue.toTimeString().substring(0, 5);

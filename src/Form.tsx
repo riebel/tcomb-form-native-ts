@@ -168,7 +168,6 @@ function InnerForm<T>(props: FormProps<T>, ref: React.Ref<FormRef>) {
           return tcombType.meta.schema as Record<string, unknown>;
         }
 
-        // Reconstruct schema from tcomb props when original schema is unavailable
         if ('props' in tcombType.meta && typeof tcombType.meta.props === 'object') {
           const props = tcombType.meta.props as Record<string, unknown>;
 
@@ -295,7 +294,7 @@ function InnerForm<T>(props: FormProps<T>, ref: React.Ref<FormRef>) {
       try {
         childComponentRef.current.validate();
       } catch {
-        console.error('Validation failed');
+        // Validation failed
       }
     }
 
@@ -377,6 +376,39 @@ function InnerForm<T>(props: FormProps<T>, ref: React.Ref<FormRef>) {
     try {
       result = t.validate(transformedValue, type, { path: [], context });
       isValid = result.isValid();
+
+      if (!isValid && result.errors) {
+        const filteredErrors = result.errors.filter(error => {
+          if (
+            (error.actual === null || error.actual === '') &&
+            error.expected &&
+            (error.expected as { displayName?: string }).displayName === 'Number' &&
+            (error.message.includes('Invalid value null') ||
+              error.message.includes('Invalid value ""'))
+          ) {
+            const fieldPath = error.path && error.path.length > 0 ? error.path[0] : null;
+            const structOptions = options as { fields?: Record<string, { required?: boolean }> };
+            const fieldOptions = fieldPath ? structOptions?.fields?.[fieldPath] : null;
+            const isExplicitlyRequired = fieldOptions?.required === true;
+
+            if (!isExplicitlyRequired) {
+              return false;
+            }
+          }
+          return true;
+        });
+
+        if (filteredErrors.length === 0) {
+          isValid = true;
+          result = ValidationUtils.createSuccessResult(transformedValue);
+        } else if (filteredErrors.length < result.errors.length) {
+          result = {
+            ...result,
+            errors: filteredErrors,
+            isValid: () => false,
+          };
+        }
+      }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Validation error';
       const finalMessage =
@@ -414,25 +446,52 @@ function InnerForm<T>(props: FormProps<T>, ref: React.Ref<FormRef>) {
 
           if (fieldMeta?.kind === 'irreducible' && !fieldTypeInfo.isMaybe) {
             const fieldTypeName = (fieldType as { displayName?: string }).displayName;
-            const typeForValidation =
-              fieldTypeName?.toLowerCase() === 'number'
-                ? 'any'
-                : (fieldTypeName?.toLowerCase() as
-                    | 'string'
-                    | 'array'
-                    | 'object'
-                    | 'any'
-                    | undefined) || 'any';
-            const isInvalid = ValidationUtils.isEmptyValue(fieldValue, typeForValidation);
 
-            if (isInvalid) {
-              return ValidationUtils.createErrorResult(
-                transformedValue,
-                'This field is required',
-                [fieldName],
-                fieldValue,
-                fieldType,
-              );
+            if (fieldTypeName?.toLowerCase() === 'number') {
+              const structOptions = options as { fields?: Record<string, { required?: boolean }> };
+              const fieldOptions = structOptions?.fields?.[fieldName];
+              const isExplicitlyRequired = fieldOptions?.required === true;
+
+              const isInvalidNumber = typeof fieldValue === 'number' && isNaN(fieldValue);
+
+              if (isExplicitlyRequired && (fieldValue === null || fieldValue === undefined)) {
+                return ValidationUtils.createErrorResult(
+                  transformedValue,
+                  'This field is required',
+                  [fieldName],
+                  fieldValue,
+                  fieldType,
+                );
+              }
+
+              if (isInvalidNumber) {
+                return ValidationUtils.createErrorResult(
+                  transformedValue,
+                  'Please enter a valid number',
+                  [fieldName],
+                  fieldValue,
+                  fieldType,
+                );
+              }
+            } else {
+              const typeForValidation =
+                (fieldTypeName?.toLowerCase() as
+                  | 'string'
+                  | 'array'
+                  | 'object'
+                  | 'any'
+                  | undefined) || 'any';
+              const isInvalid = ValidationUtils.isEmptyValue(fieldValue, typeForValidation);
+
+              if (isInvalid) {
+                return ValidationUtils.createErrorResult(
+                  transformedValue,
+                  'This field is required',
+                  [fieldName],
+                  fieldValue,
+                  fieldType,
+                );
+              }
             }
           }
 
@@ -503,7 +562,7 @@ function InnerForm<T>(props: FormProps<T>, ref: React.Ref<FormRef>) {
     }
 
     return result;
-  }, [formValue, type, context]);
+  }, [formValue, type, context, options]);
 
   const getValue = useCallback((): unknown => {
     try {

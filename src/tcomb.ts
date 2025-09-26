@@ -1,6 +1,3 @@
-/**
- * Shared tcomb utilities to eliminate import duplication across components
- */
 const t = require('tcomb-validation');
 
 export { t };

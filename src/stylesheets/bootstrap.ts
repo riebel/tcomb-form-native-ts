@@ -12,7 +12,6 @@ const FONT_WEIGHT = '500';
 
 export const stylesheet = Object.freeze({
   fieldset: {},
-  // the style applied to the container of all inputs
   formGroup: {
     normal: {
       marginBottom: 10,
@@ -28,7 +27,6 @@ export const stylesheet = Object.freeze({
       marginBottom: 7,
       fontWeight: FONT_WEIGHT as TextStyle['fontWeight'],
     },
-    // the style applied when a validation error occours
     error: {
       color: ERROR_COLOR,
       fontSize: FONT_SIZE,
@@ -42,7 +40,6 @@ export const stylesheet = Object.freeze({
       fontSize: FONT_SIZE,
       marginBottom: 2,
     },
-    // the style applied when a validation error occours
     error: {
       color: HELP_COLOR,
       fontSize: FONT_SIZE,
@@ -71,7 +68,6 @@ export const stylesheet = Object.freeze({
       borderWidth: 1,
       marginBottom: 5,
     },
-    // the style applied when a validation error occours
     error: {
       color: INPUT_COLOR,
       fontSize: FONT_SIZE,
@@ -83,7 +79,6 @@ export const stylesheet = Object.freeze({
       borderWidth: 1,
       marginBottom: 5,
     },
-    // the style applied when the textbox is not editable
     notEditable: {
       fontSize: FONT_SIZE,
       height: 36,
@@ -101,7 +96,6 @@ export const stylesheet = Object.freeze({
     normal: {
       marginBottom: 4,
     },
-    // the style applied when a validation error occours
     error: {
       marginBottom: 4,
     },
@@ -119,9 +113,7 @@ export const stylesheet = Object.freeze({
       borderColor: ERROR_COLOR,
       borderWidth: 1,
     },
-    open: {
-      // Alter styles when select container is open
-    },
+    open: {},
   },
   select: {
     normal: Platform.select({
@@ -131,7 +123,6 @@ export const stylesheet = Object.freeze({
       },
       ios: {},
     }),
-    // the style applied when a validation error occours
     error: Platform.select({
       android: {
         paddingLeft: 7,
@@ -176,7 +167,6 @@ export const stylesheet = Object.freeze({
     normal: {
       marginBottom: 4,
     },
-    // the style applied when a validation error occours
     error: {
       marginBottom: 4,
     },

@@ -334,9 +334,20 @@ export function parseNumber(value: unknown): number | null {
   if (!t.String.is(value)) {
     return toNull(value) as number | null;
   }
-  const n = parseFloat(value as string);
-  const isNumeric = parseFloat(value as string) - n + 1 >= 0;
-  return isNumeric ? n : (toNull(value) as number | null);
+
+  const stringValue = (value as string).trim();
+
+  if (stringValue === '') {
+    return null;
+  }
+
+  const n = parseFloat(stringValue);
+
+  if (!isNaN(n) && isFinite(n)) {
+    return n;
+  }
+
+  return null;
 }
 
 export function getFormComponentName(
