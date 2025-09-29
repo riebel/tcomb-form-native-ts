@@ -11,6 +11,7 @@ import { View } from 'react-native';
 import {
   ComponentContext,
   ComponentProps,
+  ComponentOptions,
   FormProps,
   FormRef,
   TcombType,
@@ -69,6 +70,212 @@ function extractRequiredFieldMappings(obj: unknown): Record<string, string[]> {
   }
 
   return mappings;
+}
+
+type StructComponentOptions = ComponentOptions & {
+  fields?: Record<string, ComponentOptions>;
+};
+
+type ListComponentOptions = ComponentOptions & {
+  item?: ComponentOptions;
+};
+
+type FieldComponentOptions = ComponentOptions & {
+  required?: boolean;
+  optional?: boolean;
+};
+
+const DATETIME_STRING_REGEX = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/;
+const NUMERIC_PATH_REGEX = /^\d+$/;
+
+function isNumericPathSegment(segment: string | number): boolean {
+  return (
+    typeof segment === 'number' || (typeof segment === 'string' && NUMERIC_PATH_REGEX.test(segment))
+  );
+}
+
+function getFieldTypeAtPath(type: TcombType, path: (string | number)[]): TcombType | null {
+  let currentType: TcombType | null = type;
+
+  for (let index = 0; index < path.length; index += 1) {
+    if (!currentType) {
+      return null;
+    }
+
+    const typeInfo = getTypeInfo(currentType);
+    const innerType = (typeInfo.innerType ?? currentType) as TcombType;
+    const meta = innerType.meta;
+
+    if (!meta) {
+      return null;
+    }
+
+    const segment = path[index];
+
+    if (isNumericPathSegment(segment)) {
+      if (meta.kind === 'list' && meta.type) {
+        currentType = meta.type as TcombType;
+        continue;
+      }
+      return null;
+    }
+
+    if (meta.kind === 'struct' && meta.props && segment in meta.props) {
+      currentType = meta.props[segment as string] as TcombType;
+      continue;
+    }
+
+    return null;
+  }
+
+  return currentType;
+}
+
+function getFieldOptionsForPath(
+  componentOptions: ComponentOptions | undefined,
+  path: (string | number)[],
+): ComponentOptions | undefined {
+  if (!componentOptions) {
+    return undefined;
+  }
+
+  let currentOptions: ComponentOptions | undefined = componentOptions;
+
+  for (let index = 0; index < path.length; index += 1) {
+    if (!currentOptions) {
+      return undefined;
+    }
+
+    const segment = path[index];
+
+    if (isNumericPathSegment(segment)) {
+      currentOptions = (currentOptions as ListComponentOptions).item;
+      continue;
+    }
+
+    const structOptions = currentOptions as StructComponentOptions;
+
+    if (!structOptions.fields) {
+      return undefined;
+    }
+
+    currentOptions = structOptions.fields[segment as string];
+  }
+
+  return currentOptions;
+}
+
+function normalizeValueForValidation(
+  value: unknown,
+  currentType: TcombType,
+  componentOptions?: ComponentOptions,
+): unknown {
+  const typeInfo = getTypeInfo(currentType);
+  const innerType = typeInfo.innerType ?? currentType;
+  const innerMeta = innerType.meta;
+
+  if (!innerMeta) {
+    return value;
+  }
+
+  if (value === null || value === undefined) {
+    if (typeInfo.isMaybe) {
+      return value;
+    }
+    if (innerMeta.kind === 'struct') {
+      return {};
+    }
+    if (innerMeta.kind === 'list') {
+      return [];
+    }
+    if (innerMeta.kind === 'enums' && !typeInfo.isMaybe) {
+      return '';
+    }
+    return value;
+  }
+
+  if (innerMeta.kind === 'struct' && innerMeta.props) {
+    const structValue = ValidationUtils.isNonNullObject(value)
+      ? { ...(value as Record<string, unknown>) }
+      : {};
+
+    const structOptions = (componentOptions as StructComponentOptions | undefined)?.fields ?? {};
+
+    for (const [fieldName, fieldType] of Object.entries(innerMeta.props)) {
+      if (!isTcombType(fieldType)) {
+        continue;
+      }
+
+      const fieldOptions = structOptions[fieldName];
+      const existingValue = structValue[fieldName];
+      const normalizedChild = normalizeValueForValidation(existingValue, fieldType, fieldOptions);
+
+      if (normalizedChild !== undefined) {
+        structValue[fieldName] = normalizedChild;
+      } else {
+        delete structValue[fieldName];
+      }
+    }
+
+    for (const [fieldName, fieldType] of Object.entries(innerMeta.props)) {
+      const childTypeInfo = getTypeInfo(fieldType);
+      const childInnerType = childTypeInfo.innerType ?? fieldType;
+      const childMeta = childInnerType.meta;
+      const childDisplayName = (childInnerType as { displayName?: string }).displayName;
+
+      if (!(fieldName in structValue)) {
+        if (
+          childMeta?.kind === 'irreducible' &&
+          !childTypeInfo.isMaybe &&
+          childDisplayName === 'Boolean'
+        ) {
+          structValue[fieldName] = false;
+        } else if (childMeta?.kind === 'struct' && !childTypeInfo.isMaybe) {
+          structValue[fieldName] = {};
+        }
+      }
+    }
+
+    return structValue;
+  }
+
+  if (innerMeta.kind === 'list' && innerMeta.type) {
+    const listValue = Array.isArray(value) ? value : [];
+    const itemOptions = (componentOptions as ListComponentOptions | undefined)?.item;
+    return listValue.map(item =>
+      normalizeValueForValidation(item, innerMeta.type as TcombType, itemOptions),
+    );
+  }
+
+  if (
+    (innerType === t.Number ||
+      (innerMeta.kind === 'irreducible' &&
+        ((innerType as { displayName?: string }).displayName || '').toLowerCase() === 'number')) &&
+    typeof value === 'string'
+  ) {
+    const normalizedStringValue = value.replace(/,/g, '.');
+    const parsed = parseNumber(normalizedStringValue);
+    if (parsed !== null) {
+      return parsed;
+    }
+    if (value.trim() === '') {
+      return null;
+    }
+    return value;
+  }
+
+  if (typeof value === 'string' && DATETIME_STRING_REGEX.test(value)) {
+    const date = new Date(value);
+    if (!isNaN(date.getTime())) {
+      return date;
+    }
+  }
+
+  if (innerMeta.kind === 'enums' && !typeInfo.isMaybe && (value === null || value === undefined)) {
+    return '';
+  }
+
+  return value;
 }
 
 function InnerForm<T>(props: FormProps<T>, ref: React.Ref<FormRef>) {
@@ -302,79 +509,15 @@ function InnerForm<T>(props: FormProps<T>, ref: React.Ref<FormRef>) {
       return ValidationUtils.createSuccessResult(formValue);
     }
 
-    let transformedValue = formValue;
-    const typeMeta = type.meta as { kind?: string };
-
-    if (
-      transformedValue &&
-      typeof transformedValue === 'object' &&
-      typeMeta?.kind === 'struct' &&
-      'props' in typeMeta &&
-      typeMeta.props
-    ) {
-      transformedValue = { ...transformedValue };
-      const structValue = transformedValue as Record<string, unknown>;
-      const props = typeMeta.props as Record<string, TcombType>;
-
-      for (const [fieldName, fieldType] of Object.entries(props)) {
-        const fieldValue = structValue[fieldName];
-        const fieldMeta = fieldType?.meta as { kind?: string };
-        const fieldTypeInfo = getTypeInfo(fieldType);
-
-        if (fieldMeta?.kind === 'struct' && !structValue[fieldName]) {
-          structValue[fieldName] = {};
-        }
-
-        if (fieldValue !== null && fieldValue !== undefined) {
-          if (fieldTypeInfo.innerType === t.Number && typeof fieldValue === 'string') {
-            const normalizedValue = fieldValue.replace(/,/g, '.');
-            const parsedNumber = parseNumber(normalizedValue);
-            if (parsedNumber !== null) {
-              structValue[fieldName] = parsedNumber;
-            }
-          }
-
-          if (
-            typeof fieldValue === 'string' &&
-            /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(fieldValue)
-          ) {
-            const date = new Date(fieldValue);
-            if (!isNaN(date.getTime())) {
-              structValue[fieldName] = date;
-            }
-          }
-        } else {
-          if (
-            fieldMeta?.kind === 'enums' &&
-            !fieldTypeInfo.isMaybe &&
-            (fieldValue === null || fieldValue === undefined)
-          ) {
-            structValue[fieldName] = '';
-          }
-        }
-      }
-
-      for (const [fieldName, fieldType] of Object.entries(props)) {
-        if (!(fieldName in structValue)) {
-          const fieldMeta = fieldType?.meta;
-          const fieldTypeInfo = getTypeInfo(fieldType);
-
-          if (
-            fieldMeta?.kind === 'irreducible' &&
-            !fieldTypeInfo.isMaybe &&
-            (fieldType as { displayName?: string }).displayName === 'Boolean'
-          ) {
-            structValue[fieldName] = false;
-          }
-        }
-      }
-    }
+    const tcombType = type as TcombType;
+    const transformedValue = normalizeValueForValidation(formValue, tcombType, options);
+    const typeMeta = tcombType.meta as { kind?: string };
 
     let result: ValidationResult;
     let isValid: boolean;
 
     try {
-      result = t.validate(transformedValue, type, { path: [], context });
+      result = t.validate(transformedValue, tcombType, { path: [], context });
       isValid = result.isValid();
 
       if (!isValid && result.errors) {
@@ -386,12 +529,23 @@ function InnerForm<T>(props: FormProps<T>, ref: React.Ref<FormRef>) {
             (error.message.includes('Invalid value null') ||
               error.message.includes('Invalid value ""'))
           ) {
-            const fieldPath = error.path && error.path.length > 0 ? error.path[0] : null;
-            const structOptions = options as { fields?: Record<string, { required?: boolean }> };
-            const fieldOptions = fieldPath ? structOptions?.fields?.[fieldPath] : null;
-            const isExplicitlyRequired = fieldOptions?.required === true;
+            const pathSegments = Array.isArray(error.path)
+              ? (error.path as (string | number)[])
+              : [];
+            const fieldComponentOptions = getFieldOptionsForPath(options, pathSegments) as
+              | FieldComponentOptions
+              | undefined;
+            const isExplicitlyRequired = fieldComponentOptions?.required === true;
+            const fieldAllowsNullByOptions =
+              fieldComponentOptions?.required === false || fieldComponentOptions?.optional === true;
 
-            if (!isExplicitlyRequired) {
+            const fieldTypeAtPath = pathSegments.length
+              ? getFieldTypeAtPath(tcombType, pathSegments)
+              : tcombType;
+            const fieldTypeInfo = fieldTypeAtPath ? getTypeInfo(fieldTypeAtPath) : null;
+            const fieldAllowsNullByType = fieldTypeInfo?.isMaybe === true;
+
+            if ((fieldAllowsNullByType || fieldAllowsNullByOptions) && !isExplicitlyRequired) {
               return false;
             }
           }
@@ -427,7 +581,7 @@ function InnerForm<T>(props: FormProps<T>, ref: React.Ref<FormRef>) {
     }
 
     if (isValid) {
-      const typeInfo = getTypeInfo(type);
+      const typeInfo = getTypeInfo(tcombType);
 
       if (
         typeMeta?.kind === 'struct' &&
@@ -590,14 +744,16 @@ function InnerForm<T>(props: FormProps<T>, ref: React.Ref<FormRef>) {
       };
     }
 
-    const typeInfo = getTypeInfo(type);
-    const typeMeta = type.meta as { kind?: string };
+    const tcombType = type as TcombType;
+    const transformedValue = normalizeValueForValidation(formValue, tcombType, options);
+    const typeInfo = getTypeInfo(tcombType);
+    const typeMeta = tcombType.meta as { kind?: string };
 
     const listValidationResult = ValidationUtils.validateRequiredListField(
-      formValue,
-      type,
+      transformedValue,
+      tcombType,
       '',
-      formValue,
+      transformedValue,
     );
     if (listValidationResult) {
       return listValidationResult;
@@ -624,10 +780,10 @@ function InnerForm<T>(props: FormProps<T>, ref: React.Ref<FormRef>) {
       typeMeta?.kind === 'struct' &&
       'props' in typeMeta &&
       typeMeta.props &&
-      typeof formValue === 'object' &&
-      formValue !== null
+      typeof transformedValue === 'object' &&
+      transformedValue !== null
     ) {
-      const structValue = formValue as Record<string, unknown>;
+      const structValue = transformedValue as Record<string, unknown>;
       const props = typeMeta.props as Record<string, TcombType>;
 
       for (const [fieldName, fieldType] of Object.entries(props)) {
@@ -637,7 +793,7 @@ function InnerForm<T>(props: FormProps<T>, ref: React.Ref<FormRef>) {
           fieldValue,
           fieldType,
           fieldName,
-          formValue,
+          transformedValue,
         );
         if (listValidationResult) {
           return listValidationResult;
@@ -664,8 +820,8 @@ function InnerForm<T>(props: FormProps<T>, ref: React.Ref<FormRef>) {
       }
     }
 
-    return t.validate(formValue, type, { path: [], context });
-  }, [formValue, type, context]);
+    return t.validate(transformedValue, tcombType, { path: [], context });
+  }, [formValue, type, context, options]);
 
   const getComponent = useCallback((): React.ComponentType<unknown> | null => {
     return null;
@@ -736,10 +892,16 @@ export const Form = Object.assign(FormComponent, {
   templates,
   stylesheet,
   i18n,
+  __INTERNAL__: {
+    normalizeValueForValidation,
+  },
 }) as typeof FormComponent & {
   templates: typeof templates;
   stylesheet: typeof stylesheet;
   i18n: typeof i18n;
+  __INTERNAL__: {
+    normalizeValueForValidation: typeof normalizeValueForValidation;
+  };
 };
 
 Object.assign(Form, {

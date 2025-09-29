@@ -43,6 +43,7 @@ var ctxNone = {
 };
 
 var Textbox = core.Textbox;
+var Form = core.Form;
 
 test("Textbox:label", function(tape) {
     tape.plan(4);
@@ -85,6 +86,98 @@ test("Textbox:label", function(tape) {
         }).getLocals().label,
         "mylabel (optional)",
         "should handle `label` option with optional types"
+    );
+});
+
+test("Form:normalize nested optional number fields", function(tape) {
+    tape.plan(3);
+
+    var Address = t.struct({
+        plz: t.maybe(t.Number)
+    }, "Address");
+
+    var Client = t.struct({
+        address: Address
+    }, "Client");
+
+    var options = {
+        fields: {
+            address: {
+                fields: {
+                    plz: {}
+                }
+            }
+        }
+    };
+
+    var normalize = Form.__INTERNAL__.normalizeValueForValidation;
+
+    var normalizedValue = normalize({
+        address: {
+            plz: "12345"
+        }
+    }, Client, options);
+
+    tape.deepEqual(
+        normalizedValue,
+        {
+            address: {
+                plz: 12345
+            }
+        },
+        "should convert nested optional number strings to numbers"
+    );
+
+    var validationResult = t.validate(normalizedValue, Client);
+    tape.strictEqual(
+        validationResult.isValid(),
+        true,
+        "normalized value should pass tcomb validation"
+    );
+
+    var clearedValue = normalize({
+        address: {
+            plz: ""
+        }
+    }, Client, options);
+
+    tape.deepEqual(
+        clearedValue,
+        {
+            address: {
+                plz: null
+            }
+        },
+        "should convert empty strings to null for optional number fields"
+    );
+});
+
+test("Form:required number fields remain invalid when cleared", function(tape) {
+    tape.plan(2);
+
+    var Contingent = t.struct({
+        quota: t.Number
+    }, "Contingent");
+
+    var normalize = Form.__INTERNAL__.normalizeValueForValidation;
+
+    var normalizedValue = normalize({
+        quota: ""
+    }, Contingent, {});
+
+    tape.deepEqual(
+        normalizedValue,
+        {
+            quota: null
+        },
+        "required number fields should normalize empty strings to null"
+    );
+
+    var validationResult = t.validate(normalizedValue, Contingent);
+    tape.strictEqual(
+        validationResult.isValid(),
+        false,
+        "tcomb validation should fail when required number field is cleared"
     );
 });
 
